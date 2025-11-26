@@ -3,24 +3,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { motion } from 'framer-motion'
-import { Sparkles, LayoutDashboard } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { NotificationBanner } from '@/components/notifications/NotificationBanner'
 import { IcebreakerCard } from '@/components/val/IcebreakerCard'
 import { GamificationWidget } from '@/components/gamification/GamificationWidget'
 import { CustomizableDashboard } from '@/components/dashboard/CustomizableDashboard'
-import DashboardWebDesigner from '@/components/dashboards/DashboardWebDesigner'
-import { DashboardTrafego } from '@/components/dashboards/DashboardTrafego'
-import DashboardSocial from '@/components/dashboards/DashboardSocial'
-import { DashboardComercial } from '@/components/dashboards/DashboardComercial'
-import { DashboardGenerico } from '@/components/dashboards/DashboardGenerico'
-import DashboardDesigner from '@/components/dashboards/DashboardDesigner'
-import DashboardHeadMarketing from '@/components/dashboards/DashboardHeadMarketing'
-import DashboardRH from '@/components/dashboards/DashboardRH'
-import DashboardFinanceiro from '@/components/dashboards/DashboardFinanceiro'
-import DashboardVideomaker from '@/components/dashboards/DashboardVideomaker'
-import { RoleBasedDashboard } from '@/components/dashboard/RoleBasedDashboard' // Novo Componente
+import { RoleBasedDashboard } from '@/components/dashboard/RoleBasedDashboard'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -30,7 +20,6 @@ export default function ColaboradorDashboardPage() {
   const [userArea, setUserArea] = useState('')
   const [userId, setUserId] = useState('')
   const [notifications, setNotifications] = useState<any[]>([])
-  const [dashboardData, setDashboardData] = useState<any>(null)
   const [viewMode, setViewMode] = useState<'specific' | 'customizable'>('specific')
 
   // Refs para animações GSAP
@@ -140,10 +129,7 @@ export default function ColaboradorDashboardPage() {
 
       // Carregar notificações e dados específicos
       const notifs = loadNotifications(area)
-      // const data = loadDashboardData(area) // Removido para usar carregamento no componente filho
-
       setNotifications(notifs)
-      // setDashboardData(data)
 
     } catch (error) {
       console.error('Erro ao carregar dashboard:', error)
