@@ -118,17 +118,21 @@ export default function ColaboradorDashboardPage() {
         .eq('user_id', user.id)
         .single()
 
-      const area = employee?.employee_areas_of_expertise?.[0]?.area_name || 'Marketing'
+      // Normalizar a área para garantir que o mapeamento funcione
+      const rawArea = employee?.employee_areas_of_expertise?.[0]?.area_name || 'Marketing';
+      const area = rawArea.toLowerCase().replace(' ', '_');
+      
       const firstName = profile?.full_name?.split(' ')[0] || 'Colaborador'
 
-      console.log('🎯 ÁREA DETECTADA:', area)
+      console.log('🎯 ÁREA DETECTADA (Raw):', rawArea)
+      console.log('🎯 ÁREA NORMALIZADA:', area)
       console.log('👤 NOME:', firstName)
 
       setUserName(firstName)
-      setUserArea(area)
+      setUserArea(area) // Usar a área normalizada para o componente
 
       // Carregar notificações e dados específicos
-      const notifs = loadNotifications(area)
+      const notifs = loadNotifications(rawArea) // Manter rawArea para notificações se necessário
       setNotifications(notifs)
 
     } catch (error) {
