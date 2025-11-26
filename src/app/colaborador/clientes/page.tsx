@@ -33,10 +33,27 @@ export default function ClientesPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [userRole, setUserRole] = useState<string>('')
 
   useEffect(() => {
     loadClients()
+    checkUserRole()
   }, [])
+
+  const checkUserRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single()
+      
+      if (profile) {
+        setUserRole(profile.role)
+      }
+    }
+  }
 
   const loadClients = async () => {
     try {
@@ -149,6 +166,9 @@ export default function ClientesPage() {
     }
   }
 
+  // Verifica se deve mostrar dados financeiros
+  const showFinancialData = ['admin', 'financeiro', 'super_admin'].includes(userRole);
+
   if (loading) {
     return (
       <div className="min-h-[calc(100vh-73px)] flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -175,7 +195,7 @@ export default function ClientesPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className={`grid grid-cols-1 md:grid-cols-${showFinancialData ? '4' : '3'} gap-4`}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -223,21 +243,23 @@ export default function ClientesPage() {
             </p>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="rounded-xl p-6"
-            style={{ backgroundColor: 'var(--bg-primary)', borderWidth: '1px', borderColor: 'var(--border-light)' }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Receita Total</span>
-              <DollarSign className="w-5 h-5" style={{ color: 'var(--success-500)' }} />
-            </div>
-            <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              R$ {clients.reduce((acc, c) => acc + c.revenue, 0).toLocaleString('pt-BR')}
-            </p>
-          </motion.div>
+          {showFinancialData && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="rounded-xl p-6"
+              style={{ backgroundColor: 'var(--bg-primary)', borderWidth: '1px', borderColor: 'var(--border-light)' }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Receita Total</span>
+                <DollarSign className="w-5 h-5" style={{ color: 'var(--success-500)' }} />
+              </div>
+              <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                R$ {clients.reduce((acc, c) => acc + c.revenue, 0).toLocaleString('pt-BR')}
+              </p>
+            </motion.div>
+          )}
         </div>
 
         {/* Filters */}
@@ -327,17 +349,19 @@ export default function ClientesPage() {
               </div>
 
               {/* Info Grid */}
-              <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-light)' }}>
+              <div className={`grid grid-cols-${showFinancialData ? '2' : '1'} gap-4 mb-4 pb-4 border-b`} style={{ borderColor: 'var(--border-light)' }}>
                 <div>
                   <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Plano</p>
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{client.plan}</p>
                 </div>
-                <div>
-                  <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Receita Mensal</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    R$ {client.revenue.toLocaleString('pt-BR')}
-                  </p>
-                </div>
+                {showFinancialData && (
+                  <div>
+                    <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Receita Mensal</p>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      R$ {client.revenue.toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Última Interação</p>
                   <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -429,4 +453,3 @@ export default function ClientesPage() {
     </div>
   )
 }
-

@@ -3,23 +3,24 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { motion } from 'framer-motion'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, LayoutDashboard } from 'lucide-react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { NotificationBanner } from '@/components/notifications/NotificationBanner'
+import { IcebreakerCard } from '@/components/val/IcebreakerCard'
+import { GamificationWidget } from '@/components/gamification/GamificationWidget'
+import { CustomizableDashboard } from '@/components/dashboard/CustomizableDashboard'
+import DashboardWebDesigner from '@/components/dashboards/DashboardWebDesigner'
 import { DashboardTrafego } from '@/components/dashboards/DashboardTrafego'
 import DashboardSocial from '@/components/dashboards/DashboardSocial'
 import { DashboardComercial } from '@/components/dashboards/DashboardComercial'
 import { DashboardGenerico } from '@/components/dashboards/DashboardGenerico'
 import DashboardDesigner from '@/components/dashboards/DashboardDesigner'
-import DashboardWebDesigner from '@/components/dashboards/DashboardWebDesigner'
 import DashboardHeadMarketing from '@/components/dashboards/DashboardHeadMarketing'
 import DashboardRH from '@/components/dashboards/DashboardRH'
 import DashboardFinanceiro from '@/components/dashboards/DashboardFinanceiro'
 import DashboardVideomaker from '@/components/dashboards/DashboardVideomaker'
-import { IcebreakerCard } from '@/components/val/IcebreakerCard'
-import { GamificationWidget } from '@/components/gamification/GamificationWidget'
-import { CustomizableDashboard } from '@/components/dashboard/CustomizableDashboard'
+import { RoleBasedDashboard } from '@/components/dashboard/RoleBasedDashboard' // Novo Componente
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -110,6 +111,8 @@ export default function ColaboradorDashboardPage() {
         return
       }
 
+      setUserId(user.id);
+
       // Buscar dados do usuário
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
@@ -137,10 +140,10 @@ export default function ColaboradorDashboardPage() {
 
       // Carregar notificações e dados específicos
       const notifs = loadNotifications(area)
-      const data = loadDashboardData(area)
+      // const data = loadDashboardData(area) // Removido para usar carregamento no componente filho
 
       setNotifications(notifs)
-      setDashboardData(data)
+      // setDashboardData(data)
 
     } catch (error) {
       console.error('Erro ao carregar dashboard:', error)
@@ -211,153 +214,6 @@ export default function ColaboradorDashboardPage() {
     }
 
     return baseNotifications
-  }
-
-  const loadDashboardData = (area: string) => {
-    if (['Tráfego Pago', 'Tráfego', 'Gestor de Tráfego'].includes(area)) {
-      return {
-        campaigns: [
-          {
-            id: '1',
-            clientName: 'Tech Solutions',
-            platform: 'Google Ads',
-            budget: 5000,
-            spent: 4800,
-            roas: 4.2,
-            status: 'low_budget' as const
-          },
-          {
-            id: '2',
-            clientName: 'E-commerce Plus',
-            platform: 'Facebook Ads',
-            budget: 3000,
-            spent: 3000,
-            roas: 2.8,
-            status: 'needs_refill' as const
-          },
-          {
-            id: '3',
-            clientName: 'Marketing Pro',
-            platform: 'Instagram Ads',
-            budget: 4000,
-            spent: 2100,
-            roas: 5.1,
-            status: 'active' as const
-          }
-        ]
-      }
-    }
-
-    if (['Social Media', 'Social'].includes(area)) {
-      return {
-        posts: [
-          {
-            id: '1',
-            clientName: 'Tech Solutions',
-            network: 'Instagram',
-            scheduledFor: new Date(Date.now() + 1 * 60 * 60 * 1000),
-            status: 'pending_approval' as const
-          },
-          {
-            id: '2',
-            clientName: 'Marketing Pro',
-            network: 'LinkedIn',
-            scheduledFor: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            status: 'approved' as const
-          },
-          {
-            id: '3',
-            clientName: 'E-commerce Plus',
-            network: 'Facebook',
-            scheduledFor: new Date(Date.now() + 5 * 60 * 60 * 1000),
-            status: 'pending_approval' as const,
-            engagement: 4.5
-          }
-        ]
-      }
-    }
-
-    if (area === 'Comercial') {
-      return {
-        leads: [
-          {
-            id: '1',
-            name: 'João Silva',
-            company: 'Startup Tech',
-            phase: 'proposta',
-            value: 8500,
-            missingServices: []
-          },
-          {
-            id: '2',
-            name: 'Maria Santos',
-            company: 'E-commerce Plus',
-            phase: 'negociacao',
-            value: 15000,
-            missingServices: ['Tráfego Pago', 'Automação']
-          },
-          {
-            id: '3',
-            name: 'Pedro Costa',
-            company: 'Consultoria XYZ',
-            phase: 'qualificacao',
-            value: 12000,
-            missingServices: ['Social Media']
-          }
-        ],
-        monthGoal: 50000
-      }
-    }
-
-    // Dados genéricos para outras áreas
-    return {
-      areaName: area,
-      stats: [
-        {
-          label: 'Tarefas Ativas',
-          value: 12,
-          icon: 'chart',
-          color: 'var(--primary-500)'
-        },
-        {
-          label: 'Concluídas Este Mês',
-          value: 45,
-          icon: 'chart',
-          color: 'var(--success-500)'
-        },
-        {
-          label: 'Clientes Ativos',
-          value: 8,
-          icon: 'users',
-          color: 'var(--info-500)'
-        },
-        {
-          label: 'Performance',
-          value: '92%',
-          icon: 'chart',
-          color: 'var(--warning-500)'
-        }
-      ],
-      tasks: [
-        {
-          id: '1',
-          title: 'Revisar projeto do Cliente X',
-          status: 'in_progress' as const,
-          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
-        },
-        {
-          id: '2',
-          title: 'Entregar arte final',
-          status: 'pending' as const,
-          dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
-        },
-        {
-          id: '3',
-          title: 'Reunião com Cliente Y',
-          status: 'completed' as const
-        }
-      ]
-    }
   }
 
   if (loading) {
@@ -436,62 +292,9 @@ export default function ColaboradorDashboardPage() {
             <CustomizableDashboard userId={userId} />
           )}
 
-          {/* Dashboard Específico da Área */}
+          {/* Dashboard Modular Baseado em Cargo (Novo Padrão) */}
           {viewMode === 'specific' && (
-            <>
-              {['Tráfego Pago', 'Trafego Pago', 'Tráfego', 'Gestor de Tráfego'].includes(userArea) && dashboardData?.campaigns && (
-                <DashboardTrafego campaigns={dashboardData.campaigns} />
-              )}
-
-              {['Social Media', 'Social'].includes(userArea) && dashboardData?.posts && (
-                <DashboardSocial posts={dashboardData.posts} />
-              )}
-
-              {['Comercial', 'Vendas'].includes(userArea) && dashboardData?.leads && (
-                <DashboardComercial 
-                  leads={dashboardData.leads} 
-                  monthGoal={dashboardData.monthGoal} 
-                />
-              )}
-
-              {/* Novos Dashboards Específicos */}
-              {['Designer', 'Design Gráfico', 'Designer Gráfico', 'Design'].includes(userArea) && (
-                <DashboardDesigner />
-              )}
-
-              {['Web Designer', 'Webdesigner', 'Web Designer Gráfico', 'Web Design'].includes(userArea) && (
-                <DashboardWebDesigner />
-              )}
-
-              {['Head de Marketing', 'Head Marketing', 'Head de Mkt', 'Head Mkt', 'Marketing'].includes(userArea) && (
-                <DashboardHeadMarketing />
-              )}
-
-              {['RH', 'Recursos Humanos', 'HR'].includes(userArea) && (
-                <DashboardRH />
-              )}
-
-              {['Financeiro', 'Finanças', 'Finance'].includes(userArea) && (
-                <DashboardFinanceiro />
-              )}
-
-              {['Videomaker', 'Video Maker', 'Editor de Vídeo', 'Vídeo', 'Audiovisual'].includes(userArea) && (
-                <DashboardVideomaker />
-              )}
-
-              {/* Dashboard Genérico para outras áreas */}
-              {!['Tráfego Pago', 'Trafego Pago', 'Tráfego', 'Gestor de Tráfego', 
-                 'Social Media', 'Social', 
-                 'Comercial', 'Vendas', 
-                 'Designer', 'Design Gráfico', 'Designer Gráfico', 'Design', 
-                 'Web Designer', 'Webdesigner', 'Web Design', 
-                 'Head de Marketing', 'Head Marketing', 'Head de Mkt', 'Head Mkt', 'Marketing', 
-                 'RH', 'Recursos Humanos', 'HR', 
-                 'Financeiro', 'Finanças', 'Finance', 
-                 'Videomaker', 'Video Maker', 'Editor de Vídeo', 'Vídeo', 'Audiovisual'].includes(userArea) && dashboardData && (
-                <DashboardGenerico data={dashboardData} />
-              )}
-            </>
+             <RoleBasedDashboard role={userArea} />
           )}
         </div>
 

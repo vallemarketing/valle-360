@@ -12,7 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 import { CardModal } from '@/components/kanban/CardModal'
 import { NewTaskForm } from '@/components/kanban/NewTaskForm'
-import { getColumnsByArea } from '@/lib/kanban/columnsByArea'
+import { getTemplateForRole } from '@/lib/kanban-templates'
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay } from 'date-fns'
 import ptBR from 'date-fns/locale/pt-BR'
@@ -84,13 +84,14 @@ export default function KanbanPage() {
         if (profile?.area_of_expertise) {
           setUserArea(profile.area_of_expertise)
           
-          // Inicializar colunas baseadas na área
-          const areaColumns = getColumnsByArea(profile.area_of_expertise)
-          setColumns(areaColumns.map(col => ({
-            id: col.id,
-            title: col.title,
+          // Inicializar colunas baseadas na área usando o novo sistema de templates
+          const template = getTemplateForRole(profile.area_of_expertise)
+          setColumns(template.columns.map((col: any) => ({
+            id: col.name.toLowerCase().replace(/ /g, '_'), // Normaliza ID
+            title: col.name,
             color: col.color,
-            wipLimit: col.wipLimit,
+            wipLimit: 5, // Default limit
+            icon: <Circle className="w-4 h-4" />, // Default icon, pode melhorar depois
             cards: []
           })))
         }
@@ -131,7 +132,7 @@ export default function KanbanPage() {
       id: Date.now().toString(),
       title: taskData.title,
       description: taskData.description,
-      column: 'todo',
+      column: columns[0].id, // Default para a primeira coluna
       priority: taskData.priority,
       assignees: [],
       tags: [],
@@ -141,8 +142,8 @@ export default function KanbanPage() {
       createdAt: new Date()
     }
 
-    setColumns(columns.map(col => 
-      col.id === 'todo' 
+    setColumns(columns.map((col, index) => 
+      index === 0 
         ? { ...col, cards: [...col.cards, newCard] }
         : col
     ))
@@ -189,7 +190,7 @@ export default function KanbanPage() {
     setColumns(newColumns)
 
     // Se o card foi movido para "Concluído", enviar notificação
-    if (destination.droppableId === 'concluido' || destination.droppableId === 'done' || destination.droppableId === 'entregue') {
+    if (destination.droppableId === 'concluido' || destination.droppableId === 'done' || destination.droppableId === 'entregue' || destination.droppableId === 'finalizado') {
       try {
         // Notificar responsáveis/assignees
         if (movedCard?.assignees && movedCard.assignees.length > 0) {
@@ -232,67 +233,6 @@ export default function KanbanPage() {
     }
   }
 
-  const getColumnsByArea = (area: string): KanbanColumn[] => {
-    // Colunas específicas por área
-    const columnsByArea: Record<string, KanbanColumn[]> = {
-      'Designer': [
-        { id: 'backlog', title: 'Backlog', icon: <Archive className="w-4 h-4" />, color: 'var(--text-tertiary)', cards: [] },
-        { id: 'criacao', title: 'Em Criação', icon: <Clock className="w-4 h-4" />, color: 'var(--primary-500)', cards: [], wipLimit: 3 },
-        { id: 'revisao_interna', title: 'Revisão Interna', icon: <AlertCircle className="w-4 h-4" />, color: 'var(--warning-500)', cards: [], wipLimit: 2 },
-        { id: 'aprovacao_cliente', title: 'Aprovação Cliente', icon: <Users className="w-4 h-4" />, color: 'var(--info-500)', cards: [] },
-        { id: 'concluido', title: 'Concluído', icon: <CheckCircle2 className="w-4 h-4" />, color: '#4B5563', cards: [] }
-      ],
-      'Web Designer': [
-        { id: 'briefing', title: 'Briefing', icon: <Archive className="w-4 h-4" />, color: 'var(--text-tertiary)', cards: [] },
-        { id: 'desenvolvimento', title: 'Desenvolvimento', icon: <Clock className="w-4 h-4" />, color: 'var(--primary-500)', cards: [], wipLimit: 3 },
-        { id: 'testes', title: 'Testes', icon: <AlertCircle className="w-4 h-4" />, color: 'var(--warning-500)', cards: [] },
-        { id: 'homologacao', title: 'Homologação', icon: <Users className="w-4 h-4" />, color: 'var(--info-500)', cards: [] },
-        { id: 'producao', title: 'Produção', icon: <CheckCircle2 className="w-4 h-4" />, color: '#10B981', cards: [] }
-      ],
-      'Head de Marketing': [
-        { id: 'planejamento', title: 'Planejamento', icon: <Archive className="w-4 h-4" />, color: 'var(--text-tertiary)', cards: [] },
-        { id: 'producao_equipe', title: 'Produção (Equipe)', icon: <Users className="w-4 h-4" />, color: 'var(--primary-500)', cards: [] },
-        { id: 'revisao_head', title: 'Revisão Head', icon: <AlertCircle className="w-4 h-4" />, color: 'var(--warning-500)', cards: [], wipLimit: 5 },
-        { id: 'aprovacao_cliente', title: 'Aprovação Cliente', icon: <Users className="w-4 h-4" />, color: 'var(--info-500)', cards: [] },
-        { id: 'execucao', title: 'Execução', icon: <Clock className="w-4 h-4" />, color: '#10B981', cards: [] },
-        { id: 'concluido', title: 'Concluído', icon: <CheckCircle2 className="w-4 h-4" />, color: '#4B5563', cards: [] }
-      ],
-      'Videomaker': [
-        { id: 'roteiro', title: 'Roteiro', icon: <Archive className="w-4 h-4" />, color: 'var(--text-tertiary)', cards: [] },
-        { id: 'gravacao', title: 'Gravação', icon: <Clock className="w-4 h-4" />, color: 'var(--primary-500)', cards: [] },
-        { id: 'edicao', title: 'Edição', icon: <Clock className="w-4 h-4" />, color: 'var(--purple-500)', cards: [], wipLimit: 3 },
-        { id: 'revisao', title: 'Revisão', icon: <AlertCircle className="w-4 h-4" />, color: 'var(--warning-500)', cards: [] },
-        { id: 'aprovacao_cliente', title: 'Aprovação Cliente', icon: <Users className="w-4 h-4" />, color: 'var(--info-500)', cards: [] },
-        { id: 'publicado', title: 'Publicado', icon: <CheckCircle2 className="w-4 h-4" />, color: '#10B981', cards: [] }
-      ],
-      'Social Media': [
-        { id: 'ideias', title: 'Ideias', icon: <Archive className="w-4 h-4" />, color: 'var(--text-tertiary)', cards: [] },
-        { id: 'criacao', title: 'Criação', icon: <Clock className="w-4 h-4" />, color: 'var(--primary-500)', cards: [], wipLimit: 5 },
-        { id: 'aprovacao_interna', title: 'Aprovação Interna', icon: <AlertCircle className="w-4 h-4" />, color: 'var(--warning-500)', cards: [] },
-        { id: 'aprovacao_cliente', title: 'Aprovação Cliente', icon: <Users className="w-4 h-4" />, color: 'var(--info-500)', cards: [] },
-        { id: 'agendado', title: 'Agendado', icon: <Calendar className="w-4 h-4" />, color: '#8B5CF6', cards: [] },
-        { id: 'publicado', title: 'Publicado', icon: <CheckCircle2 className="w-4 h-4" />, color: '#10B981', cards: [] }
-      ],
-      'Tráfego Pago': [
-        { id: 'planejamento', title: 'Planejamento', icon: <Archive className="w-4 h-4" />, color: 'var(--text-tertiary)', cards: [] },
-        { id: 'criacao_anuncios', title: 'Criação Anúncios', icon: <Clock className="w-4 h-4" />, color: 'var(--primary-500)', cards: [] },
-        { id: 'revisao', title: 'Revisão', icon: <AlertCircle className="w-4 h-4" />, color: 'var(--warning-500)', cards: [] },
-        { id: 'ativo', title: 'Ativo', icon: <CheckCircle2 className="w-4 h-4" />, color: '#10B981', cards: [] },
-        { id: 'otimizacao', title: 'Otimização', icon: <TrendingUp className="w-4 h-4" />, color: '#8B5CF6', cards: [] },
-        { id: 'pausado', title: 'Pausado', icon: <Circle className="w-4 h-4" />, color: '#4B5563', cards: [] }
-      ]
-    }
-
-    // Retornar colunas específicas ou padrão
-    return columnsByArea[area] || [
-      { id: 'backlog', title: 'Backlog', icon: <Archive className="w-4 h-4" />, color: 'var(--text-tertiary)', cards: [] },
-      { id: 'todo', title: 'A Fazer', icon: <Circle className="w-4 h-4" />, color: 'var(--text-secondary)', cards: [], wipLimit: 5 },
-      { id: 'in_progress', title: 'Em Andamento', icon: <Clock className="w-4 h-4" />, color: 'var(--primary-500)', cards: [], wipLimit: 3 },
-      { id: 'review', title: 'Em Revisão', icon: <AlertCircle className="w-4 h-4" />, color: 'var(--warning-500)', cards: [], wipLimit: 3 },
-      { id: 'done', title: 'Concluído', icon: <CheckCircle2 className="w-4 h-4" />, color: '#4B5563', cards: [] }
-    ]
-  }
-
   const loadKanbanData = async () => {
     try {
       // Buscar área do usuário
@@ -313,27 +253,33 @@ export default function KanbanPage() {
         setUserArea(area)
       }
 
-      // Carregar colunas personalizadas por área
-      const personalizedColumns = getColumnsByArea(area)
+      // Se colunas já foram inicializadas pelo template, adicionar dados mock
+      // Em produção, buscaria do banco aqui
+      setColumns(prevColumns => {
+          if (prevColumns.length === 0) return prevColumns;
+          
+          const newCols = [...prevColumns];
+          // Adicionar card de exemplo na primeira coluna se estiver vazia
+          if (newCols[0].cards.length === 0) {
+              newCols[0].cards = [
+                {
+                  id: '1',
+                  title: 'Nova tarefa de exemplo',
+                  description: 'Esta é uma tarefa de exemplo criada automaticamente.',
+                  column: newCols[0].id,
+                  priority: 'normal',
+                  assignees: [],
+                  tags: [area],
+                  dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                  attachments: 0,
+                  comments: 0,
+                  createdAt: new Date()
+                }
+              ];
+          }
+          return newCols;
+      });
 
-      // Adicionar alguns cards de exemplo
-      personalizedColumns[0].cards = [
-        {
-          id: '1',
-          title: 'Nova tarefa de exemplo',
-          description: 'Esta é uma tarefa de exemplo',
-          column: personalizedColumns[0].id,
-          priority: 'normal',
-          assignees: [],
-          tags: [area],
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          attachments: 0,
-          comments: 0,
-          createdAt: new Date()
-        }
-      ]
-
-      setColumns(personalizedColumns)
     } catch (error) {
       console.error('Erro ao carregar kanban:', error)
     } finally {
@@ -396,7 +342,7 @@ export default function KanbanPage() {
       >
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-            Kanban
+            Kanban - {userArea}
           </h1>
           
           <button 

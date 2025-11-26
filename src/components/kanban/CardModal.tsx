@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, Calendar, User, Tag, Paperclip, MessageSquare, Clock,
-  AlertCircle, Edit2, Trash2, Save, Upload, CheckSquare, FileText
+  AlertCircle, Edit2, Trash2, Save, Upload, CheckSquare, FileText,
+  AlertTriangle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { getCurrentUser } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 
 interface KanbanCard {
@@ -23,6 +24,7 @@ interface KanbanCard {
   comments: number
   createdAt: Date
   area?: string
+  columnEnteredAt?: Date // Timestamp de quando entrou na coluna atual
 }
 
 interface CardModalProps {
@@ -41,37 +43,56 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
   const [userRole, setUserRole] = useState<string | null>(null)
   const [canDelete, setCanDelete] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [taskAging, setTaskAging] = useState<{ days: number, status: 'normal' | 'warning' | 'critical' } | null>(null)
 
   // Atualizar estado interno quando card muda
   useEffect(() => {
     setEditedCard(card)
+    if (card) {
+        calculateTaskAging(card)
+    }
   }, [card])
 
   useEffect(() => {
     const checkPermissions = async () => {
-      const user = await getCurrentUser()
+      const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        setUserRole(user.role)
-        // Só super_admin pode deletar
-        setCanDelete(user.role === 'super_admin' || !!isSuperAdmin)
+        const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('role')
+            .eq('user_id', user.id)
+            .single()
+        
+        if (profile) {
+            setUserRole(profile.role)
+            setCanDelete(profile.role === 'super_admin' || profile.role === 'admin' || !!isSuperAdmin)
+        }
       }
     }
     checkPermissions()
   }, [isSuperAdmin])
 
-  if (!card || !editedCard) return null
+  const calculateTaskAging = (currentCard: KanbanCard) => {
+      if (!currentCard.columnEnteredAt) return;
 
-  const priorityColors = {
-    urgent: { bg: 'var(--error-50)', text: 'var(--error-700)', border: 'var(--error-200)' },
-    high: { bg: 'var(--warning-50)', text: 'var(--warning-700)', border: 'var(--warning-200)' },
-    normal: { bg: 'var(--info-50)', text: 'var(--info-700)', border: 'var(--info-200)' },
-    low: { bg: 'var(--success-50)', text: 'var(--success-700)', border: 'var(--success-200)' }
+      const enteredAt = new Date(currentCard.columnEnteredAt);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - enteredAt.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      let status: 'normal' | 'warning' | 'critical' = 'normal';
+      if (diffDays > 5) status = 'critical';
+      else if (diffDays > 3) status = 'warning';
+
+      setTaskAging({ days: diffDays, status });
   }
+
+  if (!card || !editedCard) return null
 
   // Lógica de validação para movimentação
   const validateMove = (targetColumn: string) => {
     // Regras de Negócio
-    if (targetColumn === 'done') {
+    if (targetColumn === 'done' || targetColumn === 'concluido') {
         // Exemplo: Para mover para Done, precisa ter anexo ou link se for tarefa de Design
         if (editedCard.area === 'Design' && editedCard.attachments === 0 && !editedCard.description?.includes('http')) {
             return 'Para concluir tarefas de Design, é obrigatório anexar o arquivo ou link do projeto.'
@@ -96,6 +117,8 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
             toast.error(error)
             return
         }
+        // Atualizar timestamp se mudou de coluna
+        editedCard.columnEnteredAt = new Date();
     }
 
     onSave(editedCard)
@@ -146,9 +169,22 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
                       className="text-xl font-bold flex-1 px-2 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                     />
                   ) : (
-                    <h2 className="text-xl font-bold text-gray-900">
-                      {editedCard.title}
-                    </h2>
+                    <div className="flex flex-col">
+                        <h2 className="text-xl font-bold text-gray-900">
+                        {editedCard.title}
+                        </h2>
+                        {/* Task Aging Indicator */}
+                        {taskAging && (
+                            <div className={`flex items-center gap-1 text-xs font-medium mt-1 ${
+                                taskAging.status === 'critical' ? 'text-red-600' : 
+                                taskAging.status === 'warning' ? 'text-yellow-600' : 'text-gray-500'
+                            }`}>
+                                <Clock className="w-3 h-3" />
+                                {taskAging.days} dias nesta fase
+                                {taskAging.status === 'critical' && <span className="bg-red-100 text-red-700 px-1 rounded ml-1">Gargalo</span>}
+                            </div>
+                        )}
+                    </div>
                   )}
                   
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
@@ -197,14 +233,14 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
                         <button
                           onClick={handleDelete}
                           className="p-2 rounded-lg hover:bg-red-600 bg-red-500 text-white transition-all shadow-sm"
-                          title="Deletar (apenas super admin)"
+                          title="Deletar (apenas admin)"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       ) : (
                         <div 
                           className="p-2 rounded-lg opacity-30 cursor-not-allowed bg-gray-100 text-gray-400"
-                          title="Apenas super admin pode deletar"
+                          title="Apenas admin pode deletar"
                         >
                           <Trash2 className="w-4 h-4" />
                         </div>
@@ -390,11 +426,18 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
                           className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       ) : (
-                        <span className={`text-sm font-medium ${
-                            editedCard.dueDate && new Date(editedCard.dueDate) < new Date() ? 'text-red-600' : 'text-gray-700'
-                        }`}>
-                          {editedCard.dueDate ? new Date(editedCard.dueDate).toLocaleDateString('pt-BR') : 'Sem prazo'}
-                        </span>
+                        <div className="flex flex-col">
+                            <span className={`text-sm font-medium ${
+                                editedCard.dueDate && new Date(editedCard.dueDate) < new Date() ? 'text-red-600' : 'text-gray-700'
+                            }`}>
+                            {editedCard.dueDate ? new Date(editedCard.dueDate).toLocaleDateString('pt-BR') : 'Sem prazo'}
+                            </span>
+                            {editedCard.dueDate && new Date(editedCard.dueDate) < new Date() && (
+                                <span className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                                    <AlertTriangle className="w-3 h-3" /> Atrasado
+                                </span>
+                            )}
+                        </div>
                       )}
                     </div>
 

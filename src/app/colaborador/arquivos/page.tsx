@@ -1,28 +1,39 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Upload, File, Folder, Search, Grid, List, Download, Trash2, Eye, Plus } from 'lucide-react'
+import { Upload, File, Folder, Search, Grid, List, Download, Trash2, Eye, Plus, Send, Users } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase'
 
 export default function ArquivosPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [searchTerm, setSearchTerm] = useState('')
   const [files, setFiles] = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<any>(null)
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
+  const [selectedClientForApproval, setSelectedClientForApproval] = useState('')
 
   useEffect(() => {
     loadFiles()
+    loadClients()
   }, [])
+
+  const loadClients = async () => {
+    const { data } = await supabase.from('clients').select('id, company_name')
+    if (data) setClients(data)
+  }
 
   const loadFiles = async () => {
     try {
-      // TODO: Fetch from API /storage
+      // Mock data - integrar com banco depois
       setFiles([
-        { id: '1', name: 'Projeto_Cliente_A.pdf', type: 'pdf', size: '2.5 MB', date: '2025-01-10', folder: 'Projetos', url: '#' },
-        { id: '2', name: 'Design_Final.fig', type: 'figma', size: '15.3 MB', date: '2025-01-08', folder: 'Design', url: '#' },
-        { id: '3', name: 'Apresentacao.pptx', type: 'powerpoint', size: '8.1 MB', date: '2025-01-05', folder: 'Apresentações', url: '#' }
+        { id: '1', name: 'Projeto_Cliente_A.pdf', type: 'pdf', size: '2.5 MB', date: '2025-01-10', folder: 'Projetos', url: '#', status: 'draft' },
+        { id: '2', name: 'Design_Final.fig', type: 'figma', size: '15.3 MB', date: '2025-01-08', folder: 'Design', url: '#', status: 'approved' },
+        { id: '3', name: 'Apresentacao.pptx', type: 'powerpoint', size: '8.1 MB', date: '2025-01-05', folder: 'Apresentações', url: '#', status: 'pending_approval' }
       ])
     } catch (error) {
       console.error('Error loading files:', error)
@@ -56,6 +67,24 @@ export default function ArquivosPage() {
     }
   }
 
+  const handleSendForApproval = (file: any) => {
+    setSelectedFile(file)
+    setIsApprovalModalOpen(true)
+  }
+
+  const submitApproval = async () => {
+    if (!selectedClientForApproval) {
+        toast.error('Selecione um cliente')
+        return
+    }
+    
+    // Lógica de envio para o banco
+    toast.success(`Arquivo enviado para aprovação de ${clients.find(c => c.id === selectedClientForApproval)?.company_name}`)
+    setIsApprovalModalOpen(false)
+    setSelectedClientForApproval('')
+    setSelectedFile(null)
+  }
+
   const filteredFiles = files.filter(file =>
     file.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -79,6 +108,62 @@ export default function ArquivosPage() {
         </div>
       )}
 
+      {/* Approval Modal */}
+      {isApprovalModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            >
+                <div className="p-6 border-b border-gray-100">
+                    <h3 className="text-lg font-bold text-gray-900">Enviar para Aprovação</h3>
+                    <p className="text-sm text-gray-500 mt-1">O cliente receberá uma notificação para revisar este arquivo.</p>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <File className="w-8 h-8 text-indigo-500" />
+                        <div>
+                            <p className="font-medium text-gray-800">{selectedFile?.name}</p>
+                            <p className="text-xs text-gray-500">{selectedFile?.size}</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Selecione o Cliente</label>
+                        <select 
+                            className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            value={selectedClientForApproval}
+                            onChange={(e) => setSelectedClientForApproval(e.target.value)}
+                        >
+                            <option value="">Selecione...</option>
+                            {clients.map(client => (
+                                <option key={client.id} value={client.id}>{client.company_name}</option>
+                            ))}
+                            <option value="mock1">Cliente Exemplo Ltda</option>
+                            <option value="mock2">Tech Startups SA</option>
+                        </select>
+                    </div>
+                </div>
+                <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+                    <button 
+                        onClick={() => setIsApprovalModalOpen(false)}
+                        className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        onClick={submitApproval}
+                        className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                    >
+                        <Send className="w-4 h-4" />
+                        Enviar Agora
+                    </button>
+                </div>
+            </motion.div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8 flex justify-between items-end">
@@ -87,7 +172,7 @@ export default function ArquivosPage() {
                 Meus Arquivos
             </h1>
             <p style={{ color: 'var(--text-secondary)' }}>
-                Gerencie seus documentos e arquivos
+                Gerencie seus documentos e envie para aprovação
             </p>
           </div>
           <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
@@ -165,8 +250,25 @@ export default function ArquivosPage() {
                 transition={{ delay: index * 0.05 }}
                 className="p-4 rounded-xl border cursor-pointer hover:shadow-xl transition-all group bg-white border-gray-100 hover:border-indigo-100 relative"
               >
+                {/* Status Badge */}
+                <div className="absolute top-2 left-2">
+                    {file.status === 'pending_approval' && (
+                        <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wider">Em Aprovação</span>
+                    )}
+                    {file.status === 'approved' && (
+                        <span className="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wider">Aprovado</span>
+                    )}
+                </div>
+
                 {/* Hover Actions */}
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); handleSendForApproval(file); }}
+                        className="p-1.5 bg-white rounded-lg shadow text-gray-500 hover:text-indigo-600"
+                        title="Enviar para Aprovação"
+                    >
+                        <Users size={14} />
+                    </button>
                     <button className="p-1.5 bg-white rounded-lg shadow text-gray-500 hover:text-indigo-600">
                         <Download size={14} />
                     </button>
@@ -175,8 +277,8 @@ export default function ArquivosPage() {
                     </button>
                 </div>
 
-                <div className="flex flex-col items-center text-center pt-2">
-                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-indigo-50 text-indigo-600 shadow-inner">
+                <div className="flex flex-col items-center text-center pt-6">
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-indigo-50 text-indigo-600 shadow-inner group-hover:scale-110 transition-transform duration-300">
                     <File className="w-8 h-8" />
                   </div>
                   <h3 className="font-semibold mb-1 truncate w-full text-gray-800 px-2">
@@ -200,7 +302,7 @@ export default function ArquivosPage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+                className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 group"
               >
                 <div className="flex items-center gap-4 flex-1">
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-indigo-50 text-indigo-600">
@@ -216,10 +318,20 @@ export default function ArquivosPage() {
                         <span>{file.size}</span>
                         <span>•</span>
                         <span>{file.date}</span>
+                        {file.status === 'pending_approval' && (
+                            <span className="ml-2 text-orange-500 font-bold">• Em Aprovação</span>
+                        )}
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100">
+                  <button 
+                    onClick={() => handleSendForApproval(file)}
+                    className="p-2 rounded-lg hover:bg-indigo-100 text-gray-500 hover:text-indigo-600 transition-colors"
+                    title="Enviar para Aprovação"
+                  >
+                    <Users className="w-4 h-4" />
+                  </button>
                   <button className="p-2 rounded-lg hover:bg-gray-200 text-gray-500 transition-colors">
                     <Eye className="w-4 h-4" />
                   </button>

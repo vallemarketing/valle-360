@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { FileText, HelpCircle, Clock, CheckCircle, XCircle, Send, Plus } from 'lucide-react'
+import { FileText, HelpCircle, Clock, CheckCircle, XCircle, Send, Plus, Upload, Image as ImageIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 const REQUEST_TYPES = [
@@ -20,11 +20,20 @@ export default function SolicitacoesPage() {
     { id: '2', type: 'home_office', date: '2025-01-25', status: 'pending', period: '1 dia' },
     { id: '3', type: 'refund', date: '2025-01-15', status: 'rejected', amount: 'R$ 150,00' }
   ])
+  const [attachment, setAttachment] = useState<File | null>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     toast.success('Solicitação enviada para aprovação!')
     setActiveTab('list')
+    setAttachment(null)
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setAttachment(e.target.files[0])
+      toast.success('Arquivo anexado!')
+    }
   }
 
   return (
@@ -136,9 +145,26 @@ export default function SolicitacoesPage() {
               </div>
 
               {selectedType === 'refund' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
-                  <input type="number" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="0,00" />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
+                    <input type="number" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="0,00" />
+                  </div>
+                  
+                  <div className="bg-gray-50 p-4 rounded-lg border border-dashed border-gray-300 hover:border-blue-500 transition-colors">
+                    <label className="flex flex-col items-center cursor-pointer">
+                        <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                        <span className="text-sm font-medium text-gray-700">Upload do Comprovante</span>
+                        <span className="text-xs text-gray-500">PDF ou Imagem (Max 5MB)</span>
+                        <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleFileChange} />
+                    </label>
+                    {attachment && (
+                        <div className="mt-3 flex items-center gap-2 text-sm text-green-600 bg-green-50 p-2 rounded">
+                            <CheckCircle className="w-4 h-4" />
+                            {attachment.name}
+                        </div>
+                    )}
+                  </div>
                 </div>
               )}
 
