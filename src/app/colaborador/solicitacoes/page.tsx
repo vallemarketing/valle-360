@@ -1,0 +1,166 @@
+'use client'
+
+import { useState } from 'react'
+import { FileText, HelpCircle, Clock, CheckCircle, XCircle, Send, Plus } from 'lucide-react'
+import { toast } from 'sonner'
+
+const REQUEST_TYPES = [
+  { id: 'vacation', label: 'Férias', icon: '🏖️' },
+  { id: 'dayoff', label: 'Folga / Day Off', icon: '📅' },
+  { id: 'home_office', label: 'Home Office', icon: '🏠' },
+  { id: 'equipment', label: 'Equipamento', icon: '💻' },
+  { id: 'refund', label: 'Reembolso', icon: '💰' }
+]
+
+export default function SolicitacoesPage() {
+  const [activeTab, setActiveTab] = useState<'list' | 'new'>('list')
+  const [selectedType, setSelectedType] = useState(REQUEST_TYPES[0].id)
+  const [requests, setRequests] = useState([
+    { id: '1', type: 'vacation', date: '2025-02-10', status: 'approved', period: '15 dias' },
+    { id: '2', type: 'home_office', date: '2025-01-25', status: 'pending', period: '1 dia' },
+    { id: '3', type: 'refund', date: '2025-01-15', status: 'rejected', amount: 'R$ 150,00' }
+  ])
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    toast.success('Solicitação enviada para aprovação!')
+    setActiveTab('list')
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50/50 p-8">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Solicitações e Requisições</h1>
+            <p className="text-gray-500">Gerencie seus pedidos de férias, folgas e materiais.</p>
+          </div>
+          {activeTab === 'list' && (
+            <button
+              onClick={() => setActiveTab('new')}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+            >
+              <Plus className="w-5 h-5" />
+              Nova Solicitação
+            </button>
+          )}
+        </div>
+
+        {activeTab === 'list' ? (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-800">Histórico de Pedidos</h2>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {requests.map((req) => (
+                <div key={req.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-xl">
+                      {REQUEST_TYPES.find(t => t.id === req.type)?.icon}
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">
+                        {REQUEST_TYPES.find(t => t.id === req.type)?.label}
+                      </h3>
+                      <p className="text-sm text-gray-500">Solicitado em: {req.date}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-gray-600 font-medium">
+                      {req.period || req.amount}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
+                      req.status === 'approved' ? 'bg-green-100 text-green-700' :
+                      req.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                      'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {req.status === 'approved' && 'Aprovado'}
+                      {req.status === 'rejected' && 'Rejeitado'}
+                      {req.status === 'pending' && 'Em Análise'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-8 max-w-2xl mx-auto">
+            <div className="flex items-center gap-2 mb-6">
+                <button onClick={() => setActiveTab('list')} className="text-gray-400 hover:text-gray-600">
+                    Voltar
+                </button>
+                <h2 className="text-xl font-bold text-gray-900">Criar Nova Solicitação</h2>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Solicitação</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {REQUEST_TYPES.map((type) => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => setSelectedType(type.id)}
+                      className={`p-3 rounded-lg border text-left transition-all ${
+                        selectedType === type.id
+                          ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="text-2xl block mb-1">{type.icon}</span>
+                      <span className="text-sm font-medium text-gray-900">{type.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data Início</label>
+                  <input type="date" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data Fim (Opcional)</label>
+                  <input type="date" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Justificativa / Detalhes</label>
+                <textarea 
+                  rows={4}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="Descreva o motivo da sua solicitação..."
+                ></textarea>
+              </div>
+
+              {selectedType === 'refund' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
+                  <input type="number" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="0,00" />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('list')}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md"
+                >
+                  Enviar Solicitação
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,8 @@
+{
+  "name": "valle-360-platform",
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install --legacy-peer-deps"
+}
+
