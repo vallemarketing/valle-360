@@ -1,5 +1,8 @@
 'use client'
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { motion } from 'framer-motion'
@@ -30,6 +33,7 @@ export default function ColaboradorDashboardPage() {
   const dashboardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    console.log("🚀 DASHBOARD CARREGADO - V2.0 LIVE CHECK")
     loadData()
   }, [])
 
@@ -326,6 +330,11 @@ export default function ColaboradorDashboardPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Debug Indicator - Remove in Production */}
+        <div className="fixed bottom-2 right-2 bg-black text-white text-xs px-2 py-1 rounded opacity-50 pointer-events-none">
+            v2.0 (Live)
+        </div>
 
       </div>
     </div>
