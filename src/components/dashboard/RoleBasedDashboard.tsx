@@ -15,6 +15,9 @@ interface RoleBasedDashboardProps {
 }
 
 export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ role }) => {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'src/components/dashboard/RoleBasedDashboard.tsx:15',message:'RoleBasedDashboard rendered',data:{receivedRole:role},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+  // #endregion
   const config = getDashboardConfig(role);
 
   // Mapeamento de componentes de widgets (Placeholder por enquanto, será expandido)

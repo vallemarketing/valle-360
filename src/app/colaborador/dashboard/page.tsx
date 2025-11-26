@@ -123,9 +123,14 @@ export default function ColaboradorDashboardPage() {
         .single()
 
       // Normalizar a área para garantir que o mapeamento funcione
+
       const rawArea = employee?.employee_areas_of_expertise?.[0]?.area_name || 'Marketing';
       const area = rawArea.toLowerCase().replace(' ', '_');
       
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'src/app/colaborador/dashboard/page.tsx:130',message:'Dashboard loadData executed',data:{userId:user.id,rawArea,normalizedArea:area,profileFullName:profile?.full_name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
+
       const firstName = profile?.full_name?.split(' ')[0] || 'Colaborador'
 
       console.log('🎯 ÁREA DETECTADA (Raw):', rawArea)
