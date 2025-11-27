@@ -1,11 +1,14 @@
 import './globals.css';
 import '@/styles/colors.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 
 export const metadata: Metadata = {
   title: 'Valle 360 - Portal Integrado',
   description: 'Plataforma interna e portal do cliente',
   manifest: '/manifest.json',
+};
+
+export const viewport: Viewport = {
   themeColor: '#0b1220',
 };
 

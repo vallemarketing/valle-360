@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic';
+
 /**
  * API para enviar configurações de email usando cPanel
  * Usa a função dispatch_client_settings do cPanel
