@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, CheckSquare, Bot, MessageSquare, DollarSign } from 'lucide-react';
+import { Home, CheckSquare, Bot, Eye, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -25,11 +25,11 @@ export function BottomNavigation() {
       href: '/cliente/dashboard',
     },
     {
-      id: 'approvals',
-      label: 'Aprovações',
-      icon: CheckSquare,
-      href: '/cliente/producao',
-      badge: 3,
+      id: 'competitors',
+      label: 'Radar',
+      icon: Eye,
+      href: '/cliente/concorrentes',
+      badge: 2,
     },
     {
       id: 'ai',
@@ -39,16 +39,17 @@ export function BottomNavigation() {
       isHighlight: true,
     },
     {
-      id: 'messages',
-      label: 'Mensagens',
-      icon: MessageSquare,
-      href: '/cliente/mensagens',
+      id: 'approvals',
+      label: 'Aprovações',
+      icon: CheckSquare,
+      href: '/cliente/producao',
+      badge: 3,
     },
     {
-      id: 'financial',
-      label: 'Financeiro',
-      icon: DollarSign,
-      href: '/cliente/financeiro',
+      id: 'profile',
+      label: 'Perfil',
+      icon: User,
+      href: '/cliente/perfil',
     },
   ];
 
