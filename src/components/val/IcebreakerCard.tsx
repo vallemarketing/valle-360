@@ -206,9 +206,9 @@ export function IcebreakerCard({ area, className }: IcebreakerCardProps) {
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSubmit}
                 disabled={!answer.trim()}
-                className="px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 style={{
-                  backgroundColor: answer.trim() ? 'var(--primary-600)' : 'var(--neutral-300)',
+                  backgroundColor: answer.trim() ? '#4370d1' : '#9ca3af',
                   color: 'white'
                 }}
               >
