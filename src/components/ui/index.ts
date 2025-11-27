@@ -13,7 +13,7 @@ export {
 } from './Skeleton';
 
 // Toast Notifications
-export { ToastProvider, useToast } from './Toast';
+export { ToastProvider, useToast } from './toast';
 
 // Loading Button
 export { LoadingButton, ConfirmButton } from './LoadingButton';
@@ -40,5 +40,5 @@ export {
 export { Modal, ConfirmModal, AlertModal } from './Modal';
 
 // Input
-export { Input, SearchInput, Textarea } from './Input';
+export { Input, SearchInput, Textarea } from './input';
 
