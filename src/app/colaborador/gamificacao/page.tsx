@@ -72,7 +72,7 @@ export default function GamificacaoPage() {
         .select('employee_id, total_points, level')
         .order('total_points', { ascending: false })
 
-      const myPosition = ranking?.findIndex(r => r.employee_id === employee.id) + 1 || 0
+      const myPosition = (ranking?.findIndex(r => r.employee_id === employee.id) ?? -1) + 1
 
       // Leaderboard (top 10)
       const { data: leaderboardData } = await supabase
@@ -160,7 +160,7 @@ export default function GamificacaoPage() {
                   <Crown className="w-10 h-10" />
                   <h1 className="text-4xl font-bold">Nível {data?.level}</h1>
                 </div>
-                <p className="text-white/90 text-lg">Você está no top {Math.round((data?.ranking / data?.totalEmployees) * 100)}% da equipe!</p>
+                <p className="text-white/90 text-lg">Você está no top {Math.round(((data?.ranking ?? 0) / (data?.totalEmployees || 1)) * 100)}% da equipe!</p>
               </div>
               
               <div className="text-right">
@@ -249,7 +249,7 @@ export default function GamificacaoPage() {
                   <p className="text-sm text-gray-500">
                     Seu recorde: <span className="font-semibold text-gray-700">{data?.longestStreak} dias</span>
                   </p>
-                  {data?.currentStreak === data?.longestStreak && data?.currentStreak > 0 && (
+                  {(data?.currentStreak ?? 0) === (data?.longestStreak ?? 0) && (data?.currentStreak ?? 0) > 0 && (
                     <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
                       <Zap className="w-3 h-3" /> Você está no seu melhor!
                     </p>
@@ -513,10 +513,10 @@ export default function GamificacaoPage() {
                 })}
               </div>
 
-              {data?.ranking > 10 && (
+              {(data?.ranking ?? 0) > 10 && (
                 <div className="mt-6 p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
                   <p className="text-center text-gray-700">
-                    Você está na posição <span className="font-bold text-[#4370d1]">#{data.ranking}</span>. 
+                    Você está na posição <span className="font-bold text-[#4370d1]">#{data?.ranking ?? '-'}</span>. 
                     Continue assim para entrar no Top 10! 🚀
                   </p>
                 </div>

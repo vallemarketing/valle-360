@@ -199,7 +199,7 @@ export default function CompetitiveIntelligencePage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <Badge variant={
-                          competitor.threat_level === 'high' ? 'destructive' :
+                          competitor.threat_level === 'high' ? 'danger' :
                           competitor.threat_level === 'medium' ? 'default' : 'secondary'
                         }>
                           {competitor.threat_level}

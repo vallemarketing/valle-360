@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     // Get user requests (employee_requests table - to be created)
     // For now, return mock data
-    const requests = []
+    const requests: any[] = []
 
     return NextResponse.json({
       requests,

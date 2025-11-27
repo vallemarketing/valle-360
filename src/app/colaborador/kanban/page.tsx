@@ -15,7 +15,7 @@ import { NewTaskForm } from '@/components/kanban/NewTaskForm'
 import { getTemplateForRole } from '@/lib/kanban-templates'
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay } from 'date-fns'
-import ptBR from 'date-fns/locale/pt-BR'
+import { ptBR } from 'date-fns/locale/pt-BR'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 
 const locales = {
@@ -502,20 +502,21 @@ export default function KanbanPage() {
                       {column.cards.map((card, index) => (
                         <Draggable key={card.id} draggableId={card.id} index={index}>
                           {(provided, snapshot) => (
-                            <motion.div
+                            <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
                               onClick={() => handleOpenCard(card)}
-                              className="p-5 rounded-xl border backdrop-blur-sm cursor-move hover:shadow-lg transition-all duration-300"
+                              className={`
+                                p-5 rounded-xl border backdrop-blur-sm cursor-move hover:shadow-lg transition-all duration-300
+                                ${snapshot.isDragging ? 'shadow-xl ring-2 ring-indigo-500 ring-opacity-50 z-50' : ''}
+                              `}
                               style={{
                                 ...provided.draggableProps.style,
                                 backgroundColor: snapshot.isDragging ? 'rgba(67, 112, 209, 0.2)' : 'rgba(255, 255, 255, 0.6)',
                                 borderColor: snapshot.isDragging ? 'rgba(67, 112, 209, 0.5)' : 'rgba(200, 200, 200, 0.3)',
                               }}
-                    >
+                            >
                       {/* Title com Grip Icon */}
                       <div className="flex items-start justify-between mb-3">
                         <h4 className="font-semibold leading-tight text-gray-900 flex-1">

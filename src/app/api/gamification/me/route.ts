@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     const levelInfo = getLevelInfo(gamificationData.productivity_score || 0)
 
     // Get earned badges (TODO: implement)
-    const badges = []
+    const badges: any[] = []
 
     // Get rank (TODO: implement with proper query)
     const rank = null

@@ -157,7 +157,7 @@ export default function MachineLearningPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge variant={
-                        insight.insight_priority === 'critical' ? 'destructive' :
+                        insight.insight_priority === 'critical' ? 'danger' :
                         insight.insight_priority === 'high' ? 'default' : 'secondary'
                       }>
                         {insight.insight_priority.toUpperCase()}

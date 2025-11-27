@@ -278,7 +278,7 @@ export default function RealtimeAnalyticsPage() {
                 <div key={anomaly.id} className="bg-orange-50 p-4 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge variant={
-                      anomaly.anomaly_type === 'spike' ? 'default' : 'destructive'
+                      anomaly.anomaly_type === 'spike' ? 'default' : 'danger'
                     }>
                       {anomaly.anomaly_type}
                     </Badge>

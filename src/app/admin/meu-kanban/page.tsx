@@ -17,25 +17,33 @@ import {
   AlertCircle,
   CheckCircle2,
   Circle,
-  MoreVertical
+  MoreVertical,
+  Eye,
+  BarChart2,
+  TrendingUp,
+  Layers
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NewTaskForm } from '@/components/kanban/NewTaskForm'
 import { CardModal } from '@/components/kanban/CardModal'
-import { availableAreas } from '@/lib/kanban/columnsByArea'
+import { availableAreas, columnsByArea } from '@/lib/kanban/columnsByArea'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { toast } from 'sonner'
+import ProfitabilityView from '@/components/dashboards/widgets/ProfitabilityView'
 
 interface KanbanCard {
   id: string
   title: string
-  description: string
-  priority: 'baixa' | 'normal' | 'alta' | 'urgente'
-  dueDate: string
+  description?: string
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  dueDate?: Date
   assignees: string[]
   tags: string[]
   comments: number
   attachments: number
   column: string
-  area: string
+  area?: string
+  createdAt: Date
 }
 
 interface KanbanColumn {
@@ -61,6 +69,12 @@ export default function AdminKanbanPage() {
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null)
   const [showCardModal, setShowCardModal] = useState(false)
   const [userArea, setUserArea] = useState('Admin')
+  const [metrics, setMetrics] = useState({
+    totalTasks: 0,
+    delayed: 0,
+    completedToday: 0,
+    productivity: 0
+  })
 
   useEffect(() => {
     loadTasks()
@@ -84,13 +98,14 @@ export default function AdminKanbanPage() {
           title: task.title,
           description: task.description || '',
           priority: task.priority || 'normal',
-          dueDate: task.due_date || '',
+          dueDate: task.due_date ? new Date(task.due_date) : undefined,
           assignees: task.assignees || [],
           tags: task.tags || [],
           comments: 0,
           attachments: 0,
           column: task.column,
-          area: task.area || ''
+          area: task.area || '',
+          createdAt: task.created_at ? new Date(task.created_at) : new Date()
         })) || []
       }))
 
@@ -363,20 +378,22 @@ export default function AdminKanbanPage() {
                       <div className="flex-1 overflow-y-auto p-4 space-y-3">
                         {column.cards.map((card, index) => (
                           <Draggable key={card.id} draggableId={card.id} index={index}>
-                            {(provided) => (
-                              <motion.div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                onClick={() => handleOpenCard(card)}
-                                className="p-4 rounded-xl border shadow-sm cursor-pointer hover:shadow-md transition-all backdrop-blur-sm"
-                                style={{
-                                  backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                                  borderColor: 'rgba(200, 200, 200, 0.3)'
-                                }}
-                              >
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            onClick={() => handleOpenCard(card)}
+                            className={`
+                              p-4 rounded-xl border shadow-sm cursor-pointer hover:shadow-md transition-all backdrop-blur-sm
+                              ${snapshot.isDragging ? 'rotate-2 shadow-xl ring-2 ring-indigo-500 ring-opacity-50 z-50' : ''}
+                            `}
+                            style={{
+                              backgroundColor: 'rgba(255, 255, 255, 0.6)',
+                              borderColor: 'rgba(200, 200, 200, 0.3)',
+                              ...provided.draggableProps.style
+                            }}
+                          >
                                 <h4 className="font-medium text-gray-900 mb-2">{card.title}</h4>
                                 {card.description && (
                                   <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.description}</p>
@@ -386,8 +403,8 @@ export default function AdminKanbanPage() {
                                   <div className="flex items-center gap-2">
                                     <span className={cn(
                                       'px-2 py-1 rounded text-xs font-medium',
-                                      card.priority === 'urgente' ? 'bg-red-100 text-red-700' :
-                                      card.priority === 'alta' ? 'bg-orange-100 text-orange-700' :
+                                      card.priority === 'urgent' ? 'bg-red-100 text-red-700' :
+                                      card.priority === 'high' ? 'bg-orange-100 text-orange-700' :
                                       card.priority === 'normal' ? 'bg-blue-100 text-blue-700' :
                                       'bg-gray-100 text-gray-700'
                                     )}>
@@ -406,7 +423,7 @@ export default function AdminKanbanPage() {
                                     </span>
                                   )}
                                 </div>
-                              </motion.div>
+                              </div>
                             )}
                           </Draggable>
                         ))}
@@ -462,8 +479,8 @@ export default function AdminKanbanPage() {
                     <td className="px-6 py-4">
                       <span className={cn(
                         'px-2 py-1 rounded text-xs font-medium',
-                        card.priority === 'urgente' ? 'bg-red-100 text-red-700' :
-                        card.priority === 'alta' ? 'bg-orange-100 text-orange-700' :
+                        card.priority === 'urgent' ? 'bg-red-100 text-red-700' :
+                        card.priority === 'high' ? 'bg-orange-100 text-orange-700' :
                         card.priority === 'normal' ? 'bg-blue-100 text-blue-700' :
                         'bg-gray-100 text-gray-700'
                       )}>
@@ -510,15 +527,27 @@ export default function AdminKanbanPage() {
       {/* Card Modal */}
       {selectedCard && (
         <CardModal
-          card={selectedCard}
+          card={{
+            id: selectedCard.id,
+            title: selectedCard.title,
+            description: selectedCard.description,
+            column: selectedCard.column,
+            priority: selectedCard.priority,
+            assignees: selectedCard.assignees,
+            tags: selectedCard.tags,
+            dueDate: selectedCard.dueDate ? new Date(selectedCard.dueDate) : undefined,
+            attachments: selectedCard.attachments,
+            comments: selectedCard.comments,
+            createdAt: selectedCard.createdAt,
+            area: selectedCard.area
+          }}
           isOpen={showCardModal}
           onClose={() => setShowCardModal(false)}
           onSave={handleSaveCard}
           onDelete={handleDeleteCard}
+          isSuperAdmin={true}
         />
       )}
     </div>
   )
 }
-
-

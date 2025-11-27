@@ -62,3 +62,5 @@ export const getTemplateForRole = (role: string) => {
   return KANBAN_TEMPLATES[normalizedRole] || KANBAN_TEMPLATES.default;
 };
 
+
+

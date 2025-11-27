@@ -225,7 +225,7 @@ export default function PricingIntelligencePage() {
                       </Badge>
                       <Badge variant={
                         rec.risk_level === 'low' ? 'secondary' :
-                        rec.risk_level === 'medium' ? 'default' : 'destructive'
+                        rec.risk_level === 'medium' ? 'default' : 'danger'
                       }>
                         Risco: {rec.risk_level}
                       </Badge>

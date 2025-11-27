@@ -396,15 +396,35 @@ export default function SuperAdminKanban() {
       {/* Modal de Detalhes do Card */}
       {selectedCard && (
         <CardModal
-          card={selectedCard}
+          card={{
+            id: selectedCard.id,
+            title: selectedCard.title,
+            description: selectedCard.description,
+            column: selectedCard.column_id,
+            priority: selectedCard.priority === 'high' ? 'high' : selectedCard.priority === 'medium' ? 'normal' : 'low',
+            // Mapeamento de campos incompatíveis
+            assignees: selectedCard.assignee ? [selectedCard.assignee.full_name] : [],
+            tags: selectedCard.labels || [],
+            dueDate: selectedCard.due_date ? new Date(selectedCard.due_date) : undefined,
+            attachments: 0, // TODO: Buscar do banco
+            comments: 0,    // TODO: Buscar do banco
+            createdAt: new Date(), // TODO: Buscar do banco
+            area: selectedCard.area
+          }}
           isOpen={isCardModalOpen}
           onClose={() => {
             setIsCardModalOpen(false)
             setSelectedCard(null)
           }}
-          onSave={() => {
+          onSave={(updatedCard) => {
+            // Converter de volta para salvar no banco se necessário, ou apenas recarregar
             loadKanbanBoard()
             setIsCardModalOpen(false)
+          }}
+          onDelete={async (cardId) => {
+             await supabase.from('kanban_tasks').delete().eq('id', cardId)
+             loadKanbanBoard()
+             setIsCardModalOpen(false)
           }}
           isSuperAdmin={true} // Habilita delete
         />
@@ -419,12 +439,14 @@ export default function SuperAdminKanban() {
               <button onClick={() => setShowNewTaskForm(false)} className="text-gray-500 hover:text-gray-700">✕</button>
             </div>
             <NewTaskForm 
-              onSuccess={() => {
+              isOpen={true} // Sempre aberto dentro do modal
+              onClose={() => setShowNewTaskForm(false)}
+              onSave={(taskData) => {
                 setShowNewTaskForm(false)
                 loadKanbanBoard()
                 toast.success('Tarefa criada!')
               }}
-              defaultArea={selectedArea} // Passar a área selecionada
+              userArea={selectedArea} // Passar a área selecionada como userArea
             />
           </div>
         </div>
