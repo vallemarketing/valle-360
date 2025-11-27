@@ -295,7 +295,8 @@ export default function MensagensPage() {
               style={{
                 backgroundColor: filterType === 'all' ? 'var(--primary-100)' : 'var(--bg-secondary)',
                 color: filterType === 'all' ? 'var(--primary-700)' : 'var(--text-secondary)',
-                ringColor: 'var(--primary-500)'
+                // ringColor não é uma propriedade CSS válida, usando boxShadow ou outline se necessário
+                // ringColor: 'var(--primary-500)'
               }}
             >
               Todas
@@ -308,7 +309,8 @@ export default function MensagensPage() {
               style={{
                 backgroundColor: filterType === 'unread' ? 'var(--primary-100)' : 'var(--bg-secondary)',
                 color: filterType === 'unread' ? 'var(--primary-700)' : 'var(--text-secondary)',
-                ringColor: 'var(--primary-500)'
+                // ringColor removido
+                // ringColor: 'var(--primary-500)'
               }}
             >
               Não lidas

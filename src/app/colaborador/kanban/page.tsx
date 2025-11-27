@@ -624,7 +624,7 @@ export default function KanbanPage() {
                           )}
                         </div>
                       </div>
-                            </motion.div>
+                            </div>
                           )}
                         </Draggable>
                       ))}

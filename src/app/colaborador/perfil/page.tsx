@@ -212,7 +212,9 @@ export default function PerfilPage() {
               src={profileData.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileData.email}`}
               alt="Avatar"
               className="w-32 h-32 rounded-full object-cover ring-4"
-              style={{ ringColor: 'var(--primary-100)' }}
+              style={{ 
+                border: '4px solid var(--primary-100)'
+              }}
             />
             <button 
               className="absolute bottom-0 right-0 p-3 rounded-full shadow-lg transition-all hover:scale-110"

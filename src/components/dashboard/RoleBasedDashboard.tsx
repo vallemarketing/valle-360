@@ -6,7 +6,8 @@ import {
   Layout, 
   MessageSquare,
   Image as ImageIcon,
-  ExternalLink
+  ExternalLink,
+  Sparkles
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -144,4 +145,3 @@ const ValQuickChatWidget = () => (
     </button>
   </motion.div>
 );
-
