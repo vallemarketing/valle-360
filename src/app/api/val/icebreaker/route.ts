@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDailyIcebreaker } from '@/lib/val/icebreakers'
-import { supabase } from '@/lib/supabase'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,13 +13,23 @@ export async function GET(request: NextRequest) {
     // Get daily icebreaker
     const icebreaker = getDailyIcebreaker(area)
 
-    // Try to get user's streak (optional, requires auth)
+    // Try to get user's streak using server client
     let streak = 0
     try {
-      const authHeader = request.headers.get('authorization')
-      if (authHeader) {
-        const token = authHeader.replace('Bearer ', '')
-        const { data: { user } } = await supabase.auth.getUser(token)
+        const cookieStore = cookies()
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    get(name: string) {
+                        return cookieStore.get(name)?.value
+                    },
+                },
+            }
+        )
+        
+        const { data: { user } } = await supabase.auth.getUser()
         
         if (user) {
           // Count consecutive days of responses
@@ -29,8 +42,6 @@ export async function GET(request: NextRequest) {
 
           if (responses && responses.length > 0) {
             let currentStreak = 1
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
             
             for (let i = 0; i < responses.length - 1; i++) {
               const current = new Date(responses[i].created_at)
@@ -50,7 +61,6 @@ export async function GET(request: NextRequest) {
             streak = currentStreak
           }
         }
-      }
     } catch (error) {
       // Ignore auth errors, just return without streak
       console.log('Could not fetch streak:', error)
@@ -71,5 +81,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-
-

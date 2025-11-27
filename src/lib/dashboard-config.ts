@@ -1,4 +1,3 @@
-import { UserRole } from "@/types/auth";
 import { LucideIcon, PenTool, Image, Monitor, BarChart, DollarSign, Users, Video, Megaphone, Layout, ShieldCheck } from "lucide-react";
 
 export type DashboardConfig = {

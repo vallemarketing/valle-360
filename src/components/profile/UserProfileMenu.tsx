@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { motion } from 'framer-motion'
+import { motion, Variants } from 'framer-motion'
 import { 
   ChevronRight, 
   User, 
@@ -12,10 +12,10 @@ import {
   Bell, 
   Settings, 
   MessageSquare, 
-  LogOut,
-  Lightbulb,
-  FileText,
-  FolderOpen
+  LogOut, 
+  Lightbulb, 
+  FileText, 
+  FolderOpen 
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -42,7 +42,7 @@ interface UserProfileMenuProps {
   className?: string
 }
 
-const sidebarVariants = {
+const sidebarVariants: Variants = {
   hidden: { opacity: 0, scale: 0.95 },
   visible: {
     opacity: 1,
@@ -53,7 +53,7 @@ const sidebarVariants = {
   },
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, x: -15 },
   visible: {
     opacity: 1,
@@ -197,7 +197,10 @@ export const UserProfileMenu = React.forwardRef<HTMLDivElement, UserProfileMenuP
               src={user.avatarUrl}
               alt={`Avatar de ${user.name}`}
               className="h-14 w-14 rounded-full object-cover ring-4"
-              style={{ ringColor: 'var(--primary-100)' }}
+              style={{ 
+                // @ts-ignore
+                '--tw-ring-color': 'var(--primary-100)' 
+              }}
             />
             {/* Online indicator */}
             <div 
@@ -327,4 +330,3 @@ export const UserProfileMenu = React.forwardRef<HTMLDivElement, UserProfileMenuP
 )
 
 UserProfileMenu.displayName = 'UserProfileMenu'
-
