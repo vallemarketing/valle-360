@@ -212,7 +212,7 @@ export const searchSchema = z.object({
 export function validate<T>(schema: z.ZodSchema<T>, data: unknown): {
   success: boolean;
   data?: T;
-  errors?: z.ZodError['errors'];
+  errors?: z.ZodIssue[];
 } {
   const result = schema.safeParse(data);
   
@@ -220,7 +220,7 @@ export function validate<T>(schema: z.ZodSchema<T>, data: unknown): {
     return { success: true, data: result.data };
   }
   
-  return { success: false, errors: result.error.errors };
+  return { success: false, errors: result.error.issues };
 }
 
 /**
@@ -233,7 +233,7 @@ export function validateOrThrow<T>(schema: z.ZodSchema<T>, data: unknown): T {
 /**
  * Formatar erros do Zod para exibição
  */
-export function formatZodErrors(errors: z.ZodError['errors']): Record<string, string> {
+export function formatZodErrors(errors: z.ZodIssue[]): Record<string, string> {
   const formatted: Record<string, string> = {};
   
   for (const error of errors) {
@@ -249,7 +249,7 @@ export function formatZodErrors(errors: z.ZodError['errors']): Record<string, st
 /**
  * Criar resposta de erro de validação
  */
-export function validationErrorResponse(errors: z.ZodError['errors']): Response {
+export function validationErrorResponse(errors: z.ZodIssue[]): Response {
   return new Response(
     JSON.stringify({
       error: 'Validation Error',
