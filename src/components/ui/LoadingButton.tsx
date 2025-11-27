@@ -203,7 +203,9 @@ export function ConfirmButton({
 
   const handleClick = () => {
     if (isConfirming) {
-      clearTimeout(timerRef.current);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
       setIsConfirming(false);
       onConfirm?.();
       onClick?.();
