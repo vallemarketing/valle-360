@@ -6,7 +6,7 @@ import { Loader2, Check, X } from 'lucide-react';
 
 type ButtonState = 'idle' | 'loading' | 'success' | 'error';
 
-interface LoadingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface LoadingButtonProps {
   children: React.ReactNode;
   loading?: boolean;
   state?: ButtonState;
@@ -18,6 +18,11 @@ interface LoadingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   fullWidth?: boolean;
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
+  className?: string;
+  disabled?: boolean;
+  type?: 'button' | 'submit' | 'reset';
+  onClick?: () => void;
+  style?: React.CSSProperties;
 }
 
 const VARIANTS = {
@@ -63,8 +68,9 @@ export function LoadingButton({
   iconPosition = 'left',
   className = '',
   disabled,
-  style,
-  ...props
+  type = 'button',
+  onClick,
+  style
 }: LoadingButtonProps) {
   const isLoading = loading || state === 'loading';
   const isDisabled = disabled || isLoading;
@@ -132,6 +138,8 @@ export function LoadingButton({
 
   return (
     <motion.button
+      type={type}
+      onClick={onClick}
       whileHover={!isDisabled ? { scale: 1.02 } : undefined}
       whileTap={!isDisabled ? { scale: 0.98 } : undefined}
       className={`
@@ -146,7 +154,6 @@ export function LoadingButton({
         ...style
       }}
       disabled={isDisabled}
-      {...props}
     >
       {getContent()}
     </motion.button>
@@ -154,10 +161,11 @@ export function LoadingButton({
 }
 
 // Botão com confirmação
-interface ConfirmButtonProps extends LoadingButtonProps {
+interface ConfirmButtonProps extends Omit<LoadingButtonProps, 'onClick'> {
   confirmText?: string;
   confirmDelay?: number;
   onConfirm?: () => void;
+  onClick?: () => void;
 }
 
 export function ConfirmButton({
@@ -193,12 +201,12 @@ export function ConfirmButton({
     }
   }, [isConfirming, confirmDelay]);
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = () => {
     if (isConfirming) {
       clearTimeout(timerRef.current);
       setIsConfirming(false);
       onConfirm?.();
-      onClick?.(e);
+      onClick?.();
     } else {
       setIsConfirming(true);
     }
@@ -216,4 +224,3 @@ export function ConfirmButton({
 }
 
 export default LoadingButton;
-
