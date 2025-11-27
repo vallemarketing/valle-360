@@ -59,7 +59,7 @@ export const KANBAN_TEMPLATES = {
 
 export const getTemplateForRole = (role: string) => {
   const normalizedRole = role.toLowerCase().replace(' ', '_');
-  return KANBAN_TEMPLATES[normalizedRole] || KANBAN_TEMPLATES.default;
+  return KANBAN_TEMPLATES[normalizedRole as keyof typeof KANBAN_TEMPLATES] || KANBAN_TEMPLATES.default;
 };
 
 
