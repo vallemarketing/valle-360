@@ -231,8 +231,7 @@ export function CompetitiveAnalysis() {
                   backgroundColor: 'var(--bg-primary)',
                   borderColor: selectedCompetitor?.id === competitor.id 
                     ? 'var(--primary-500)' 
-                    : 'var(--border-light)',
-                  ringColor: 'var(--primary-500)'
+                    : 'var(--border-light)'
                 }}
               >
                 <div className="flex items-start justify-between">

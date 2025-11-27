@@ -730,8 +730,7 @@ function PublishOption({ icon, name, color, description }: {
       }`}
       style={{
         backgroundColor: checked ? `${color}10` : 'var(--bg-secondary)',
-        borderColor: checked ? color : 'var(--border-light)',
-        ringColor: color
+        borderColor: checked ? color : 'var(--border-light)'
       }}
     >
       <div 
