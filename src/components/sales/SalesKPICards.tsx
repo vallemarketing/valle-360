@@ -78,7 +78,7 @@ export function SalesKPICards({ kpis = DEFAULT_KPIS }: SalesKPICardsProps) {
         >
           {/* Background decoration */}
           <div className="absolute right-2 top-2 opacity-20 text-white">
-            {React.cloneElement(kpi.icon as React.ReactElement, { className: 'w-12 h-12' })}
+            {React.cloneElement(kpi.icon as React.ReactElement<{ className?: string }>, { className: 'w-12 h-12' })}
           </div>
 
           {/* Icon */}
