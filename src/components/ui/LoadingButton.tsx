@@ -179,7 +179,7 @@ export function ConfirmButton({
 }: ConfirmButtonProps) {
   const [isConfirming, setIsConfirming] = React.useState(false);
   const [countdown, setCountdown] = React.useState(0);
-  const timerRef = React.useRef<NodeJS.Timeout>();
+  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   React.useEffect(() => {
     if (isConfirming) {
