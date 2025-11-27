@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
-// Inicializar OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
+export const dynamic = 'force-dynamic';
+
+// OpenAI será inicializado sob demanda dentro das funções
 
 // Interface para mensagem
 interface Message {
@@ -115,6 +114,11 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    // Inicializar OpenAI sob demanda
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    })
 
     // Parse do body
     const body = await request.json()
