@@ -716,13 +716,12 @@ export default function KanbanPage() {
                       {column.cards.map((card, index) => (
                         <Draggable key={card.id} draggableId={card.id} index={index}>
                           {(provided, snapshot) => (
-                            <motion.div
+                            <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
                               onClick={() => handleOpenCard(card)}
-                              whileHover={{ scale: 1.02 }}
-                              className="p-4 rounded-xl cursor-pointer transition-all"
+                              className="p-4 rounded-xl cursor-pointer transition-all hover:scale-[1.02]"
                               style={{
                                 ...provided.draggableProps.style,
                                 backgroundColor: snapshot.isDragging ? 'var(--primary-50)' : 'var(--bg-secondary)',
@@ -814,7 +813,7 @@ export default function KanbanPage() {
                                   )}
                                 </div>
                               </div>
-                            </motion.div>
+                            </div>
                           )}
                         </Draggable>
                       ))}
