@@ -32,7 +32,8 @@ import {
   Play,
   Pause,
   Square,
-  Volume2
+  Volume2,
+  Clock
 } from 'lucide-react'
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
