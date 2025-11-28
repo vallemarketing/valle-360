@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import {
-  Plus, Search, Filter, X, Clock, User, Phone, Building2, Calendar,
+  Plus, Search, Filter, X, Clock, User, Building2, Calendar,
   MoreHorizontal, Paperclip, MessageSquare, CheckCircle2, AlertCircle,
-  Flame, Thermometer, Snowflake, ChevronDown, Eye, Edit, Trash2,
-  FileText, Link2, Video, Mail, Tag
+  Flame, Thermometer, Snowflake, Edit, Trash2, ZoomIn, ZoomOut, Maximize2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, differenceInDays } from 'date-fns'
@@ -32,7 +31,6 @@ interface PipefyCard {
   tags: string[]
   attachments: number
   comments: number
-  customFields?: Record<string, string>
 }
 
 interface PipefyColumn {
@@ -50,26 +48,19 @@ const TEMPERATURE_CONFIG = {
   cold: { label: 'Frio', color: 'bg-blue-400', textColor: 'text-blue-700', bgLight: 'bg-blue-50', icon: Snowflake }
 }
 
-const COLUMN_COLORS: Record<string, string> = {
-  backlog: '#6366f1',
-  qualificacao: '#f59e0b',
-  contato: '#10b981',
-  followup: '#3b82f6',
-  reuniao: '#8b5cf6',
-  qualificado: '#22c55e',
-  nao_qualificado: '#ef4444',
-  em_progresso: '#f97316',
-  revisao: '#eab308',
-  aprovacao: '#06b6d4',
-  concluido: '#10b981'
-}
-
 const DEFAULT_COLUMNS: PipefyColumn[] = [
   { id: 'backlog', title: 'Backlog', color: '#6366f1', cards: [], description: 'Tarefas a fazer' },
   { id: 'em_progresso', title: 'Em Progresso', color: '#f97316', cards: [], description: 'Em andamento' },
   { id: 'revisao', title: 'Revisão', color: '#eab308', cards: [], description: 'Aguardando revisão' },
   { id: 'aprovacao', title: 'Aprovação Cliente', color: '#06b6d4', cards: [], description: 'Enviado para cliente' },
   { id: 'concluido', title: 'Concluído', color: '#10b981', cards: [], description: 'Finalizado' }
+]
+
+const ZOOM_LEVELS = [
+  { value: 0.6, label: '60%' },
+  { value: 0.75, label: '75%' },
+  { value: 0.85, label: '85%' },
+  { value: 1, label: '100%' }
 ]
 
 // ==================== COMPONENTE PRINCIPAL ====================
@@ -82,7 +73,7 @@ export default function KanbanPipefyPage() {
   const [newCardColumn, setNewCardColumn] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [userArea, setUserArea] = useState('Web Designer')
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [zoomLevel, setZoomLevel] = useState(0.85)
 
   useEffect(() => {
     loadData()
@@ -102,7 +93,6 @@ export default function KanbanPipefyPage() {
         setUserArea(area)
       }
 
-      // Carregar cards de exemplo
       loadMockData()
     } catch (error) {
       console.error('Erro:', error)
@@ -249,13 +239,12 @@ export default function KanbanPipefyPage() {
       }
     ]
 
-    // Distribuir cards nas colunas
     const newColumns = [...DEFAULT_COLUMNS]
-    newColumns[0].cards = [mockCards[0], mockCards[1]] // Backlog
-    newColumns[1].cards = [mockCards[2], mockCards[3]] // Em Progresso
-    newColumns[2].cards = [mockCards[4]] // Revisão
-    newColumns[3].cards = [mockCards[5], mockCards[6]] // Aprovação
-    newColumns[4].cards = [mockCards[7], mockCards[8]] // Concluído
+    newColumns[0].cards = [mockCards[0], mockCards[1]]
+    newColumns[1].cards = [mockCards[2], mockCards[3]]
+    newColumns[2].cards = [mockCards[4]]
+    newColumns[3].cards = [mockCards[5], mockCards[6]]
+    newColumns[4].cards = [mockCards[7], mockCards[8]]
 
     setColumns(newColumns)
   }
@@ -324,11 +313,17 @@ export default function KanbanPipefyPage() {
     )
   }))
 
-  // Scroll horizontal com mouse wheel
-  const handleWheel = (e: React.WheelEvent) => {
-    if (scrollContainerRef.current) {
-      e.preventDefault()
-      scrollContainerRef.current.scrollLeft += e.deltaY
+  const handleZoomIn = () => {
+    const currentIndex = ZOOM_LEVELS.findIndex(z => z.value === zoomLevel)
+    if (currentIndex < ZOOM_LEVELS.length - 1) {
+      setZoomLevel(ZOOM_LEVELS[currentIndex + 1].value)
+    }
+  }
+
+  const handleZoomOut = () => {
+    const currentIndex = ZOOM_LEVELS.findIndex(z => z.value === zoomLevel)
+    if (currentIndex > 0) {
+      setZoomLevel(ZOOM_LEVELS[currentIndex - 1].value)
     }
   }
 
@@ -340,33 +335,61 @@ export default function KanbanPipefyPage() {
     )
   }
 
+  // Calcular largura da coluna baseado no zoom
+  const columnWidth = Math.round(280 * zoomLevel)
+  const cardPadding = zoomLevel < 0.8 ? 'p-2' : 'p-3'
+  const fontSize = zoomLevel < 0.8 ? 'text-xs' : 'text-sm'
+
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f5f5f5' }}>
+    <div className="h-[calc(100vh-73px)] flex flex-col" style={{ backgroundColor: '#f5f5f5' }}>
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold text-gray-800">Kanban - {userArea}</h1>
-            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+      <div className="bg-white border-b px-4 py-3 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-bold text-gray-800">Kanban - {userArea}</h1>
+            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
               {columns.reduce((acc, col) => acc + col.cards.length, 0)} cards
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-lg">
+              <button 
+                onClick={handleZoomOut}
+                disabled={zoomLevel === ZOOM_LEVELS[0].value}
+                className="p-1 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-4 h-4 text-gray-600" />
+              </button>
+              <span className="text-xs font-medium text-gray-600 min-w-[40px] text-center">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <button 
+                onClick={handleZoomIn}
+                disabled={zoomLevel === ZOOM_LEVELS[ZOOM_LEVELS.length - 1].value}
+                className="p-1 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+
             {/* Busca */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Procurar cards"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                className="pl-8 pr-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
               />
             </div>
 
             {/* Filtros */}
-            <button className="flex items-center gap-2 px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">
               <Filter className="w-4 h-4" />
               Filtros
             </button>
@@ -374,41 +397,48 @@ export default function KanbanPipefyPage() {
         </div>
       </div>
 
-      {/* Kanban Board */}
+      {/* Kanban Board - Scroll nativo */}
       <div 
-        ref={scrollContainerRef}
-        onWheel={handleWheel}
-        className="flex-1 overflow-x-auto overflow-y-hidden p-6"
+        className="flex-1 overflow-auto p-4"
         style={{ 
           scrollbarWidth: 'thin',
           scrollbarColor: '#cbd5e1 #f1f5f9'
         }}
       >
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-4 h-full min-w-max pb-4">
+          <div 
+            className="flex gap-3 min-h-full pb-4"
+            style={{ 
+              width: 'fit-content',
+              minWidth: '100%'
+            }}
+          >
             {filteredColumns.map((column) => (
               <div
                 key={column.id}
-                className="w-72 flex-shrink-0 flex flex-col bg-gray-100 rounded-lg overflow-hidden"
-                style={{ maxHeight: 'calc(100vh - 180px)' }}
+                className="flex-shrink-0 flex flex-col bg-gray-100 rounded-lg overflow-hidden"
+                style={{ 
+                  width: `${columnWidth}px`,
+                  maxHeight: 'calc(100vh - 200px)'
+                }}
               >
                 {/* Column Header */}
                 <div 
-                  className="px-4 py-3 flex items-center justify-between"
+                  className="px-3 py-2 flex items-center justify-between flex-shrink-0"
                   style={{ backgroundColor: column.color }}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-white">{column.title}</span>
-                    <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs text-white font-medium">
+                    <span className={`font-semibold text-white ${fontSize}`}>{column.title}</span>
+                    <span className="px-1.5 py-0.5 bg-white/20 rounded-full text-[10px] text-white font-medium">
                       {column.cards.length}
                     </span>
                   </div>
                   <button className="text-white/80 hover:text-white">
-                    <MoreHorizontal className="w-5 h-5" />
+                    <MoreHorizontal className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Cards Container */}
+                {/* Cards Container - Scroll vertical */}
                 <Droppable droppableId={column.id}>
                   {(provided, snapshot) => (
                     <div
@@ -419,7 +449,7 @@ export default function KanbanPipefyPage() {
                         snapshot.isDraggingOver && "bg-blue-50"
                       )}
                       style={{ 
-                        minHeight: '200px',
+                        minHeight: '100px',
                         scrollbarWidth: 'thin',
                         scrollbarColor: '#cbd5e1 transparent'
                       }}
@@ -433,7 +463,7 @@ export default function KanbanPipefyPage() {
                               {...provided.dragHandleProps}
                               onClick={() => handleOpenCard(card)}
                               className={cn(
-                                "bg-white rounded-lg p-3 cursor-pointer transition-all",
+                                `bg-white rounded-lg ${cardPadding} cursor-pointer transition-all`,
                                 "border border-gray-200 hover:shadow-md",
                                 snapshot.isDragging && "shadow-lg ring-2 ring-blue-500"
                               )}
@@ -443,16 +473,16 @@ export default function KanbanPipefyPage() {
                             >
                               {/* Tag EXEMPLO */}
                               {card.tags.includes('EXEMPLO') && (
-                                <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                                <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
                                   EXEMPLO
                                 </span>
                               )}
 
                               {/* Temperature Badge */}
                               {card.temperature && (
-                                <div className="mb-2">
+                                <div className="mb-1.5">
                                   <span className={cn(
-                                    "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
+                                    `inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${fontSize} font-medium`,
                                     TEMPERATURE_CONFIG[card.temperature].color,
                                     "text-white"
                                   )}>
@@ -462,54 +492,54 @@ export default function KanbanPipefyPage() {
                               )}
 
                               {/* Title */}
-                              <h3 className="font-semibold text-gray-800 mb-2">{card.title}</h3>
+                              <h3 className={`font-semibold text-gray-800 mb-1.5 ${fontSize}`}>{card.title}</h3>
 
                               {/* Contact Info */}
                               {card.contactName && (
-                                <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                                  <User className="w-3.5 h-3.5 text-gray-400" />
-                                  <span className="text-xs text-gray-500">NOME DO CONTATO</span>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <User className="w-3 h-3 text-gray-400" />
+                                  <span className="text-[10px] text-gray-500">NOME DO CONTATO</span>
                                 </div>
                               )}
                               {card.contactName && (
-                                <p className="text-sm text-gray-700 mb-2 ml-5">{card.contactName}</p>
+                                <p className={`text-gray-700 mb-1.5 ml-4 ${fontSize}`}>{card.contactName}</p>
                               )}
 
                               {/* Industry */}
                               {card.industry && (
                                 <>
-                                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                                    <Building2 className="w-3.5 h-3.5 text-gray-400" />
-                                    <span className="text-xs text-gray-500">INDÚSTRIA</span>
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <Building2 className="w-3 h-3 text-gray-400" />
+                                    <span className="text-[10px] text-gray-500">INDÚSTRIA</span>
                                   </div>
-                                  <p className="text-sm text-gray-700 mb-2 ml-5">{card.industry}</p>
+                                  <p className={`text-gray-700 mb-1.5 ml-4 ${fontSize}`}>{card.industry}</p>
                                 </>
                               )}
 
                               {/* Description */}
                               {card.description && (
-                                <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                                <p className={`text-gray-600 mt-1.5 line-clamp-2 ${fontSize}`}>
                                   {card.description}
                                 </p>
                               )}
 
                               {/* Footer - Dates */}
-                              <div className="flex items-center gap-3 mt-3 pt-2 border-t border-gray-100">
-                                <div className="flex items-center gap-1 text-xs text-gray-500">
-                                  <AlertCircle className="w-3 h-3 text-red-400" />
+                              <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-gray-100">
+                                <div className="flex items-center gap-0.5 text-[10px] text-gray-500">
+                                  <AlertCircle className="w-2.5 h-2.5 text-red-400" />
                                   <span>{differenceInDays(new Date(), card.createdAt)}d</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-xs text-gray-500">
-                                  <Clock className="w-3 h-3 text-green-400" />
+                                <div className="flex items-center gap-0.5 text-[10px] text-gray-500">
+                                  <Clock className="w-2.5 h-2.5 text-green-400" />
                                   <span>{differenceInDays(new Date(), card.createdAt)}d</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-xs text-gray-500">
-                                  <Calendar className="w-3 h-3 text-blue-400" />
+                                <div className="flex items-center gap-0.5 text-[10px] text-gray-500">
+                                  <Calendar className="w-2.5 h-2.5 text-blue-400" />
                                   <span>{differenceInDays(new Date(), card.createdAt)}d</span>
                                 </div>
                                 {card.dueDate && (
-                                  <div className="flex items-center gap-1 text-xs text-gray-500 ml-auto">
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                  <div className="flex items-center gap-0.5 text-[10px] text-gray-500 ml-auto">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
                                     <span>0min</span>
                                   </div>
                                 )}
@@ -526,9 +556,9 @@ export default function KanbanPipefyPage() {
                 {/* Add Card Button */}
                 <button
                   onClick={() => handleNewCard(column.id)}
-                  className="m-2 p-3 flex items-center gap-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  className={`m-2 p-2 flex items-center gap-1.5 ${fontSize} text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0`}
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
                   Criar novo card
                 </button>
               </div>
@@ -695,10 +725,6 @@ function CardDetailModal({ card, onClose }: { card: PipefyCard; onClose: () => v
               <Edit className="w-4 h-4 inline mr-1" />
               Editar
             </button>
-            <button className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg">
-              <Trash2 className="w-4 h-4 inline mr-1" />
-              Excluir
-            </button>
           </div>
         </div>
       </motion.div>
@@ -753,7 +779,7 @@ function NewCardModal({ onClose, onCreate }: { onClose: () => void; onCreate: (d
         </div>
 
         {/* Body */}
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
             <input
@@ -792,27 +818,6 @@ function NewCardModal({ onClose, onCreate }: { onClose: () => void; onCreate: (d
                 type="text"
                 value={formData.company}
                 onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={formData.contactEmail}
-                onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-              <input
-                type="tel"
-                value={formData.contactPhone}
-                onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

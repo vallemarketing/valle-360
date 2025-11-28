@@ -429,8 +429,28 @@ export function ValSidebar() {
 // Botão flutuante para abrir Val
 export function ValFloatingButton() {
   const { setValChatOpen, valChatOpen } = useApp();
+  const [isMessagesPage, setIsMessagesPage] = React.useState(false);
 
-  if (valChatOpen) return null;
+  React.useEffect(() => {
+    // Verificar se está na página de mensagens
+    const checkPage = () => {
+      setIsMessagesPage(window.location.pathname.includes('/mensagens'));
+    };
+    checkPage();
+    window.addEventListener('popstate', checkPage);
+    
+    // Observer para mudanças de rota em SPA
+    const observer = new MutationObserver(checkPage);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    return () => {
+      window.removeEventListener('popstate', checkPage);
+      observer.disconnect();
+    };
+  }, []);
+
+  // Não mostrar na página de mensagens ou quando Val está aberta
+  if (valChatOpen || isMessagesPage) return null;
 
   return (
     <motion.button
@@ -439,7 +459,7 @@ export function ValFloatingButton() {
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.9 }}
       onClick={() => setValChatOpen(true)}
-      className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center z-40"
+      className="fixed bottom-20 right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center z-40"
       style={{ 
         background: 'linear-gradient(135deg, var(--purple-500) 0%, var(--primary-500) 100%)'
       }}

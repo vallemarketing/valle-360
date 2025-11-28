@@ -12,28 +12,23 @@ import {
   MoreVertical,
   Paperclip,
   Smile,
-  Image as ImageIcon,
   Mic,
-  MicOff,
   Plus,
   X,
   Check,
   CheckCheck,
   Users,
-  User,
   Building2,
   ArrowLeft,
-  Pin,
   Trash2,
   Reply,
   Heart,
-  ThumbsUp,
-  Laugh,
   Play,
   Pause,
-  Square,
   Volume2,
-  Clock
+  Clock,
+  Edit3,
+  MoreHorizontal
 } from 'lucide-react'
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
@@ -50,21 +45,10 @@ interface Message {
   type: 'text' | 'audio' | 'image' | 'file'
   audioUrl?: string
   audioDuration?: number
-  attachments?: Array<{
-    type: 'image' | 'file'
-    url: string
-    name: string
-  }>
-  reactions?: Array<{
-    emoji: string
-    userId: string
-  }>
-  replyTo?: {
-    id: string
-    content: string
-    sender: string
-  }
-  isPinned?: boolean
+  reactions?: Array<{ emoji: string; userId: string }>
+  replyTo?: { id: string; content: string; sender: string }
+  isEdited?: boolean
+  editedAt?: Date
 }
 
 interface Conversation {
@@ -87,7 +71,11 @@ type TabType = 'equipe' | 'clientes' | 'grupos'
 // ==================== COMPONENTE PRINCIPAL ====================
 export default function MensagensPage() {
   const [activeTab, setActiveTab] = useState<TabType>('equipe')
-  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [allConversations, setAllConversations] = useState<Record<TabType, Conversation[]>>({
+    equipe: [],
+    clientes: [],
+    grupos: []
+  })
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
@@ -105,11 +93,20 @@ export default function MensagensPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
-  // Reply state
+  // Reply and Edit states
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null)
+  const [editContent, setEditContent] = useState('')
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Calcular total de não lidas por aba
+  const unreadCounts = {
+    equipe: allConversations.equipe.reduce((acc, c) => acc + c.unread_count, 0),
+    clientes: allConversations.clientes.reduce((acc, c) => acc + c.unread_count, 0),
+    grupos: allConversations.grupos.reduce((acc, c) => acc + c.unread_count, 0)
+  }
 
   useEffect(() => {
     loadData()
@@ -139,7 +136,7 @@ export default function MensagensPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       setCurrentUserId(user.id)
-      loadConversations()
+      loadAllConversations()
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
     } finally {
@@ -147,8 +144,7 @@ export default function MensagensPage() {
     }
   }
 
-  const loadConversations = () => {
-    // Mock conversations por tipo
+  const loadAllConversations = () => {
     const mockConversations: Record<TabType, Conversation[]> = {
       equipe: [
         {
@@ -241,15 +237,21 @@ export default function MensagensPage() {
       ]
     }
 
-    setConversations(mockConversations[activeTab])
+    setAllConversations(mockConversations)
   }
 
-  useEffect(() => {
-    loadConversations()
-  }, [activeTab])
+  // Ordenar conversas: não lidas primeiro, depois por data
+  const getSortedConversations = (conversations: Conversation[]) => {
+    return [...conversations].sort((a, b) => {
+      // Não lidas primeiro
+      if (a.unread_count > 0 && b.unread_count === 0) return -1
+      if (a.unread_count === 0 && b.unread_count > 0) return 1
+      // Depois por data mais recente
+      return b.last_message_time.getTime() - a.last_message_time.getTime()
+    })
+  }
 
   const loadMessages = (conversationId: string) => {
-    // Mock messages
     const mockMessages: Message[] = [
       {
         id: '1',
@@ -310,6 +312,18 @@ export default function MensagensPage() {
   const handleSendMessage = () => {
     if (!newMessage.trim() && !audioBlob) return
 
+    // Se estiver editando
+    if (editingMessage) {
+      setMessages(prev => prev.map(m => 
+        m.id === editingMessage.id 
+          ? { ...m, content: editContent, isEdited: true, editedAt: new Date() }
+          : m
+      ))
+      setEditingMessage(null)
+      setEditContent('')
+      return
+    }
+
     const message: Message = {
       id: Date.now().toString(),
       content: newMessage,
@@ -349,7 +363,11 @@ export default function MensagensPage() {
   }
 
   const handleEmojiSelect = (emoji: any) => {
-    setNewMessage(prev => prev + emoji.native)
+    if (editingMessage) {
+      setEditContent(prev => prev + emoji.native)
+    } else {
+      setNewMessage(prev => prev + emoji.native)
+    }
     setShowEmojiPicker(false)
   }
 
@@ -365,6 +383,24 @@ export default function MensagensPage() {
       }
       return m
     }))
+  }
+
+  // Verificar se pode editar (até 10 minutos)
+  const canEditMessage = (message: Message) => {
+    if (message.sender_id !== currentUserId) return false
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000)
+    return message.timestamp > tenMinutesAgo
+  }
+
+  const handleStartEdit = (message: Message) => {
+    if (!canEditMessage(message)) return
+    setEditingMessage(message)
+    setEditContent(message.content)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingMessage(null)
+    setEditContent('')
   }
 
   // Audio Recording Functions
@@ -426,6 +462,7 @@ export default function MensagensPage() {
     return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   }
 
+  const conversations = getSortedConversations(allConversations[activeTab])
   const filteredConversations = conversations.filter(c =>
     c.participant_name.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -459,7 +496,7 @@ export default function MensagensPage() {
         <div className="p-4 border-b" style={{ borderColor: 'var(--border-light)' }}>
           <h1 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Mensagens</h1>
           
-          {/* Tabs */}
+          {/* Tabs com badges */}
           <div className="flex gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             {[
               { id: 'equipe', label: 'Equipe', icon: Users },
@@ -469,7 +506,7 @@ export default function MensagensPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-md text-sm font-medium transition-all relative ${
                   activeTab === tab.id 
                     ? 'bg-white shadow-sm' 
                     : 'hover:bg-white/50'
@@ -480,6 +517,11 @@ export default function MensagensPage() {
               >
                 <tab.icon className="w-4 h-4" />
                 <span className="hidden sm:inline">{tab.label}</span>
+                {unreadCounts[tab.id as TabType] > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {unreadCounts[tab.id as TabType] > 99 ? '99+' : unreadCounts[tab.id as TabType]}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -517,7 +559,7 @@ export default function MensagensPage() {
                 onClick={() => setSelectedConversation(conversation)}
                 className={`p-4 cursor-pointer border-b transition-colors ${
                   selectedConversation?.id === conversation.id ? 'bg-blue-50' : ''
-                }`}
+                } ${conversation.unread_count > 0 ? 'bg-blue-50/50' : ''}`}
                 style={{ borderColor: 'var(--border-light)' }}
               >
                 <div className="flex items-center gap-3">
@@ -541,7 +583,7 @@ export default function MensagensPage() {
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                      <h3 className={`font-semibold truncate ${conversation.unread_count > 0 ? 'font-bold' : ''}`} style={{ color: 'var(--text-primary)' }}>
                         {conversation.participant_name}
                       </h3>
                       <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -549,7 +591,7 @@ export default function MensagensPage() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-0.5">
-                      <p className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
+                      <p className={`text-sm truncate ${conversation.unread_count > 0 ? 'font-medium' : ''}`} style={{ color: conversation.unread_count > 0 ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                         {conversation.is_typing ? (
                           <span className="text-blue-500 italic">Digitando...</span>
                         ) : (
@@ -579,7 +621,7 @@ export default function MensagensPage() {
           <>
             {/* Chat Header */}
             <div 
-              className="p-4 flex items-center justify-between border-b"
+              className="p-4 flex items-center justify-between border-b flex-shrink-0"
               style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}
             >
               <div className="flex items-center gap-3">
@@ -630,8 +672,9 @@ export default function MensagensPage() {
                 backgroundImage: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%239C92AC" fill-opacity="0.03"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'
               }}
             >
-              {messages.map((message, idx) => {
+              {messages.map((message) => {
                 const isOwn = message.sender_id === currentUserId
+                const canEdit = canEditMessage(message)
                 
                 return (
                   <motion.div
@@ -676,8 +719,13 @@ export default function MensagensPage() {
                           />
                         )}
                         
-                        {/* Time and Status */}
+                        {/* Time, Status and Edited */}
                         <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : ''}`}>
+                          {message.isEdited && (
+                            <span className={`text-[9px] italic ${isOwn ? 'text-white/60' : ''}`} style={!isOwn ? { color: 'var(--text-tertiary)' } : {}}>
+                              editada
+                            </span>
+                          )}
                           <span className={`text-[10px] ${isOwn ? 'text-white/70' : ''}`} style={!isOwn ? { color: 'var(--text-tertiary)' } : {}}>
                             {formatMessageTime(message.timestamp)}
                           </span>
@@ -685,19 +733,30 @@ export default function MensagensPage() {
                         </div>
 
                         {/* Quick Actions */}
-                        <div className={`absolute ${isOwn ? '-left-20' : '-right-20'} top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1`}>
+                        <div className={`absolute ${isOwn ? '-left-24' : '-right-24'} top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1`}>
                           <button 
                             onClick={() => handleReaction(message.id, '❤️')}
                             className="p-1.5 bg-white rounded-full shadow-md hover:bg-gray-100"
+                            title="Reagir"
                           >
                             <Heart className="w-3.5 h-3.5 text-red-500" />
                           </button>
                           <button 
                             onClick={() => setReplyingTo(message)}
                             className="p-1.5 bg-white rounded-full shadow-md hover:bg-gray-100"
+                            title="Responder"
                           >
                             <Reply className="w-3.5 h-3.5 text-gray-500" />
                           </button>
+                          {canEdit && (
+                            <button 
+                              onClick={() => handleStartEdit(message)}
+                              className="p-1.5 bg-white rounded-full shadow-md hover:bg-gray-100"
+                              title="Editar (até 10 min)"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-gray-500" />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -721,7 +780,7 @@ export default function MensagensPage() {
             {/* Reply Preview */}
             {replyingTo && (
               <div 
-                className="px-4 py-2 border-t flex items-center justify-between"
+                className="px-4 py-2 border-t flex items-center justify-between flex-shrink-0"
                 style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}
               >
                 <div className="flex items-center gap-2">
@@ -741,9 +800,25 @@ export default function MensagensPage() {
               </div>
             )}
 
+            {/* Edit Mode Banner */}
+            {editingMessage && (
+              <div 
+                className="px-4 py-2 border-t flex items-center justify-between flex-shrink-0"
+                style={{ backgroundColor: '#fef3c7', borderColor: '#fcd34d' }}
+              >
+                <div className="flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-800">Editando mensagem</span>
+                </div>
+                <button onClick={handleCancelEdit} className="p-1 hover:bg-amber-200 rounded">
+                  <X className="w-4 h-4 text-amber-600" />
+                </button>
+              </div>
+            )}
+
             {/* Input Area */}
             <div 
-              className="p-4 border-t"
+              className="p-4 border-t flex-shrink-0"
               style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}
             >
               {isRecording ? (
@@ -825,24 +900,24 @@ export default function MensagensPage() {
                   
                   <input
                     type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    value={editingMessage ? editContent : newMessage}
+                    onChange={(e) => editingMessage ? setEditContent(e.target.value) : setNewMessage(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Digite uma mensagem..."
+                    placeholder={editingMessage ? "Editar mensagem..." : "Digite uma mensagem..."}
                     className="flex-1 px-4 py-2 rounded-full border focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{ 
-                      backgroundColor: 'var(--bg-secondary)', 
-                      borderColor: 'var(--border-light)',
+                      backgroundColor: editingMessage ? '#fef9c3' : 'var(--bg-secondary)', 
+                      borderColor: editingMessage ? '#fcd34d' : 'var(--border-light)',
                       color: 'var(--text-primary)'
                     }}
                   />
                   
-                  {newMessage.trim() ? (
+                  {(editingMessage ? editContent.trim() : newMessage.trim()) ? (
                     <button 
                       onClick={handleSendMessage}
                       className="p-3 bg-blue-500 rounded-full text-white hover:bg-blue-600"
                     >
-                      <Send className="w-5 h-5" />
+                      {editingMessage ? <Check className="w-5 h-5" /> : <Send className="w-5 h-5" />}
                     </button>
                   ) : (
                     <button 
@@ -922,7 +997,7 @@ function AudioMessage({ url, duration, isOwn }: { url: string; duration: number;
         <div className={`h-1 rounded-full ${isOwn ? 'bg-white/30' : 'bg-gray-200'}`}>
           <div 
             className={`h-1 rounded-full ${isOwn ? 'bg-white' : 'bg-blue-500'}`}
-            style={{ width: `${(currentTime / duration) * 100}%` }}
+            style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
           />
         </div>
         <span className={`text-xs ${isOwn ? 'text-white/70' : ''}`} style={!isOwn ? { color: 'var(--text-tertiary)' } : {}}>
