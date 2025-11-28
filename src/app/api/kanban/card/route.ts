@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// Função para criar cliente Supabase sob demanda (evita erro no build)
+const getSupabase = async () => {
+  const { createClient } = await import('@supabase/supabase-js')
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  )
+}
 
 export async function POST(request: NextRequest) {
   try {
