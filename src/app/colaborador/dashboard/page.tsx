@@ -18,6 +18,7 @@ export default function ColaboradorDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [userName, setUserName] = useState('')
   const [userArea, setUserArea] = useState('')
+  const [userAreaDisplay, setUserAreaDisplay] = useState('')
   const [userId, setUserId] = useState('')
   const [notifications, setNotifications] = useState<any[]>([])
   const [viewMode, setViewMode] = useState<'specific' | 'customizable'>('specific')
@@ -121,21 +122,21 @@ export default function ColaboradorDashboardPage() {
 
       // Normalizar a área para garantir que o mapeamento funcione
 
-      const rawArea = employee?.employee_areas_of_expertise?.[0]?.area_name || 'Marketing';
-      const area = rawArea.toLowerCase().replace(' ', '_');
+      const rawArea = employee?.employee_areas_of_expertise?.[0]?.area_name || 'Web Designer';
+      const area = rawArea.toLowerCase().replace(/ /g, '_');
       
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'src/app/colaborador/dashboard/page.tsx:130',message:'Dashboard loadData executed',data:{userId:user.id,rawArea,normalizedArea:area,profileFullName:profile?.full_name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
-
-      const firstName = profile?.full_name?.split(' ')[0] || 'Colaborador'
+      // Buscar nome completo do employee se profile não tiver
+      const fullName = profile?.full_name || employee?.full_name || 'Colaborador';
+      const firstName = fullName.split(' ')[0];
 
       console.log('🎯 ÁREA DETECTADA (Raw):', rawArea)
       console.log('🎯 ÁREA NORMALIZADA:', area)
-      console.log('👤 NOME:', firstName)
+      console.log('👤 NOME COMPLETO:', fullName)
+      console.log('👤 PRIMEIRO NOME:', firstName)
 
       setUserName(firstName)
-      setUserArea(area) // Usar a área normalizada para o componente
+      setUserArea(area) // Área normalizada para lógica
+      setUserAreaDisplay(rawArea) // Área original para exibição
 
       // Carregar notificações e dados específicos
       const notifs = loadNotifications(rawArea) // Manter rawArea para notificações se necessário
@@ -234,7 +235,7 @@ export default function ColaboradorDashboardPage() {
               Olá, {userName}! 👋
             </h1>
             <p className="text-lg font-semibold" style={{ color: '#4370d1' }}>
-              {userArea.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+              {userAreaDisplay}
             </p>
           </div>
           

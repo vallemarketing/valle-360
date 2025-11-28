@@ -13,17 +13,31 @@ import {
   Paperclip,
   Smile,
   Image as ImageIcon,
-  File,
+  Mic,
+  MicOff,
   Plus,
   X,
   Check,
   CheckCheck,
-  Filter,
-  ArrowLeft
+  Users,
+  User,
+  Building2,
+  ArrowLeft,
+  Pin,
+  Trash2,
+  Reply,
+  Heart,
+  ThumbsUp,
+  Laugh,
+  Play,
+  Pause,
+  Square,
+  Volume2
 } from 'lucide-react'
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
 
+// ==================== TIPOS ====================
 interface Message {
   id: string
   content: string
@@ -31,27 +45,47 @@ interface Message {
   sender_name: string
   sender_avatar: string
   timestamp: Date
-  read: boolean
+  status: 'sending' | 'sent' | 'delivered' | 'read'
+  type: 'text' | 'audio' | 'image' | 'file'
+  audioUrl?: string
+  audioDuration?: number
   attachments?: Array<{
-    type: 'image' | 'file' | 'drive'
+    type: 'image' | 'file'
     url: string
     name: string
   }>
+  reactions?: Array<{
+    emoji: string
+    userId: string
+  }>
+  replyTo?: {
+    id: string
+    content: string
+    sender: string
+  }
+  isPinned?: boolean
 }
 
 interface Conversation {
   id: string
-  participant_id: string
+  type: 'team' | 'client' | 'group'
+  participant_id?: string
   participant_name: string
   participant_avatar: string
-  participant_role: string
+  participant_role?: string
   last_message: string
   last_message_time: Date
   unread_count: number
   is_online: boolean
+  is_typing?: boolean
+  members?: number
 }
 
+type TabType = 'equipe' | 'clientes' | 'grupos'
+
+// ==================== COMPONENTE PRINCIPAL ====================
 export default function MensagensPage() {
+  const [activeTab, setActiveTab] = useState<TabType>('equipe')
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -59,18 +93,25 @@ export default function MensagensPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [currentUserId, setCurrentUserId] = useState<string>('')
-  const [showNewConversation, setShowNewConversation] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
-  const [filterType, setFilterType] = useState<'all' | 'unread'>('all')
-  const [availableUsers, setAvailableUsers] = useState<any[]>([])
   const [isMobileView, setIsMobileView] = useState(false)
+  const [showMobileChat, setShowMobileChat] = useState(false)
+  
+  // Audio recording states
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Reply state
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadData()
-    // Check mobile view
     const checkMobile = () => setIsMobileView(window.innerWidth < 768)
     checkMobile()
     window.addEventListener('resize', checkMobile)
@@ -80,6 +121,7 @@ export default function MensagensPage() {
   useEffect(() => {
     if (selectedConversation) {
       loadMessages(selectedConversation.id)
+      if (isMobileView) setShowMobileChat(true)
     }
   }, [selectedConversation])
 
@@ -95,13 +137,22 @@ export default function MensagensPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-
       setCurrentUserId(user.id)
+      loadConversations()
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-      // Carregar conversas simuladas (você adaptará para seu schema)
-      const mockConversations: Conversation[] = [
+  const loadConversations = () => {
+    // Mock conversations por tipo
+    const mockConversations: Record<TabType, Conversation[]> = {
+      equipe: [
         {
           id: '1',
+          type: 'team',
           participant_id: 'user2',
           participant_name: 'Maria Silva',
           participant_avatar: 'https://ui-avatars.com/api/?name=Maria+Silva&background=4370d1&color=fff',
@@ -109,10 +160,12 @@ export default function MensagensPage() {
           last_message: 'Oi! Conseguiu ver o projeto?',
           last_message_time: new Date(Date.now() - 5 * 60000),
           unread_count: 2,
-          is_online: true
+          is_online: true,
+          is_typing: false
         },
         {
           id: '2',
+          type: 'team',
           participant_id: 'user3',
           participant_name: 'João Santos',
           participant_avatar: 'https://ui-avatars.com/api/?name=Joao+Santos&background=10b981&color=fff',
@@ -124,6 +177,7 @@ export default function MensagensPage() {
         },
         {
           id: '3',
+          type: 'team',
           participant_id: 'user4',
           participant_name: 'Ana Costa',
           participant_avatar: 'https://ui-avatars.com/api/?name=Ana+Costa&background=f59e0b&color=fff',
@@ -133,559 +187,747 @@ export default function MensagensPage() {
           unread_count: 0,
           is_online: true
         }
+      ],
+      clientes: [
+        {
+          id: '4',
+          type: 'client',
+          participant_id: 'client1',
+          participant_name: 'Tech Solutions',
+          participant_avatar: 'https://ui-avatars.com/api/?name=Tech+Solutions&background=8b5cf6&color=fff',
+          participant_role: 'Cliente',
+          last_message: 'Aprovado! Podem seguir.',
+          last_message_time: new Date(Date.now() - 2 * 60 * 60000),
+          unread_count: 0,
+          is_online: true
+        },
+        {
+          id: '5',
+          type: 'client',
+          participant_id: 'client2',
+          participant_name: 'E-commerce Plus',
+          participant_avatar: 'https://ui-avatars.com/api/?name=Ecommerce+Plus&background=ec4899&color=fff',
+          participant_role: 'Cliente',
+          last_message: 'Preciso de ajustes no banner',
+          last_message_time: new Date(Date.now() - 4 * 60 * 60000),
+          unread_count: 3,
+          is_online: false
+        }
+      ],
+      grupos: [
+        {
+          id: '6',
+          type: 'group',
+          participant_name: 'Projeto Landing Page',
+          participant_avatar: 'https://ui-avatars.com/api/?name=LP&background=06b6d4&color=fff',
+          last_message: 'Ana: Finalizei os mockups',
+          last_message_time: new Date(Date.now() - 15 * 60000),
+          unread_count: 5,
+          is_online: true,
+          members: 4
+        },
+        {
+          id: '7',
+          type: 'group',
+          participant_name: 'Equipe Design',
+          participant_avatar: 'https://ui-avatars.com/api/?name=ED&background=f97316&color=fff',
+          last_message: 'João: Reunião às 15h',
+          last_message_time: new Date(Date.now() - 45 * 60000),
+          unread_count: 0,
+          is_online: true,
+          members: 8
+        }
       ]
-
-      setConversations(mockConversations)
-
-      // Carregar usuários disponíveis para nova conversa
-      const { data: employees } = await supabase
-        .from('employees')
-        .select('user_id, full_name, employee_areas_of_expertise(area_name)')
-      
-      setAvailableUsers(employees || [])
-      
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error)
-    } finally {
-      setLoading(false)
     }
+
+    setConversations(mockConversations[activeTab])
   }
 
-  const loadMessages = async (conversationId: string) => {
-    // Mensagens simuladas (adaptar para seu schema)
+  useEffect(() => {
+    loadConversations()
+  }, [activeTab])
+
+  const loadMessages = (conversationId: string) => {
+    // Mock messages
     const mockMessages: Message[] = [
       {
         id: '1',
-        content: 'Oi! Como vai o projeto?',
+        content: 'Oi! Tudo bem?',
         sender_id: 'user2',
         sender_name: 'Maria Silva',
         sender_avatar: 'https://ui-avatars.com/api/?name=Maria+Silva&background=4370d1&color=fff',
-        timestamp: new Date(Date.now() - 60 * 60000),
-        read: true
+        timestamp: new Date(Date.now() - 30 * 60000),
+        status: 'read',
+        type: 'text'
       },
       {
         id: '2',
-        content: 'Vai bem! Estou terminando o design.',
+        content: 'Oi Maria! Tudo sim, e você?',
         sender_id: currentUserId,
         sender_name: 'Você',
-        sender_avatar: '',
-        timestamp: new Date(Date.now() - 55 * 60000),
-        read: true
+        sender_avatar: 'https://ui-avatars.com/api/?name=Voce&background=10b981&color=fff',
+        timestamp: new Date(Date.now() - 28 * 60000),
+        status: 'read',
+        type: 'text'
       },
       {
         id: '3',
-        content: 'Ótimo! Conseguiu ver o projeto?',
+        content: 'Conseguiu ver o projeto que enviei?',
+        sender_id: 'user2',
+        sender_name: 'Maria Silva',
+        sender_avatar: 'https://ui-avatars.com/api/?name=Maria+Silva&background=4370d1&color=fff',
+        timestamp: new Date(Date.now() - 25 * 60000),
+        status: 'read',
+        type: 'text'
+      },
+      {
+        id: '4',
+        content: 'Sim! Ficou muito bom. Só preciso de alguns ajustes no header.',
+        sender_id: currentUserId,
+        sender_name: 'Você',
+        sender_avatar: 'https://ui-avatars.com/api/?name=Voce&background=10b981&color=fff',
+        timestamp: new Date(Date.now() - 20 * 60000),
+        status: 'read',
+        type: 'text',
+        reactions: [{ emoji: '👍', userId: 'user2' }]
+      },
+      {
+        id: '5',
+        content: 'Perfeito! Vou fazer os ajustes agora.',
         sender_id: 'user2',
         sender_name: 'Maria Silva',
         sender_avatar: 'https://ui-avatars.com/api/?name=Maria+Silva&background=4370d1&color=fff',
         timestamp: new Date(Date.now() - 5 * 60000),
-        read: false,
-        attachments: [
-          {
-            type: 'image',
-            url: 'https://picsum.photos/seed/design/400/300',
-            name: 'design-mockup.png'
-          }
-        ]
+        status: 'read',
+        type: 'text'
       }
     ]
 
     setMessages(mockMessages)
   }
 
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return
+  const handleSendMessage = () => {
+    if (!newMessage.trim() && !audioBlob) return
 
     const message: Message = {
       id: Date.now().toString(),
       content: newMessage,
       sender_id: currentUserId,
       sender_name: 'Você',
-      sender_avatar: '',
+      sender_avatar: 'https://ui-avatars.com/api/?name=Voce&background=10b981&color=fff',
       timestamp: new Date(),
-      read: false
+      status: 'sent',
+      type: audioBlob ? 'audio' : 'text',
+      audioUrl: audioBlob ? URL.createObjectURL(audioBlob) : undefined,
+      audioDuration: recordingTime,
+      replyTo: replyingTo ? {
+        id: replyingTo.id,
+        content: replyingTo.content,
+        sender: replyingTo.sender_name
+      } : undefined
     }
 
     setMessages([...messages, message])
     setNewMessage('')
+    setAudioBlob(null)
+    setRecordingTime(0)
+    setReplyingTo(null)
 
-    // TODO: Salvar mensagem no banco
-    // await supabase.from('messages').insert({ ... })
+    // Simular mudança de status
+    setTimeout(() => {
+      setMessages(prev => prev.map(m => 
+        m.id === message.id ? { ...m, status: 'delivered' } : m
+      ))
+    }, 1000)
+
+    setTimeout(() => {
+      setMessages(prev => prev.map(m => 
+        m.id === message.id ? { ...m, status: 'read' } : m
+      ))
+    }, 2000)
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
-
-    // TODO: Upload para Supabase Storage ou Google Drive
-    console.log('📎 Arquivos selecionados:', files)
+  const handleEmojiSelect = (emoji: any) => {
+    setNewMessage(prev => prev + emoji.native)
+    setShowEmojiPicker(false)
   }
 
-  const startNewConversation = (userId: string) => {
-    const user = availableUsers.find(u => u.user_id === userId)
-    if (!user) return
+  const handleReaction = (messageId: string, emoji: string) => {
+    setMessages(prev => prev.map(m => {
+      if (m.id === messageId) {
+        const reactions = m.reactions || []
+        const existingReaction = reactions.find(r => r.userId === currentUserId)
+        if (existingReaction) {
+          return { ...m, reactions: reactions.filter(r => r.userId !== currentUserId) }
+        }
+        return { ...m, reactions: [...reactions, { emoji, userId: currentUserId }] }
+      }
+      return m
+    }))
+  }
 
-    const newConv: Conversation = {
-      id: `new-${Date.now()}`,
-      participant_id: userId,
-      participant_name: user.full_name,
-      participant_avatar: `https://ui-avatars.com/api/?name=${user.full_name}&background=4370d1&color=fff`,
-      participant_role: user.employee_areas_of_expertise?.[0]?.area_name || 'Colaborador',
-      last_message: '',
-      last_message_time: new Date(),
-      unread_count: 0,
-      is_online: false
+  // Audio Recording Functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+      
+      const chunks: BlobPart[] = []
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data)
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' })
+        setAudioBlob(blob)
+        stream.getTracks().forEach(track => track.stop())
+      }
+      
+      mediaRecorder.start()
+      setIsRecording(true)
+      setRecordingTime(0)
+      
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1)
+      }, 1000)
+    } catch (error) {
+      console.error('Erro ao iniciar gravação:', error)
     }
-
-    setConversations([newConv, ...conversations])
-    setSelectedConversation(newConv)
-    setMessages([])
-    setShowNewConversation(false)
   }
 
-  const filteredConversations = conversations.filter(conv => {
-    const matchesSearch = conv.participant_name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterType === 'all' || (filterType === 'unread' && conv.unread_count > 0)
-    return matchesSearch && matchesFilter
-  })
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current)
+      }
+    }
+  }
 
-  const formatTime = (date: Date) => {
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+      setAudioBlob(null)
+      setRecordingTime(0)
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current)
+      }
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const formatMessageTime = (date: Date) => {
     return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   }
 
+  const filteredConversations = conversations.filter(c =>
+    c.participant_name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  // ==================== RENDER STATUS ICON ====================
+  const StatusIcon = ({ status }: { status: Message['status'] }) => {
+    if (status === 'sending') return <Clock className="w-3 h-3 text-gray-400" />
+    if (status === 'sent') return <Check className="w-3 h-3 text-gray-400" />
+    if (status === 'delivered') return <CheckCheck className="w-3 h-3 text-gray-400" />
+    if (status === 'read') return <CheckCheck className="w-3 h-3 text-blue-500" />
+    return null
+  }
+
+  // ==================== RENDER ====================
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderColor: '#4370d1' }}></div>
-          <p className="mt-4" style={{ color: 'var(--text-secondary)' }}>Carregando mensagens...</p>
-        </div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: '#4370d1' }} />
       </div>
     )
   }
 
-  // Mobile: Show conversation list or chat
-  const showSidebar = !isMobileView || !selectedConversation
-  const showChat = !isMobileView || selectedConversation
-
   return (
-    <div className="h-[calc(100vh-80px)] flex" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-      
+    <div className="h-[calc(100vh-73px)] flex" style={{ backgroundColor: 'var(--bg-secondary)' }}>
       {/* Sidebar - Lista de Conversas */}
-      {showSidebar && (
-        <div 
-          className={`${isMobileView ? 'w-full' : 'w-80'} border-r flex flex-col`}
-          style={{ 
-            backgroundColor: 'var(--bg-primary)',
-            borderColor: 'var(--border-light)'
-          }}
-        >
-          {/* Header da Sidebar */}
-          <div className="p-4" style={{ borderBottom: '1px solid var(--border-light)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                Mensagens
-              </h2>
+      <div 
+        className={`${isMobileView && showMobileChat ? 'hidden' : 'flex'} flex-col w-full md:w-80 lg:w-96 border-r`}
+        style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}
+      >
+        {/* Header */}
+        <div className="p-4 border-b" style={{ borderColor: 'var(--border-light)' }}>
+          <h1 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Mensagens</h1>
+          
+          {/* Tabs */}
+          <div className="flex gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            {[
+              { id: 'equipe', label: 'Equipe', icon: Users },
+              { id: 'clientes', label: 'Clientes', icon: Building2 },
+              { id: 'grupos', label: 'Grupos', icon: MessageCircle }
+            ].map((tab) => (
               <button
-                onClick={() => setShowNewConversation(!showNewConversation)}
-                className="p-2 rounded-lg transition-all text-white"
-                style={{ backgroundColor: '#4370d1' }}
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Barra de Busca */}
-            <div className="relative mb-3">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-              <input
-                type="text"
-                placeholder="Buscar conversas..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 transition-all"
-                style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  borderColor: 'var(--border-light)',
-                  color: 'var(--text-primary)'
-                }}
-              />
-            </div>
-
-            {/* Filtros */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterType('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all`}
-                style={{
-                  backgroundColor: filterType === 'all' ? '#4370d1' : 'var(--bg-secondary)',
-                  color: filterType === 'all' ? 'white' : 'var(--text-secondary)'
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as TabType)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+                  activeTab === tab.id 
+                    ? 'bg-white shadow-sm' 
+                    : 'hover:bg-white/50'
+                }`}
+                style={{ 
+                  color: activeTab === tab.id ? '#4370d1' : 'var(--text-secondary)'
                 }}
               >
-                Todas
+                <tab.icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
-              <button
-                onClick={() => setFilterType('unread')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all`}
-                style={{
-                  backgroundColor: filterType === 'unread' ? '#4370d1' : 'var(--bg-secondary)',
-                  color: filterType === 'unread' ? 'white' : 'var(--text-secondary)'
-                }}
-              >
-                Não lidas
-              </button>
-            </div>
+            ))}
           </div>
 
-          {/* Nova Conversa */}
-          <AnimatePresence>
-            {showNewConversation && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-                style={{ 
-                  backgroundColor: 'var(--primary-50)',
-                  borderBottom: '1px solid var(--border-light)'
-                }}
-              >
-                <div className="p-4">
-                  <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-                    Nova Conversa
-                  </h3>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {availableUsers.map(user => (
-                      <button
-                        key={user.user_id}
-                        onClick={() => startNewConversation(user.user_id)}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left hover:shadow-md"
-                        style={{ backgroundColor: 'var(--bg-primary)' }}
-                      >
-                        <img
-                          src={`https://ui-avatars.com/api/?name=${user.full_name}&background=4370d1&color=fff`}
-                          alt={user.full_name}
-                          className="w-10 h-10 rounded-full"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                            {user.full_name}
-                          </p>
-                          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                            {user.employee_areas_of_expertise?.[0]?.area_name || 'Colaborador'}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Search */}
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+            <input
+              type="text"
+              placeholder="Buscar conversas..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ 
+                backgroundColor: 'var(--bg-secondary)', 
+                borderColor: 'var(--border-light)',
+                color: 'var(--text-primary)'
+              }}
+            />
+          </div>
+        </div>
 
-          {/* Lista de Conversas */}
-          <div className="flex-1 overflow-y-auto">
-            {filteredConversations.length === 0 ? (
-              <div className="text-center py-12">
-                <MessageCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
-                <p style={{ color: 'var(--text-secondary)' }}>Nenhuma conversa encontrada</p>
-              </div>
-            ) : (
-              filteredConversations.map(conv => (
-                <button
-                  key={conv.id}
-                  onClick={() => setSelectedConversation(conv)}
-                  className={`w-full flex items-center gap-3 p-4 transition-all hover:bg-opacity-50`}
-                  style={{
-                    borderBottom: '1px solid var(--border-light)',
-                    backgroundColor: selectedConversation?.id === conv.id ? 'var(--primary-50)' : 'transparent'
-                  }}
-                >
+        {/* Conversations List */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredConversations.length === 0 ? (
+            <div className="text-center py-12">
+              <MessageCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
+              <p style={{ color: 'var(--text-secondary)' }}>Nenhuma conversa encontrada</p>
+            </div>
+          ) : (
+            filteredConversations.map((conversation) => (
+              <motion.div
+                key={conversation.id}
+                whileHover={{ backgroundColor: 'var(--bg-secondary)' }}
+                onClick={() => setSelectedConversation(conversation)}
+                className={`p-4 cursor-pointer border-b transition-colors ${
+                  selectedConversation?.id === conversation.id ? 'bg-blue-50' : ''
+                }`}
+                style={{ borderColor: 'var(--border-light)' }}
+              >
+                <div className="flex items-center gap-3">
                   <div className="relative">
                     <img
-                      src={conv.participant_avatar}
-                      alt={conv.participant_name}
+                      src={conversation.participant_avatar}
+                      alt={conversation.participant_name}
                       className="w-12 h-12 rounded-full"
                     />
-                    {conv.is_online && (
-                      <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />
+                    {conversation.type !== 'group' && (
+                      <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${
+                        conversation.is_online ? 'bg-green-500' : 'bg-gray-400'
+                      }`} />
+                    )}
+                    {conversation.type === 'group' && conversation.members && (
+                      <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center">
+                        <span className="text-[9px] text-white font-bold">{conversation.members}</span>
+                      </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                        {conv.participant_name}
-                      </p>
-                      <p className="text-xs flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
-                        {formatTime(conv.last_message_time)}
-                      </p>
-                    </div>
+                  
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs truncate pr-2" style={{ color: 'var(--text-secondary)' }}>
-                        {conv.last_message || 'Iniciar conversa...'}
+                      <h3 className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                        {conversation.participant_name}
+                      </h3>
+                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        {formatMessageTime(conversation.last_message_time)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <p className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
+                        {conversation.is_typing ? (
+                          <span className="text-blue-500 italic">Digitando...</span>
+                        ) : (
+                          conversation.last_message
+                        )}
                       </p>
-                      {conv.unread_count > 0 && (
-                        <span 
-                          className="px-2 py-0.5 rounded-full text-xs font-bold text-white flex-shrink-0"
-                          style={{ backgroundColor: '#4370d1' }}
-                        >
-                          {conv.unread_count}
+                      {conversation.unread_count > 0 && (
+                        <span className="ml-2 px-2 py-0.5 bg-blue-500 text-white text-xs rounded-full font-medium">
+                          {conversation.unread_count}
                         </span>
                       )}
                     </div>
                   </div>
-                </button>
-              ))
-            )}
-          </div>
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
-      )}
+      </div>
 
-      {/* Área de Mensagens */}
-      {showChat && (
-        selectedConversation ? (
-          <div className="flex-1 flex flex-col" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            
-            {/* Header da Conversa */}
+      {/* Chat Area */}
+      <div 
+        className={`${isMobileView && !showMobileChat ? 'hidden' : 'flex'} flex-1 flex-col`}
+        style={{ backgroundColor: 'var(--bg-secondary)' }}
+      >
+        {selectedConversation ? (
+          <>
+            {/* Chat Header */}
             <div 
-              className="p-4 flex items-center justify-between"
-              style={{ 
-                backgroundColor: 'var(--bg-primary)',
-                borderBottom: '1px solid var(--border-light)'
-              }}
+              className="p-4 flex items-center justify-between border-b"
+              style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}
             >
               <div className="flex items-center gap-3">
                 {isMobileView && (
-                  <button
-                    onClick={() => setSelectedConversation(null)}
-                    className="p-2 rounded-lg hover:bg-gray-100 mr-1"
+                  <button 
+                    onClick={() => setShowMobileChat(false)}
+                    className="p-2 -ml-2 rounded-lg hover:bg-gray-100"
                   >
                     <ArrowLeft className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
                   </button>
                 )}
-                <div className="relative">
-                  <img
-                    src={selectedConversation.participant_avatar}
-                    alt={selectedConversation.participant_name}
-                    className="w-10 h-10 rounded-full"
-                  />
-                  {selectedConversation.is_online && (
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
-                  )}
-                </div>
+                <img
+                  src={selectedConversation.participant_avatar}
+                  alt={selectedConversation.participant_name}
+                  className="w-10 h-10 rounded-full"
+                />
                 <div>
-                  <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {selectedConversation.participant_name}
-                  </p>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    {selectedConversation.is_online ? '🟢 Online' : '⚪ Offline'} • {selectedConversation.participant_role}
+                  </h2>
+                  <p className="text-xs" style={{ color: selectedConversation.is_online ? '#10b981' : 'var(--text-tertiary)' }}>
+                    {selectedConversation.is_typing 
+                      ? 'Digitando...' 
+                      : selectedConversation.is_online 
+                        ? 'Online' 
+                        : 'Offline'}
                   </p>
                 </div>
               </div>
-
-              <div className="flex items-center gap-1">
-                <button 
-                  className="p-2.5 rounded-xl transition-all hover:bg-gray-100"
-                >
+              
+              <div className="flex items-center gap-2">
+                <button className="p-2 rounded-lg hover:bg-gray-100">
                   <Phone className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
                 </button>
-                <button 
-                  className="p-2.5 rounded-xl transition-all hover:bg-gray-100"
-                >
+                <button className="p-2 rounded-lg hover:bg-gray-100">
                   <Video className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
                 </button>
-                <button 
-                  className="p-2.5 rounded-xl transition-all hover:bg-gray-100"
-                >
+                <button className="p-2 rounded-lg hover:bg-gray-100">
                   <MoreVertical className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
                 </button>
               </div>
             </div>
 
-            {/* Mensagens */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map(msg => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`max-w-[80%] md:max-w-md ${msg.sender_id === currentUserId ? 'order-2' : 'order-1'}`}>
-                    {msg.sender_id !== currentUserId && (
-                      <p className="text-xs mb-1 ml-1" style={{ color: 'var(--text-tertiary)' }}>
-                        {msg.sender_name}
-                      </p>
-                    )}
-                    <div
-                      className="px-4 py-3 rounded-2xl shadow-sm"
-                      style={{
-                        backgroundColor: msg.sender_id === currentUserId 
-                          ? '#4370d1' 
-                          : 'var(--bg-primary)',
-                        color: msg.sender_id === currentUserId 
-                          ? 'white' 
-                          : 'var(--text-primary)',
-                        borderBottomRightRadius: msg.sender_id === currentUserId ? '4px' : '16px',
-                        borderBottomLeftRadius: msg.sender_id !== currentUserId ? '4px' : '16px'
-                      }}
-                    >
-                      <p className="text-sm leading-relaxed">{msg.content}</p>
+            {/* Messages */}
+            <div 
+              className="flex-1 overflow-y-auto p-4 space-y-4"
+              style={{ 
+                backgroundImage: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%239C92AC" fill-opacity="0.03"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'
+              }}
+            >
+              {messages.map((message, idx) => {
+                const isOwn = message.sender_id === currentUserId
+                
+                return (
+                  <motion.div
+                    key={message.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-[75%] ${isOwn ? 'order-2' : ''}`}>
+                      {/* Reply Preview */}
+                      {message.replyTo && (
+                        <div 
+                          className={`px-3 py-2 mb-1 rounded-t-lg border-l-4 text-xs ${
+                            isOwn ? 'bg-blue-100 border-blue-500' : 'bg-gray-100 border-gray-400'
+                          }`}
+                        >
+                          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{message.replyTo.sender}</p>
+                          <p className="truncate" style={{ color: 'var(--text-secondary)' }}>{message.replyTo.content}</p>
+                        </div>
+                      )}
                       
-                      {/* Anexos */}
-                      {msg.attachments && msg.attachments.length > 0 && (
-                        <div className="mt-2 space-y-2">
-                          {msg.attachments.map((att, idx) => (
-                            <div key={idx}>
-                              {att.type === 'image' ? (
-                                <img 
-                                  src={att.url} 
-                                  alt={att.name}
-                                  className="rounded-lg max-w-full mt-2"
-                                />
-                              ) : (
-                                <div 
-                                  className="flex items-center gap-2 p-2 rounded-lg mt-2"
-                                  style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-                                >
-                                  <File className="w-4 h-4" />
-                                  <span className="text-xs">{att.name}</span>
-                                </div>
-                              )}
-                            </div>
+                      <div 
+                        className={`p-3 rounded-2xl relative group ${
+                          isOwn 
+                            ? 'bg-blue-500 text-white rounded-br-md' 
+                            : 'bg-white rounded-bl-md shadow-sm'
+                        }`}
+                        style={!isOwn ? { border: '1px solid var(--border-light)' } : {}}
+                      >
+                        {/* Message Content */}
+                        {message.type === 'text' && (
+                          <p className={`text-sm ${isOwn ? 'text-white' : ''}`} style={!isOwn ? { color: 'var(--text-primary)' } : {}}>
+                            {message.content}
+                          </p>
+                        )}
+                        
+                        {message.type === 'audio' && message.audioUrl && (
+                          <AudioMessage 
+                            url={message.audioUrl} 
+                            duration={message.audioDuration || 0}
+                            isOwn={isOwn}
+                          />
+                        )}
+                        
+                        {/* Time and Status */}
+                        <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : ''}`}>
+                          <span className={`text-[10px] ${isOwn ? 'text-white/70' : ''}`} style={!isOwn ? { color: 'var(--text-tertiary)' } : {}}>
+                            {formatMessageTime(message.timestamp)}
+                          </span>
+                          {isOwn && <StatusIcon status={message.status} />}
+                        </div>
+
+                        {/* Quick Actions */}
+                        <div className={`absolute ${isOwn ? '-left-20' : '-right-20'} top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1`}>
+                          <button 
+                            onClick={() => handleReaction(message.id, '❤️')}
+                            className="p-1.5 bg-white rounded-full shadow-md hover:bg-gray-100"
+                          >
+                            <Heart className="w-3.5 h-3.5 text-red-500" />
+                          </button>
+                          <button 
+                            onClick={() => setReplyingTo(message)}
+                            className="p-1.5 bg-white rounded-full shadow-md hover:bg-gray-100"
+                          >
+                            <Reply className="w-3.5 h-3.5 text-gray-500" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Reactions */}
+                      {message.reactions && message.reactions.length > 0 && (
+                        <div className={`flex gap-1 mt-1 ${isOwn ? 'justify-end' : ''}`}>
+                          {message.reactions.map((reaction, i) => (
+                            <span key={i} className="text-sm bg-white px-1.5 py-0.5 rounded-full shadow-sm border">
+                              {reaction.emoji}
+                            </span>
                           ))}
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 mt-1 ml-1">
-                      <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                        {formatTime(msg.timestamp)}
-                      </p>
-                      {msg.sender_id === currentUserId && (
-                        msg.read ? 
-                          <CheckCheck className="w-3.5 h-3.5" style={{ color: '#4370d1' }} /> :
-                          <Check className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                )
+              })}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input de Mensagem */}
+            {/* Reply Preview */}
+            {replyingTo && (
+              <div 
+                className="px-4 py-2 border-t flex items-center justify-between"
+                style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-10 bg-blue-500 rounded" />
+                  <div>
+                    <p className="text-xs font-medium" style={{ color: '#4370d1' }}>
+                      Respondendo para {replyingTo.sender_name}
+                    </p>
+                    <p className="text-sm truncate max-w-xs" style={{ color: 'var(--text-secondary)' }}>
+                      {replyingTo.content}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setReplyingTo(null)} className="p-1 hover:bg-gray-100 rounded">
+                  <X className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+                </button>
+              </div>
+            )}
+
+            {/* Input Area */}
             <div 
-              className="p-4"
-              style={{ 
-                backgroundColor: 'var(--bg-primary)',
-                borderTop: '1px solid var(--border-light)'
-              }}
+              className="p-4 border-t"
+              style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}
             >
-              <div className="flex items-end gap-2">
-                
-                {/* Botões de Ação */}
-                <div className="flex items-center gap-1">
-                  <button
+              {isRecording ? (
+                // Recording UI
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={cancelRecording}
+                    className="p-3 bg-red-100 rounded-full text-red-500 hover:bg-red-200"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                  
+                  <div className="flex-1 flex items-center gap-3">
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                    <span className="font-mono text-lg" style={{ color: 'var(--text-primary)' }}>
+                      {formatTime(recordingTime)}
+                    </span>
+                    <div className="flex-1 h-8 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 animate-pulse" style={{ width: '60%' }} />
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={stopRecording}
+                    className="p-3 bg-blue-500 rounded-full text-white hover:bg-blue-600"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : audioBlob ? (
+                // Audio Preview
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => { setAudioBlob(null); setRecordingTime(0); }}
+                    className="p-3 bg-red-100 rounded-full text-red-500 hover:bg-red-200"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                  
+                  <div className="flex-1 flex items-center gap-3 p-3 bg-gray-100 rounded-full">
+                    <Volume2 className="w-5 h-5 text-blue-500" />
+                    <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                      Áudio ({formatTime(recordingTime)})
+                    </span>
+                  </div>
+                  
+                  <button 
+                    onClick={handleSendMessage}
+                    className="p-3 bg-blue-500 rounded-full text-white hover:bg-blue-600"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                // Normal Input
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <button 
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      className="p-2 rounded-full hover:bg-gray-100"
+                    >
+                      <Smile className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+                    </button>
+                    
+                    {showEmojiPicker && (
+                      <div className="absolute bottom-12 left-0 z-50">
+                        <Picker data={data} onEmojiSelect={handleEmojiSelect} theme="light" />
+                      </div>
+                    )}
+                  </div>
+                  
+                  <button 
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-2.5 rounded-xl transition-all hover:bg-gray-100"
+                    className="p-2 rounded-full hover:bg-gray-100"
                   >
                     <Paperclip className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
                   </button>
+                  <input ref={fileInputRef} type="file" className="hidden" />
+                  
                   <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={handleFileUpload}
-                  />
-                  <button
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="p-2.5 rounded-xl transition-all hover:bg-gray-100"
-                  >
-                    <Smile className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
-                  </button>
-                </div>
-
-                {/* Input */}
-                <div className="flex-1 relative">
-                  <textarea
+                    type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        sendMessage()
-                      }
-                    }}
-                    placeholder="Digite sua mensagem..."
-                    rows={1}
-                    className="w-full px-4 py-3 rounded-xl border resize-none focus:outline-none focus:ring-2 transition-all"
-                    style={{
-                      backgroundColor: 'var(--bg-secondary)',
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Digite uma mensagem..."
+                    className="flex-1 px-4 py-2 rounded-full border focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{ 
+                      backgroundColor: 'var(--bg-secondary)', 
                       borderColor: 'var(--border-light)',
                       color: 'var(--text-primary)'
                     }}
                   />
-
-                  {/* Emoji Picker */}
-                  <AnimatePresence>
-                    {showEmojiPicker && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        className="absolute bottom-full mb-2 left-0 z-50"
-                      >
-                        <Picker 
-                          data={data} 
-                          onEmojiSelect={(emoji: any) => {
-                            setNewMessage(prev => prev + emoji.native)
-                            setShowEmojiPicker(false)
-                          }}
-                          theme="light"
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  
+                  {newMessage.trim() ? (
+                    <button 
+                      onClick={handleSendMessage}
+                      className="p-3 bg-blue-500 rounded-full text-white hover:bg-blue-600"
+                    >
+                      <Send className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={startRecording}
+                      className="p-3 bg-blue-500 rounded-full text-white hover:bg-blue-600"
+                    >
+                      <Mic className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
-
-                {/* Botão Enviar */}
-                <button
-                  onClick={sendMessage}
-                  disabled={!newMessage.trim()}
-                  className="p-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                  style={{ 
-                    backgroundColor: '#4370d1',
-                    color: 'white'
-                  }}
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              </div>
+              )}
             </div>
-          </div>
+          </>
         ) : (
-          <div 
-            className="flex-1 flex items-center justify-center"
-            style={{ backgroundColor: 'var(--bg-secondary)' }}
-          >
+          // No conversation selected
+          <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <div 
-                className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center"
-                style={{ backgroundColor: 'var(--primary-50)' }}
-              >
-                <MessageCircle className="w-10 h-10" style={{ color: '#4370d1' }} />
-              </div>
-              <p className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+              <MessageCircle className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
+              <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                 Selecione uma conversa
-              </p>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                Escolha uma conversa existente ou inicie uma nova
+              </h3>
+              <p style={{ color: 'var(--text-secondary)' }}>
+                Escolha uma conversa para começar a trocar mensagens
               </p>
             </div>
           </div>
-        )
-      )}
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ==================== AUDIO MESSAGE COMPONENT ====================
+function AudioMessage({ url, duration, isOwn }: { url: string; duration: number; isOwn: boolean }) {
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const audioRef = useRef<HTMLAudioElement>(null)
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause()
+      } else {
+        audioRef.current.play()
+      }
+      setIsPlaying(!isPlaying)
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  return (
+    <div className="flex items-center gap-3 min-w-[200px]">
+      <audio 
+        ref={audioRef} 
+        src={url}
+        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+        onEnded={() => setIsPlaying(false)}
+      />
+      
+      <button 
+        onClick={togglePlay}
+        className={`p-2 rounded-full ${isOwn ? 'bg-white/20 hover:bg-white/30' : 'bg-blue-100 hover:bg-blue-200'}`}
+      >
+        {isPlaying ? (
+          <Pause className={`w-4 h-4 ${isOwn ? 'text-white' : 'text-blue-600'}`} />
+        ) : (
+          <Play className={`w-4 h-4 ${isOwn ? 'text-white' : 'text-blue-600'}`} />
+        )}
+      </button>
+      
+      <div className="flex-1">
+        <div className={`h-1 rounded-full ${isOwn ? 'bg-white/30' : 'bg-gray-200'}`}>
+          <div 
+            className={`h-1 rounded-full ${isOwn ? 'bg-white' : 'bg-blue-500'}`}
+            style={{ width: `${(currentTime / duration) * 100}%` }}
+          />
+        </div>
+        <span className={`text-xs ${isOwn ? 'text-white/70' : ''}`} style={!isOwn ? { color: 'var(--text-tertiary)' } : {}}>
+          {formatTime(currentTime)} / {formatTime(duration)}
+        </span>
+      </div>
     </div>
   )
 }

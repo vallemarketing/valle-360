@@ -208,7 +208,7 @@ export function IcebreakerCard({ area, className }: IcebreakerCardProps) {
                 disabled={!answer.trim()}
                 className="px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 style={{
-                  backgroundColor: answer.trim() ? '#4370d1' : '#9ca3af',
+                  backgroundColor: '#4370d1',
                   color: 'white'
                 }}
               >
