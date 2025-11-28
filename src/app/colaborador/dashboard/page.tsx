@@ -233,8 +233,8 @@ export default function ColaboradorDashboardPage() {
             <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
               Olá, {userName}! 👋
             </h1>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Dashboard - {userArea}
+            <p className="text-lg font-semibold" style={{ color: '#4370d1' }}>
+              {userArea.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
             </p>
           </div>
           

@@ -429,3 +429,4 @@ function ScoreBar({ label, value, color }: { label: string; value: number; color
   );
 }
 
+

@@ -247,3 +247,4 @@ export function DesignKPICards() {
   return <GamificationKPICards cards={cards} />;
 }
 
+

@@ -308,3 +308,4 @@ export function usePermissions(permissions: Permission[]): boolean[] {
   return permissions.map(p => hasPermission(p));
 }
 
+

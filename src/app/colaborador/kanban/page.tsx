@@ -1,716 +1,427 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import {
-  Plus, Search, Filter, Calendar, List, LayoutGrid, Clock,
-  User, Tag, AlertCircle, CheckCircle2, Circle, Archive,
-  MoreVertical, Paperclip, MessageSquare, Users, TrendingUp,
-  AlertTriangle, Sparkles, Timer, Flame, Zap, Brain
+  Plus, Search, Filter, X, Clock, User, Phone, Building2, Calendar,
+  MoreHorizontal, Paperclip, MessageSquare, CheckCircle2, AlertCircle,
+  Flame, Thermometer, Snowflake, ChevronDown, Eye, Edit, Trash2,
+  FileText, Link2, Video, Mail, Tag
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { CardModal } from '@/components/kanban/CardModal'
-import { NewTaskForm } from '@/components/kanban/NewTaskForm'
-import { getTemplateForRole } from '@/lib/kanban-templates'
-import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, differenceInDays, differenceInHours } from 'date-fns'
+import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale/pt-BR'
-import 'react-big-calendar/lib/css/react-big-calendar.css'
 
-const locales = {
-  'pt-BR': ptBR
-}
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales
-})
-
-interface KanbanCard {
+// ==================== TIPOS ====================
+interface PipefyCard {
   id: string
   title: string
   description?: string
-  column: string
-  priority: 'urgent' | 'high' | 'normal' | 'low'
+  temperature: 'hot' | 'warm' | 'cold'
+  contactName?: string
+  contactEmail?: string
+  contactPhone?: string
+  industry?: string
+  company?: string
+  dueDate?: Date
+  createdAt: Date
+  updatedAt: Date
   assignees: string[]
   tags: string[]
-  dueDate?: Date
   attachments: number
   comments: number
-  createdAt: Date
-  columnEnteredAt?: Date // Para calcular aging
-  clientName?: string
+  customFields?: Record<string, string>
 }
 
-interface KanbanColumn {
+interface PipefyColumn {
   id: string
   title: string
-  icon: React.ReactNode
   color: string
-  cards: KanbanCard[]
-  wipLimit?: number
+  cards: PipefyCard[]
+  description?: string
 }
 
-interface BottleneckAlert {
-  columnId: string
-  columnTitle: string
-  count: number
-  avgDays: number
-  severity: 'warning' | 'critical'
+// ==================== CONSTANTES ====================
+const TEMPERATURE_CONFIG = {
+  hot: { label: 'Quente', color: 'bg-red-500', textColor: 'text-red-700', bgLight: 'bg-red-50', icon: Flame },
+  warm: { label: 'Morno', color: 'bg-orange-400', textColor: 'text-orange-700', bgLight: 'bg-orange-50', icon: Thermometer },
+  cold: { label: 'Frio', color: 'bg-blue-400', textColor: 'text-blue-700', bgLight: 'bg-blue-50', icon: Snowflake }
 }
 
-interface ValInsight {
-  type: 'tip' | 'warning' | 'success'
-  message: string
-  action?: string
+const COLUMN_COLORS: Record<string, string> = {
+  backlog: '#6366f1',
+  qualificacao: '#f59e0b',
+  contato: '#10b981',
+  followup: '#3b82f6',
+  reuniao: '#8b5cf6',
+  qualificado: '#22c55e',
+  nao_qualificado: '#ef4444',
+  em_progresso: '#f97316',
+  revisao: '#eab308',
+  aprovacao: '#06b6d4',
+  concluido: '#10b981'
 }
 
-type ViewMode = 'kanban' | 'list' | 'timeline' | 'calendar'
+const DEFAULT_COLUMNS: PipefyColumn[] = [
+  { id: 'backlog', title: 'Backlog', color: '#6366f1', cards: [], description: 'Tarefas a fazer' },
+  { id: 'em_progresso', title: 'Em Progresso', color: '#f97316', cards: [], description: 'Em andamento' },
+  { id: 'revisao', title: 'Revisão', color: '#eab308', cards: [], description: 'Aguardando revisão' },
+  { id: 'aprovacao', title: 'Aprovação Cliente', color: '#06b6d4', cards: [], description: 'Enviado para cliente' },
+  { id: 'concluido', title: 'Concluído', color: '#10b981', cards: [], description: 'Finalizado' }
+]
 
-export default function KanbanPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>('kanban')
+// ==================== COMPONENTE PRINCIPAL ====================
+export default function KanbanPipefyPage() {
+  const [columns, setColumns] = useState<PipefyColumn[]>(DEFAULT_COLUMNS)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedPriority, setSelectedPriority] = useState<string>('all')
-  const [columns, setColumns] = useState<KanbanColumn[]>([])
+  const [selectedCard, setSelectedCard] = useState<PipefyCard | null>(null)
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false)
+  const [isNewCardModalOpen, setIsNewCardModalOpen] = useState(false)
+  const [newCardColumn, setNewCardColumn] = useState<string>('')
   const [loading, setLoading] = useState(true)
-  const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [isNewTaskOpen, setIsNewTaskOpen] = useState(false)
-  const [userArea, setUserArea] = useState('Designer')
-  const [bottlenecks, setBottlenecks] = useState<BottleneckAlert[]>([])
-  const [valInsights, setValInsights] = useState<ValInsight[]>([])
-  const [showInsights, setShowInsights] = useState(true)
+  const [userArea, setUserArea] = useState('Web Designer')
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    loadUserAreaAndKanban()
+    loadData()
   }, [])
 
-  useEffect(() => {
-    // Analisar gargalos sempre que as colunas mudarem
-    analyzeBottlenecks()
-    generateValInsights()
-  }, [columns])
-
-  const loadUserAreaAndKanban = async () => {
+  const loadData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: employee } = await supabase
           .from('employees')
-          .select(`
-            *,
-            employee_areas_of_expertise(area_name)
-          `)
+          .select('*, employee_areas_of_expertise(area_name)')
           .eq('user_id', user.id)
           .single()
 
-        const area = employee?.employee_areas_of_expertise?.[0]?.area_name || 'Designer'
+        const area = employee?.employee_areas_of_expertise?.[0]?.area_name || 'Web Designer'
         setUserArea(area)
-        
-        // Inicializar colunas baseadas na área usando o sistema de templates
-        const template = getTemplateForRole(area)
-        const initialColumns = template.columns.map((col: any, index: number) => ({
-          id: col.name.toLowerCase().replace(/ /g, '_'),
-          title: col.name,
-          color: col.color,
-          wipLimit: index < 2 ? undefined : 5, // Limites WIP nas colunas do meio
-          icon: <Circle className="w-4 h-4" />,
-          cards: []
-        }))
-        
-        setColumns(initialColumns)
-        
-        // Carregar tarefas mock para demonstração
-        loadMockTasks(initialColumns, area)
       }
+
+      // Carregar cards de exemplo
+      loadMockData()
     } catch (error) {
-      console.error('Erro ao carregar área do usuário:', error)
-      loadKanbanData()
+      console.error('Erro:', error)
+      loadMockData()
+    } finally {
+      setLoading(false)
     }
   }
 
-  const loadMockTasks = (cols: KanbanColumn[], area: string) => {
-    // Tarefas de exemplo baseadas na área
-    const mockTasks: Record<string, KanbanCard[]> = {
-      'Web Designer': [
-        {
-          id: '1',
-          title: 'Landing Page - Tech Solutions',
-          description: 'Criar landing page para campanha de Black Friday',
-          column: cols[0]?.id || 'briefing',
-          priority: 'high',
-          assignees: ['Você'],
-          tags: ['Landing Page', 'Black Friday'],
-          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-          attachments: 2,
-          comments: 3,
-          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-          columnEnteredAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-          clientName: 'Tech Solutions'
-        },
-        {
-          id: '2',
-          title: 'Redesign Homepage - E-commerce Plus',
-          description: 'Atualizar visual da homepage principal',
-          column: cols[2]?.id || 'wireframe',
-          priority: 'normal',
-          assignees: ['Você'],
-          tags: ['Redesign', 'Homepage'],
-          dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-          attachments: 5,
-          comments: 8,
-          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-          columnEnteredAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-          clientName: 'E-commerce Plus'
-        },
-        {
-          id: '3',
-          title: 'Banner Institucional - Marketing Pro',
-          description: 'Criar banner para site institucional',
-          column: cols[4]?.id || 'revisao_interna',
-          priority: 'urgent',
-          assignees: ['Você'],
-          tags: ['Banner', 'Urgente'],
-          dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-          attachments: 1,
-          comments: 12,
-          createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-          columnEnteredAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), // 4 dias na mesma coluna = gargalo
-          clientName: 'Marketing Pro'
-        }
-      ],
-      'Designer': [
-        {
-          id: '1',
-          title: 'Posts Instagram - Cliente A',
-          description: 'Criar 10 posts para feed',
-          column: cols[1]?.id || 'em_criacao',
-          priority: 'high',
-          assignees: ['Você'],
-          tags: ['Instagram', 'Feed'],
-          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          attachments: 0,
-          comments: 2,
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-          columnEnteredAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-          clientName: 'Cliente A'
-        }
-      ]
-    }
-
-    const tasks = mockTasks[area] || mockTasks['Designer'] || []
-    
-    const updatedColumns = cols.map(col => ({
-      ...col,
-      cards: tasks.filter(t => t.column === col.id)
-    }))
-
-    setColumns(updatedColumns)
-    setLoading(false)
-  }
-
-  const analyzeBottlenecks = () => {
-    const alerts: BottleneckAlert[] = []
-    
-    columns.forEach(col => {
-      if (col.cards.length === 0) return
-      
-      // Calcular média de dias na coluna
-      const agingDays = col.cards.map(card => {
-        if (!card.columnEnteredAt) return 0
-        return differenceInDays(new Date(), new Date(card.columnEnteredAt))
-      })
-      
-      const avgDays = agingDays.reduce((a, b) => a + b, 0) / agingDays.length
-      
-      // Alertas de gargalo
-      if (col.cards.length >= 3 && avgDays >= 2) {
-        alerts.push({
-          columnId: col.id,
-          columnTitle: col.title,
-          count: col.cards.length,
-          avgDays: Math.round(avgDays),
-          severity: avgDays >= 4 ? 'critical' : 'warning'
-        })
+  const loadMockData = () => {
+    const mockCards: PipefyCard[] = [
+      {
+        id: '1',
+        title: 'Indústrias Wonka',
+        contactName: 'Willy Wonka',
+        company: 'Wonka Industries',
+        industry: 'Manufatura',
+        temperature: 'warm',
+        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(),
+        assignees: ['Você'],
+        tags: ['Novo Cliente'],
+        attachments: 0,
+        comments: 0
+      },
+      {
+        id: '2',
+        title: 'Bem-vindo',
+        description: 'Verifique se os leads recebidos são potenciais clientes',
+        temperature: 'cold',
+        createdAt: new Date(Date.now() - 1148 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(),
+        assignees: [],
+        tags: [],
+        attachments: 0,
+        comments: 0
+      },
+      {
+        id: '3',
+        title: 'Corporação Umbrella',
+        contactName: 'Edward Ashford',
+        company: 'Umbrella Corp',
+        industry: 'Saúde',
+        temperature: 'warm',
+        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(),
+        assignees: ['Você'],
+        tags: ['EXEMPLO'],
+        attachments: 0,
+        comments: 0,
+        description: 'Colete as informações iniciais sobre o lead'
+      },
+      {
+        id: '4',
+        title: 'Indústrias Stark',
+        contactName: 'Tony Stark',
+        company: 'Stark Industries',
+        industry: 'Tecnologia',
+        temperature: 'hot',
+        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(),
+        assignees: ['Você'],
+        tags: ['EXEMPLO'],
+        attachments: 0,
+        comments: 0,
+        description: 'Colete as informações iniciais sobre o lead'
+      },
+      {
+        id: '5',
+        title: 'Empresas Wayne',
+        contactName: 'Bruce Wayne',
+        company: 'Wayne Enterprises',
+        industry: 'Tecnologia',
+        temperature: 'cold',
+        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(),
+        assignees: ['Você'],
+        tags: ['EXEMPLO'],
+        attachments: 0,
+        comments: 0,
+        description: 'Descubra as necessidades e prazos para compra'
+      },
+      {
+        id: '6',
+        title: 'Los Pollos Hermanos',
+        contactName: 'Gustavo Fring',
+        company: 'Los Pollos',
+        industry: 'Outras',
+        temperature: 'warm',
+        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(),
+        assignees: ['Você'],
+        tags: ['EXEMPLO'],
+        attachments: 0,
+        comments: 0,
+        description: 'Acompanhe o status do lead'
+      },
+      {
+        id: '7',
+        title: 'Central Perk',
+        contactName: 'Gunther',
+        company: 'Central Perk',
+        industry: 'Outras',
+        temperature: 'cold',
+        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(),
+        assignees: ['Você'],
+        tags: ['EXEMPLO'],
+        attachments: 0,
+        comments: 0,
+        description: 'Agende uma demonstração do produto'
+      },
+      {
+        id: '8',
+        title: 'ACME',
+        contactName: 'Coiote',
+        company: 'ACME Corp',
+        industry: 'Energia e Utilitários',
+        temperature: 'warm',
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        assignees: ['Você'],
+        tags: ['EXEMPLO'],
+        attachments: 0,
+        comments: 0,
+        description: 'Acesse o processo "Funil de Vendas" para continuar'
+      },
+      {
+        id: '9',
+        title: 'Oscorp',
+        contactName: 'Norman Osborn',
+        company: 'Oscorp Industries',
+        industry: 'Marketing, Mídia e Entretenimento',
+        temperature: 'cold',
+        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        assignees: ['Você'],
+        tags: ['EXEMPLO'],
+        attachments: 0,
+        comments: 0,
+        description: 'Oportunidades descartadas'
       }
-      
-      // Alerta de WIP limit
-      if (col.wipLimit && col.cards.length >= col.wipLimit) {
-        if (!alerts.find(a => a.columnId === col.id)) {
-          alerts.push({
-            columnId: col.id,
-            columnTitle: col.title,
-            count: col.cards.length,
-            avgDays: Math.round(avgDays),
-            severity: 'warning'
-          })
-        }
-      }
-    })
-    
-    setBottlenecks(alerts)
+    ]
+
+    // Distribuir cards nas colunas
+    const newColumns = [...DEFAULT_COLUMNS]
+    newColumns[0].cards = [mockCards[0], mockCards[1]] // Backlog
+    newColumns[1].cards = [mockCards[2], mockCards[3]] // Em Progresso
+    newColumns[2].cards = [mockCards[4]] // Revisão
+    newColumns[3].cards = [mockCards[5], mockCards[6]] // Aprovação
+    newColumns[4].cards = [mockCards[7], mockCards[8]] // Concluído
+
+    setColumns(newColumns)
   }
 
-  const generateValInsights = () => {
-    const insights: ValInsight[] = []
-    
-    // Verificar tarefas urgentes
-    const urgentTasks = columns.flatMap(c => c.cards).filter(card => card.priority === 'urgent')
-    if (urgentTasks.length > 0) {
-      insights.push({
-        type: 'warning',
-        message: `Você tem ${urgentTasks.length} tarefa(s) urgente(s). Priorize-as!`,
-        action: 'Ver tarefas urgentes'
-      })
-    }
-    
-    // Verificar tarefas próximas do prazo
-    const nearDeadline = columns.flatMap(c => c.cards).filter(card => {
-      if (!card.dueDate) return false
-      const daysUntil = differenceInDays(new Date(card.dueDate), new Date())
-      return daysUntil <= 2 && daysUntil >= 0
-    })
-    if (nearDeadline.length > 0) {
-      insights.push({
-        type: 'warning',
-        message: `${nearDeadline.length} tarefa(s) vencem nos próximos 2 dias!`
-      })
-    }
-    
-    // Dica de produtividade
-    const totalTasks = columns.flatMap(c => c.cards).length
-    const doneTasks = columns.find(c => c.id.includes('finalizado') || c.id.includes('done') || c.id.includes('pronto'))?.cards.length || 0
-    if (totalTasks > 0 && doneTasks > 0) {
-      const completionRate = Math.round((doneTasks / totalTasks) * 100)
-      if (completionRate >= 50) {
-        insights.push({
-          type: 'success',
-          message: `Ótimo trabalho! ${completionRate}% das tarefas concluídas! 🎉`
-        })
-      }
-    }
-    
-    // Sugestão baseada em gargalos
-    if (bottlenecks.length > 0) {
-      const critical = bottlenecks.find(b => b.severity === 'critical')
-      if (critical) {
-        insights.push({
-          type: 'tip',
-          message: `Dica: "${critical.columnTitle}" está com ${critical.count} tarefas há ${critical.avgDays} dias. Considere revisar prioridades.`
-        })
-      }
-    }
-    
-    setValInsights(insights)
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return
+
+    const { source, destination } = result
+    const newColumns = [...columns]
+
+    const sourceColIndex = newColumns.findIndex(col => col.id === source.droppableId)
+    const destColIndex = newColumns.findIndex(col => col.id === destination.droppableId)
+
+    const [movedCard] = newColumns[sourceColIndex].cards.splice(source.index, 1)
+    newColumns[destColIndex].cards.splice(destination.index, 0, movedCard)
+
+    setColumns(newColumns)
   }
 
-  const getAgingBadge = (card: KanbanCard) => {
-    if (!card.columnEnteredAt) return null
-    const days = differenceInDays(new Date(), new Date(card.columnEnteredAt))
-    
-    if (days >= 5) {
-      return (
-        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold">
-          <Flame className="w-3 h-3" />
-          {days}d
-        </span>
-      )
-    }
-    if (days >= 3) {
-      return (
-        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-bold">
-          <Timer className="w-3 h-3" />
-          {days}d
-        </span>
-      )
-    }
-    return null
-  }
-
-  const handleOpenCard = (card: KanbanCard) => {
+  const handleOpenCard = (card: PipefyCard) => {
     setSelectedCard(card)
-    setIsModalOpen(true)
+    setIsCardModalOpen(true)
   }
 
-  const handleSaveCard = (updatedCard: KanbanCard) => {
-    setColumns(columns.map(col => ({
-      ...col,
-      cards: col.cards.map(card => 
-        card.id === updatedCard.id ? updatedCard : card
-      )
-    })))
-    setIsModalOpen(false)
+  const handleNewCard = (columnId: string) => {
+    setNewCardColumn(columnId)
+    setIsNewCardModalOpen(true)
   }
 
-  const handleDeleteCard = (cardId: string) => {
-    setColumns(columns.map(col => ({
-      ...col,
-      cards: col.cards.filter(card => card.id !== cardId)
-    })))
-    setIsModalOpen(false)
-  }
-
-  const handleNewTask = (taskData: any) => {
-    const newCard: KanbanCard = {
+  const handleCreateCard = (cardData: Partial<PipefyCard>) => {
+    const newCard: PipefyCard = {
       id: Date.now().toString(),
-      title: taskData.title,
-      description: taskData.description,
-      column: columns[0].id,
-      priority: taskData.priority,
-      assignees: ['Você'],
-      tags: [],
-      dueDate: taskData.dueDate ? new Date(taskData.dueDate) : undefined,
-      attachments: 0,
-      comments: 0,
+      title: cardData.title || 'Novo Card',
+      description: cardData.description,
+      temperature: cardData.temperature || 'warm',
+      contactName: cardData.contactName,
+      contactEmail: cardData.contactEmail,
+      contactPhone: cardData.contactPhone,
+      industry: cardData.industry,
+      company: cardData.company,
       createdAt: new Date(),
-      columnEnteredAt: new Date()
+      updatedAt: new Date(),
+      assignees: ['Você'],
+      tags: cardData.tags || [],
+      attachments: 0,
+      comments: 0
     }
-
-    setColumns(columns.map((col, index) => 
-      index === 0 
-        ? { ...col, cards: [...col.cards, newCard] }
-        : col
-    ))
-  }
-
-  const handleDragEnd = async (result: DropResult) => {
-    const { source, destination, draggableId } = result
-
-    if (!destination) return
-
-    if (
-      source.droppableId === destination.droppableId &&
-      source.index === destination.index
-    ) {
-      return
-    }
-
-    const sourceColumn = columns.find(col => col.id === source.droppableId)
-    const destColumn = columns.find(col => col.id === destination.droppableId)
-
-    if (!sourceColumn || !destColumn) return
-
-    const sourceCards = Array.from(sourceColumn.cards)
-    const destCards = source.droppableId === destination.droppableId 
-      ? sourceCards 
-      : Array.from(destColumn.cards)
-
-    const [movedCard] = sourceCards.splice(source.index, 1)
-    
-    // Atualizar columnEnteredAt se mudou de coluna
-    if (source.droppableId !== destination.droppableId) {
-      movedCard.columnEnteredAt = new Date()
-    }
-    
-    movedCard.column = destination.droppableId
-    destCards.splice(destination.index, 0, movedCard)
 
     const newColumns = columns.map(col => {
-      if (col.id === source.droppableId) {
-        return { ...col, cards: sourceCards }
-      }
-      if (col.id === destination.droppableId) {
-        return { ...col, cards: destCards }
+      if (col.id === newCardColumn) {
+        return { ...col, cards: [...col.cards, newCard] }
       }
       return col
     })
 
     setColumns(newColumns)
+    setIsNewCardModalOpen(false)
   }
 
-  const loadKanbanData = async () => {
-    setLoading(false)
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return '#ef4444'
-      case 'high': return '#f59e0b'
-      case 'normal': return '#4370d1'
-      case 'low': return '#9ca3af'
-      default: return '#9ca3af'
-    }
-  }
-
-  const getPriorityLabel = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return '🔴 Urgente'
-      case 'high': return '🟡 Alta'
-      case 'normal': return '🟢 Normal'
-      case 'low': return '⚪ Baixa'
-      default: return priority
-    }
-  }
-
-  const filteredColumns = columns.map(column => ({
-    ...column,
-    cards: column.cards.filter(card => {
-      const matchesSearch = card.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           card.description?.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesPriority = selectedPriority === 'all' || card.priority === selectedPriority
-      return matchesSearch && matchesPriority
-    })
+  const filteredColumns = columns.map(col => ({
+    ...col,
+    cards: col.cards.filter(card =>
+      card.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      card.contactName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      card.company?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   }))
+
+  // Scroll horizontal com mouse wheel
+  const handleWheel = (e: React.WheelEvent) => {
+    if (scrollContainerRef.current) {
+      e.preventDefault()
+      scrollContainerRef.current.scrollLeft += e.deltaY
+    }
+  }
 
   if (loading) {
     return (
-      <div className="h-[calc(100vh-73px)] flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderColor: '#4370d1' }}></div>
-          <p className="mt-4" style={{ color: 'var(--text-secondary)' }}>Carregando kanban...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f5f5f5' }}>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
       </div>
     )
   }
 
   return (
-    <div className="h-[calc(100vh-73px)] flex flex-col" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f5f5f5' }}>
       {/* Header */}
-      <div 
-        className="px-6 py-4"
-        style={{
-          backgroundColor: 'var(--bg-primary)',
-          borderBottom: '1px solid var(--border-light)',
-        }}
-      >
+      <div className="bg-white border-b px-6 py-4">
         <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              Kanban - {userArea}
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Gerencie suas tarefas de forma inteligente
-            </p>
-          </div>
-          
-          <button 
-            onClick={() => setIsNewTaskOpen(true)}
-            className="px-4 py-2 rounded-xl flex items-center gap-2 font-medium transition-all hover:scale-105 text-white shadow-lg"
-            style={{ backgroundColor: '#4370d1' }}
-          >
-            <Plus className="w-4 h-4" />
-            Nova Tarefa
-          </button>
-        </div>
-
-        {/* Bottleneck Alerts */}
-        <AnimatePresence>
-          {bottlenecks.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-4"
-            >
-              <div className="flex flex-wrap gap-2">
-                {bottlenecks.map((alert, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ scale: 0.9 }}
-                    animate={{ scale: 1 }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
-                      alert.severity === 'critical' 
-                        ? 'bg-red-100 text-red-700 border border-red-200' 
-                        : 'bg-orange-100 text-orange-700 border border-orange-200'
-                    }`}
-                  >
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>
-                      <strong>{alert.columnTitle}</strong>: {alert.count} tarefas há ~{alert.avgDays} dias
-                    </span>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Val Insights */}
-        <AnimatePresence>
-          {showInsights && valInsights.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="mb-4 p-4 rounded-xl"
-              style={{ 
-                background: 'linear-gradient(135deg, var(--primary-50) 0%, var(--purple-50) 100%)',
-                border: '1px solid var(--primary-200)'
-              }}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg" style={{ backgroundColor: '#4370d1' }}>
-                    <Brain className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                      💡 Insights da Val
-                    </h3>
-                    <div className="space-y-1">
-                      {valInsights.map((insight, idx) => (
-                        <p key={idx} className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                          {insight.type === 'warning' && '⚠️ '}
-                          {insight.type === 'success' && '✅ '}
-                          {insight.type === 'tip' && '💡 '}
-                          {insight.message}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowInsights(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ×
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Filters and View Modes */}
-        <div className="flex items-center gap-4">
-          {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-            <input
-              type="text"
-              placeholder="Buscar tarefas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-xl border focus:outline-none focus:ring-2 transition-all"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                borderColor: 'var(--border-light)',
-                color: 'var(--text-primary)'
-              }}
-            />
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold text-gray-800">Kanban - {userArea}</h1>
+            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+              {columns.reduce((acc, col) => acc + col.cards.length, 0)} cards
+            </span>
           </div>
 
-          {/* Priority Filter */}
-          <select
-            value={selectedPriority}
-            onChange={(e) => setSelectedPriority(e.target.value)}
-            className="px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 transition-all"
-            style={{
-              backgroundColor: 'var(--bg-secondary)',
-              borderColor: 'var(--border-light)',
-              color: 'var(--text-primary)'
-            }}
-          >
-            <option value="all">Todas Prioridades</option>
-            <option value="urgent">🔴 Urgente</option>
-            <option value="high">🟡 Alta</option>
-            <option value="normal">🟢 Normal</option>
-            <option value="low">⚪ Baixa</option>
-          </select>
+          <div className="flex items-center gap-3">
+            {/* Busca */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Procurar cards"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+              />
+            </div>
 
-          {/* View Mode Buttons */}
-          <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <button
-              onClick={() => setViewMode('kanban')}
-              className={cn('p-2 rounded-lg transition-all')}
-              style={{
-                backgroundColor: viewMode === 'kanban' ? '#4370d1' : 'transparent',
-                color: viewMode === 'kanban' ? 'white' : 'var(--text-secondary)'
-              }}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={cn('p-2 rounded-lg transition-all')}
-              style={{
-                backgroundColor: viewMode === 'list' ? '#4370d1' : 'transparent',
-                color: viewMode === 'list' ? 'white' : 'var(--text-secondary)'
-              }}
-            >
-              <List className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('calendar')}
-              className={cn('p-2 rounded-lg transition-all')}
-              style={{
-                backgroundColor: viewMode === 'calendar' ? '#4370d1' : 'transparent',
-                color: viewMode === 'calendar' ? 'white' : 'var(--text-secondary)'
-              }}
-            >
-              <Calendar className="w-4 h-4" />
+            {/* Filtros */}
+            <button className="flex items-center gap-2 px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+              <Filter className="w-4 h-4" />
+              Filtros
             </button>
           </div>
         </div>
       </div>
 
       {/* Kanban Board */}
-      {viewMode === 'kanban' && (
+      <div 
+        ref={scrollContainerRef}
+        onWheel={handleWheel}
+        className="flex-1 overflow-x-auto overflow-y-hidden p-6"
+        style={{ 
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#cbd5e1 #f1f5f9'
+        }}
+      >
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
-            <div className="flex gap-4 min-w-max pb-4">
-              {filteredColumns.map((column) => (
-              <div 
+          <div className="flex gap-4 h-full min-w-max pb-4">
+            {filteredColumns.map((column) => (
+              <div
                 key={column.id}
-                className="w-80 flex-shrink-0 flex flex-col rounded-2xl shadow-sm"
-                style={{ 
-                  backgroundColor: 'var(--bg-primary)',
-                  border: '1px solid var(--border-light)'
-                }}
+                className="w-72 flex-shrink-0 flex flex-col bg-gray-100 rounded-lg overflow-hidden"
+                style={{ maxHeight: 'calc(100vh - 180px)' }}
               >
                 {/* Column Header */}
-                <div className="p-4" style={{ borderBottom: '1px solid var(--border-light)' }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: column.color }}
-                      />
-                      <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        {column.title}
-                      </h3>
-                      <span 
-                        className="px-2 py-0.5 rounded-full text-xs font-medium"
-                        style={{ 
-                          backgroundColor: 'var(--bg-secondary)', 
-                          color: 'var(--text-secondary)' 
-                        }}
-                      >
-                        {column.cards.length}
-                      </span>
-                    </div>
-                    <button 
-                      onClick={() => setIsNewTaskOpen(true)}
-                      className="p-1 rounded hover:bg-gray-100 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-                    </button>
+                <div 
+                  className="px-4 py-3 flex items-center justify-between"
+                  style={{ backgroundColor: column.color }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-white">{column.title}</span>
+                    <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs text-white font-medium">
+                      {column.cards.length}
+                    </span>
                   </div>
-                  
-                  {column.wipLimit && (
-                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      WIP: {column.cards.length}/{column.wipLimit}
-                      {column.cards.length >= column.wipLimit && (
-                        <span className="text-red-500 ml-1">⚠️</span>
-                      )}
-                    </div>
-                  )}
+                  <button className="text-white/80 hover:text-white">
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
                 </div>
 
-                {/* Cards */}
+                {/* Cards Container */}
                 <Droppable droppableId={column.id}>
                   {(provided, snapshot) => (
-                    <div 
+                    <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className="flex-1 overflow-y-auto p-3 space-y-3"
-                      style={{
-                        backgroundColor: snapshot.isDraggingOver ? 'var(--primary-50)' : 'transparent',
-                        minHeight: '200px'
+                      className={cn(
+                        "flex-1 overflow-y-auto p-2 space-y-2",
+                        snapshot.isDraggingOver && "bg-blue-50"
+                      )}
+                      style={{ 
+                        minHeight: '200px',
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: '#cbd5e1 transparent'
                       }}
                     >
                       {column.cards.map((card, index) => (
@@ -721,261 +432,461 @@ export default function KanbanPage() {
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
                               onClick={() => handleOpenCard(card)}
-                              className="p-4 rounded-xl cursor-pointer transition-all hover:scale-[1.02]"
+                              className={cn(
+                                "bg-white rounded-lg p-3 cursor-pointer transition-all",
+                                "border border-gray-200 hover:shadow-md",
+                                snapshot.isDragging && "shadow-lg ring-2 ring-blue-500"
+                              )}
                               style={{
-                                ...provided.draggableProps.style,
-                                backgroundColor: snapshot.isDragging ? 'var(--primary-50)' : 'var(--bg-secondary)',
-                                border: `1px solid ${snapshot.isDragging ? '#4370d1' : 'var(--border-light)'}`,
-                                boxShadow: snapshot.isDragging ? '0 10px 20px rgba(0,0,0,0.1)' : 'none'
+                                ...provided.draggableProps.style
                               }}
                             >
-                              {/* Card Header */}
-                              <div className="flex items-start justify-between mb-2">
-                                <h4 className="font-medium text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>
-                                  {card.title}
-                                </h4>
-                                {getAgingBadge(card)}
-                              </div>
+                              {/* Tag EXEMPLO */}
+                              {card.tags.includes('EXEMPLO') && (
+                                <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                                  EXEMPLO
+                                </span>
+                              )}
 
-                              {/* Client Name */}
-                              {card.clientName && (
-                                <p className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>
-                                  📋 {card.clientName}
+                              {/* Temperature Badge */}
+                              {card.temperature && (
+                                <div className="mb-2">
+                                  <span className={cn(
+                                    "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
+                                    TEMPERATURE_CONFIG[card.temperature].color,
+                                    "text-white"
+                                  )}>
+                                    {TEMPERATURE_CONFIG[card.temperature].label}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Title */}
+                              <h3 className="font-semibold text-gray-800 mb-2">{card.title}</h3>
+
+                              {/* Contact Info */}
+                              {card.contactName && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                                  <User className="w-3.5 h-3.5 text-gray-400" />
+                                  <span className="text-xs text-gray-500">NOME DO CONTATO</span>
+                                </div>
+                              )}
+                              {card.contactName && (
+                                <p className="text-sm text-gray-700 mb-2 ml-5">{card.contactName}</p>
+                              )}
+
+                              {/* Industry */}
+                              {card.industry && (
+                                <>
+                                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                                    <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                                    <span className="text-xs text-gray-500">INDÚSTRIA</span>
+                                  </div>
+                                  <p className="text-sm text-gray-700 mb-2 ml-5">{card.industry}</p>
+                                </>
+                              )}
+
+                              {/* Description */}
+                              {card.description && (
+                                <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                                  {card.description}
                                 </p>
                               )}
 
-                              {/* Priority & Due Date */}
-                              <div className="flex items-center justify-between mb-3">
-                                <span 
-                                  className="text-xs px-2 py-1 rounded-full font-medium"
-                                  style={{ 
-                                    backgroundColor: `${getPriorityColor(card.priority)}20`,
-                                    color: getPriorityColor(card.priority)
-                                  }}
-                                >
-                                  {getPriorityLabel(card.priority)}
-                                </span>
+                              {/* Footer - Dates */}
+                              <div className="flex items-center gap-3 mt-3 pt-2 border-t border-gray-100">
+                                <div className="flex items-center gap-1 text-xs text-gray-500">
+                                  <AlertCircle className="w-3 h-3 text-red-400" />
+                                  <span>{differenceInDays(new Date(), card.createdAt)}d</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs text-gray-500">
+                                  <Clock className="w-3 h-3 text-green-400" />
+                                  <span>{differenceInDays(new Date(), card.createdAt)}d</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs text-gray-500">
+                                  <Calendar className="w-3 h-3 text-blue-400" />
+                                  <span>{differenceInDays(new Date(), card.createdAt)}d</span>
+                                </div>
                                 {card.dueDate && (
-                                  <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-tertiary)' }}>
-                                    <Calendar className="w-3 h-3" />
-                                    {format(new Date(card.dueDate), 'dd MMM', { locale: ptBR })}
-                                  </span>
+                                  <div className="flex items-center gap-1 text-xs text-gray-500 ml-auto">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                    <span>0min</span>
+                                  </div>
                                 )}
-                              </div>
-
-                              {/* Tags */}
-                              {card.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-3">
-                                  {card.tags.slice(0, 2).map((tag, idx) => (
-                                    <span 
-                                      key={idx}
-                                      className="text-[10px] px-2 py-0.5 rounded-full"
-                                      style={{ 
-                                        backgroundColor: 'var(--primary-50)', 
-                                        color: '#4370d1' 
-                                      }}
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-
-                              {/* Footer Stats */}
-                              <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-light)' }}>
-                                <div className="flex -space-x-2">
-                                  {card.assignees.slice(0, 2).map((assignee, idx) => (
-                                    <div 
-                                      key={idx}
-                                      className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-medium"
-                                      style={{ 
-                                        backgroundColor: '#4370d1', 
-                                        borderColor: 'var(--bg-secondary)',
-                                        color: 'white'
-                                      }}
-                                    >
-                                      {assignee.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                                  {card.attachments > 0 && (
-                                    <span className="flex items-center gap-1">
-                                      <Paperclip className="w-3 h-3" />
-                                      {card.attachments}
-                                    </span>
-                                  )}
-                                  {card.comments > 0 && (
-                                    <span className="flex items-center gap-1">
-                                      <MessageSquare className="w-3 h-3" />
-                                      {card.comments}
-                                    </span>
-                                  )}
-                                </div>
                               </div>
                             </div>
                           )}
                         </Draggable>
                       ))}
                       {provided.placeholder}
-                      
-                      {column.cards.length === 0 && (
-                        <div className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>
-                          <p className="text-sm">Nenhuma tarefa</p>
-                        </div>
-                      )}
                     </div>
                   )}
                 </Droppable>
+
+                {/* Add Card Button */}
+                <button
+                  onClick={() => handleNewCard(column.id)}
+                  className="m-2 p-3 flex items-center gap-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Criar novo card
+                </button>
               </div>
             ))}
           </div>
-        </div>
-      </DragDropContext>
-      )}
+        </DragDropContext>
+      </div>
 
-      {/* List View */}
-      {viewMode === 'list' && (
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-light)' }}>
-            <table className="w-full">
-              <thead style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Tarefa</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Prioridade</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Prazo</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Aging</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredColumns.flatMap(col => 
-                  col.cards.map(card => (
-                    <tr 
-                      key={card.id}
-                      onClick={() => handleOpenCard(card)}
-                      className="cursor-pointer hover:bg-gray-50 transition-all"
-                      style={{ borderBottom: '1px solid var(--border-light)' }}
-                    >
-                      <td className="px-6 py-4">
-                        <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{card.title}</div>
-                        {card.clientName && (
-                          <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                            {card.clientName}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ 
-                          backgroundColor: `${col.color}20`,
-                          color: col.color
-                        }}>
-                          {col.title}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm">{getPriorityLabel(card.priority)}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {card.dueDate && (
-                          <span className="text-sm flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                            <Clock className="w-4 h-4" />
-                            {format(new Date(card.dueDate), 'dd/MM/yyyy', { locale: ptBR })}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {getAgingBadge(card)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+      {/* Card Detail Modal */}
+      <AnimatePresence>
+        {isCardModalOpen && selectedCard && (
+          <CardDetailModal
+            card={selectedCard}
+            onClose={() => setIsCardModalOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* New Card Modal */}
+      <AnimatePresence>
+        {isNewCardModalOpen && (
+          <NewCardModal
+            onClose={() => setIsNewCardModalOpen(false)}
+            onCreate={handleCreateCard}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ==================== MODAL DETALHES DO CARD ====================
+function CardDetailModal({ card, onClose }: { card: PipefyCard; onClose: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-6 border-b">
+          <div className="flex items-start justify-between">
+            <div>
+              {card.temperature && (
+                <span className={cn(
+                  "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium mb-2",
+                  TEMPERATURE_CONFIG[card.temperature].color,
+                  "text-white"
+                )}>
+                  {TEMPERATURE_CONFIG[card.temperature].label}
+                </span>
+              )}
+              <h2 className="text-xl font-bold text-gray-800">{card.title}</h2>
+              {card.company && (
+                <p className="text-sm text-gray-500 mt-1">{card.company}</p>
+              )}
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Calendar View */}
-      {viewMode === 'calendar' && (
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="rounded-2xl shadow-lg p-6" style={{ backgroundColor: 'var(--bg-primary)', height: 'calc(100vh - 280px)' }}>
-            <BigCalendar
-              localizer={localizer}
-              events={filteredColumns.flatMap(col => 
-                col.cards
-                  .filter(card => card.dueDate)
-                  .map(card => ({
-                    title: `${card.title} (${col.title})`,
-                    start: new Date(card.dueDate!),
-                    end: new Date(card.dueDate!),
-                    resource: {
-                      card,
-                      column: col,
-                      priority: card.priority
-                    }
-                  }))
+        {/* Body */}
+        <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 200px)' }}>
+          <div className="grid grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-4">
+              {card.contactName && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Nome do Contato</label>
+                  <p className="text-gray-800 mt-1">{card.contactName}</p>
+                </div>
               )}
-              startAccessor="start"
-              endAccessor="end"
-              culture="pt-BR"
-              messages={{
-                next: "Próximo",
-                previous: "Anterior",
-                today: "Hoje",
-                month: "Mês",
-                week: "Semana",
-                day: "Dia",
-                agenda: "Agenda",
-                date: "Data",
-                time: "Hora",
-                event: "Evento",
-                noEventsInRange: "Não há tarefas neste período."
-              }}
-              onSelectEvent={(event) => {
-                handleOpenCard(event.resource.card)
-              }}
-              eventPropGetter={(event) => {
-                const colors = {
-                  urgent: { bg: '#fee2e2', border: '#ef4444' },
-                  high: { bg: '#fef3c7', border: '#f59e0b' },
-                  normal: { bg: '#dbeafe', border: '#3b82f6' },
-                  low: { bg: '#d1fae5', border: '#10b981' }
-                }
-                const color = colors[event.resource.priority as keyof typeof colors] || colors.normal
-                return {
-                  style: {
-                    backgroundColor: color.bg,
-                    borderLeft: `4px solid ${color.border}`,
-                    color: '#1f2937',
-                    fontSize: '13px',
-                    padding: '4px 8px',
-                    borderRadius: '6px'
-                  }
-                }
-              }}
-              style={{ height: '100%' }}
+
+              {card.contactEmail && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Email</label>
+                  <p className="text-gray-800 mt-1">{card.contactEmail}</p>
+                </div>
+              )}
+
+              {card.contactPhone && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Telefone</label>
+                  <p className="text-gray-800 mt-1">{card.contactPhone}</p>
+                </div>
+              )}
+
+              {card.industry && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Indústria</label>
+                  <p className="text-gray-800 mt-1">{card.industry}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-4">
+              {card.description && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Descrição</label>
+                  <p className="text-gray-700 mt-1">{card.description}</p>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase">Criado em</label>
+                <p className="text-gray-800 mt-1">
+                  {format(card.createdAt, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                </p>
+              </div>
+
+              {card.dueDate && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Prazo</label>
+                  <p className="text-gray-800 mt-1">
+                    {format(card.dueDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Tags */}
+          {card.tags.length > 0 && (
+            <div className="mt-6">
+              <label className="text-xs font-semibold text-gray-500 uppercase">Tags</label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {card.tags.map((tag, i) => (
+                  <span key={i} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
+          <div className="flex items-center gap-4 text-sm text-gray-500">
+            <span className="flex items-center gap-1">
+              <Paperclip className="w-4 h-4" />
+              {card.attachments} anexos
+            </span>
+            <span className="flex items-center gap-1">
+              <MessageSquare className="w-4 h-4" />
+              {card.comments} comentários
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
+              <Edit className="w-4 h-4 inline mr-1" />
+              Editar
+            </button>
+            <button className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg">
+              <Trash2 className="w-4 h-4 inline mr-1" />
+              Excluir
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ==================== MODAL NOVO CARD ====================
+function NewCardModal({ onClose, onCreate }: { onClose: () => void; onCreate: (data: Partial<PipefyCard>) => void }) {
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    contactName: '',
+    contactEmail: '',
+    contactPhone: '',
+    company: '',
+    industry: '',
+    temperature: 'warm' as 'hot' | 'warm' | 'cold',
+    tags: ''
+  })
+
+  const handleSubmit = () => {
+    if (!formData.title.trim()) return
+    onCreate({
+      ...formData,
+      tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)
+    })
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white rounded-xl shadow-2xl w-full max-w-lg"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-4 border-b flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-800">Novo Card</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Nome do lead ou tarefa"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows={3}
+              placeholder="Detalhes sobre o card..."
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Contato</label>
+              <input
+                type="text"
+                value={formData.contactName}
+                onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
+              <input
+                type="text"
+                value={formData.company}
+                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={formData.contactEmail}
+                onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+              <input
+                type="tel"
+                value={formData.contactPhone}
+                onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Indústria</label>
+            <select
+              value={formData.industry}
+              onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Selecione...</option>
+              <option value="Tecnologia">Tecnologia</option>
+              <option value="Saúde">Saúde</option>
+              <option value="Manufatura">Manufatura</option>
+              <option value="Varejo">Varejo</option>
+              <option value="Serviços">Serviços</option>
+              <option value="Educação">Educação</option>
+              <option value="Energia e Utilitários">Energia e Utilitários</option>
+              <option value="Marketing, Mídia e Entretenimento">Marketing, Mídia e Entretenimento</option>
+              <option value="Outras">Outras</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Temperatura</label>
+            <div className="flex gap-2">
+              {(['hot', 'warm', 'cold'] as const).map((temp) => (
+                <button
+                  key={temp}
+                  onClick={() => setFormData({ ...formData, temperature: temp })}
+                  className={cn(
+                    "flex-1 py-2 rounded-lg text-sm font-medium transition-all",
+                    formData.temperature === temp
+                      ? cn(TEMPERATURE_CONFIG[temp].color, "text-white")
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  )}
+                >
+                  {TEMPERATURE_CONFIG[temp].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tags (separadas por vírgula)</label>
+            <input
+              type="text"
+              value={formData.tags}
+              onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ex: Urgente, Novo Cliente"
             />
           </div>
         </div>
-      )}
 
-      {/* Card Modal */}
-      <CardModal
-        card={selectedCard}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSaveCard}
-        onDelete={handleDeleteCard}
-      />
-
-      {/* New Task Form */}
-      <NewTaskForm
-        isOpen={isNewTaskOpen}
-        onClose={() => setIsNewTaskOpen(false)}
-        onSave={handleNewTask}
-        userArea={userArea}
-      />
-    </div>
+        {/* Footer */}
+        <div className="p-4 border-t bg-gray-50 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!formData.title.trim()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Criar Card
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   )
 }

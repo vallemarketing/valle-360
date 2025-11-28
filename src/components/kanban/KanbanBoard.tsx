@@ -506,3 +506,4 @@ function KanbanCardComponent({
 
 export default KanbanBoard;
 
+

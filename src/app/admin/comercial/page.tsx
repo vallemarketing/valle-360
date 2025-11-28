@@ -410,3 +410,4 @@ const TOP_SELLERS = [
   { id: '5', name: 'Leonardo Cardoso', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=leonardo', region: 'Norte', sales: 900329, goalPercentage: 75 }
 ];
 
+
