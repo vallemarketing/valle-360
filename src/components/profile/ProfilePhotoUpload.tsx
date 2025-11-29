@@ -73,9 +73,9 @@ export function ProfilePhotoUpload({
       const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`
       const filePath = `avatars/${fileName}`
 
-      // Upload para o Supabase Storage
+      // Upload para o Supabase Storage (bucket avatars)
       const { error: uploadError } = await supabase.storage
-        .from('public')
+        .from('avatars')
         .upload(filePath, selectedFile, {
           cacheControl: '3600',
           upsert: true
@@ -85,7 +85,7 @@ export function ProfilePhotoUpload({
 
       // Obter URL pública
       const { data: { publicUrl } } = supabase.storage
-        .from('public')
+        .from('avatars')
         .getPublicUrl(filePath)
 
       // Atualizar no banco de dados

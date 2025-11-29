@@ -199,17 +199,42 @@ export function DashboardSettings({ userId, isOpen, onClose, onSave }: Dashboard
     try {
       const fileExt = file.name.split('.').pop()
       const fileName = `${type}-${Date.now()}.${fileExt}`
-      const filePath = `branding/${fileName}`
 
+      // Upload para o bucket branding
       const { error: uploadError } = await supabase.storage
-        .from('public')
-        .upload(filePath, file)
+        .from('branding')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true
+        })
 
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error('Erro no upload:', uploadError)
+        // Tentar no bucket avatars como fallback
+        const { error: fallbackError } = await supabase.storage
+          .from('avatars')
+          .upload(`branding-${fileName}`, file, {
+            cacheControl: '3600',
+            upsert: true
+          })
+        
+        if (fallbackError) throw fallbackError
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(`branding-${fileName}`)
+        
+        if (type === 'logo') {
+          setCompanyLogo(publicUrl)
+        } else {
+          setCompanyIcon(publicUrl)
+        }
+        return
+      }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('public')
-        .getPublicUrl(filePath)
+        .from('branding')
+        .getPublicUrl(fileName)
 
       if (type === 'logo') {
         setCompanyLogo(publicUrl)
@@ -218,7 +243,7 @@ export function DashboardSettings({ userId, isOpen, onClose, onSave }: Dashboard
       }
     } catch (error) {
       console.error('Erro ao fazer upload:', error)
-      alert('Erro ao fazer upload da imagem')
+      alert('Erro ao fazer upload da imagem. Verifique as permissões do storage.')
     }
   }
 

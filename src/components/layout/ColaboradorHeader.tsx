@@ -12,21 +12,37 @@ export function ColaboradorHeader() {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
+  const [companyLogo, setCompanyLogo] = useState('');
+  const [companyIcon, setCompanyIcon] = useState('');
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClientComponentClient();
 
   useEffect(() => {
-    const fetchUser = async () => {
+    fetchUser();
+    fetchBranding();
+  }, []);
+
+  const fetchBranding = async () => {
+    try {
+      const { data: branding } = await supabase
+        .from('company_branding')
+        .select('logo_url, icon_url, company_name')
+        .single();
+      
+      if (branding) {
+        setCompanyLogo(branding.logo_url || '');
+        setCompanyIcon(branding.icon_url || '');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar branding:', error);
+    }
+  };
+
+  const fetchUser = async () => {
+    try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Buscar perfil do usuário
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('full_name, role')
-          .eq('user_id', user.id)
-          .single();
-        
         // Buscar dados do employee (incluindo avatar)
         const { data: employee } = await supabase
           .from('employees')
@@ -43,14 +59,24 @@ export function ColaboradorHeader() {
             .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ') || 'Colaborador';
           setUserRole(areaFormatted);
-        } else if (profile) {
-          setUserName(profile.full_name || user.email?.split('@')[0] || 'Colaborador');
-          setUserRole(profile.role === 'super_admin' ? 'Super Admin' : 'Colaborador');
+        } else {
+          // Fallback para user_profiles
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('full_name, role')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (profile) {
+            setUserName(profile.full_name || user.email?.split('@')[0] || 'Colaborador');
+            setUserRole(profile.role === 'super_admin' ? 'Super Admin' : 'Colaborador');
+          }
         }
       }
-    };
-    fetchUser();
-  }, [supabase]);
+    } catch (error) {
+      console.error('Erro ao carregar usuário:', error);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,12 +99,29 @@ export function ColaboradorHeader() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm h-[73px]">
       <div className="flex items-center justify-between px-6 h-full">
-        {/* Logo e Menu Mobile */}
+        {/* Logo da Empresa */}
         <div className="flex items-center gap-4 w-64">
-          <div className="flex items-center gap-2 text-gray-900 font-bold text-xl">
-            <span className="text-blue-600">Valle</span>
-            <span>360</span>
-          </div>
+          {companyLogo ? (
+            <img 
+              src={companyLogo} 
+              alt="Logo" 
+              className="h-10 max-w-[160px] object-contain"
+            />
+          ) : companyIcon ? (
+            <div className="flex items-center gap-2">
+              <img 
+                src={companyIcon} 
+                alt="Ícone" 
+                className="h-10 w-10 object-contain"
+              />
+              <span className="text-gray-900 font-bold text-xl">Valle 360</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-gray-900 font-bold text-xl">
+              <span className="text-blue-600">Valle</span>
+              <span>360</span>
+            </div>
+          )}
         </div>
 
         {/* Barra de Busca Central */}
