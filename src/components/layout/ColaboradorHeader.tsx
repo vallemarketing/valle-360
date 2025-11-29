@@ -11,6 +11,7 @@ export function ColaboradorHeader() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
+  const [userAvatar, setUserAvatar] = useState('');
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClientComponentClient();
@@ -19,13 +20,30 @@ export function ColaboradorHeader() {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        // Buscar perfil do usuário
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('full_name, role')
           .eq('user_id', user.id)
           .single();
         
-        if (profile) {
+        // Buscar dados do employee (incluindo avatar)
+        const { data: employee } = await supabase
+          .from('employees')
+          .select('full_name, avatar, area_of_expertise')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (employee) {
+          setUserName(employee.full_name || user.email?.split('@')[0] || 'Colaborador');
+          setUserAvatar(employee.avatar || '');
+          // Formatar área de expertise
+          const areaFormatted = employee.area_of_expertise
+            ?.split('_')
+            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ') || 'Colaborador';
+          setUserRole(areaFormatted);
+        } else if (profile) {
           setUserName(profile.full_name || user.email?.split('@')[0] || 'Colaborador');
           setUserRole(profile.role === 'super_admin' ? 'Super Admin' : 'Colaborador');
         }
@@ -102,9 +120,17 @@ export function ColaboradorHeader() {
               <span className="text-sm font-semibold text-gray-900">{userName}</span>
               <span className="text-xs text-gray-500">{userRole}</span>
             </div>
-            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold shadow-md cursor-pointer hover:shadow-lg transition-all">
-              {userName.charAt(0).toUpperCase()}
-            </div>
+            {userAvatar ? (
+              <img 
+                src={userAvatar} 
+                alt={userName}
+                className="h-10 w-10 rounded-full object-cover shadow-md cursor-pointer hover:shadow-lg transition-all ring-2 ring-blue-100"
+              />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold shadow-md cursor-pointer hover:shadow-lg transition-all">
+                {userName.charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
         </div>
       </div>
