@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { motion } from 'framer-motion'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, Settings } from 'lucide-react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { NotificationBanner } from '@/components/notifications/NotificationBanner'
@@ -11,6 +11,7 @@ import { IcebreakerCard } from '@/components/val/IcebreakerCard'
 import { GamificationWidget } from '@/components/gamification/GamificationWidget'
 import { CustomizableDashboard } from '@/components/dashboard/CustomizableDashboard'
 import { RoleBasedDashboard } from '@/components/dashboard/RoleBasedDashboard'
+import { DashboardSettings } from '@/components/dashboard/DashboardSettings'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -22,6 +23,7 @@ export default function ColaboradorDashboardPage() {
   const [userId, setUserId] = useState('')
   const [notifications, setNotifications] = useState<any[]>([])
   const [viewMode, setViewMode] = useState<'specific' | 'customizable'>('specific')
+  const [showSettings, setShowSettings] = useState(false)
 
   // Refs para animações GSAP
   const headerRef = useRef<HTMLDivElement>(null)
@@ -239,17 +241,29 @@ export default function ColaboradorDashboardPage() {
             </p>
           </div>
           
-          {/* Botão Toggle de Visualização */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setViewMode(viewMode === 'specific' ? 'customizable' : 'specific')}
-            className="px-6 py-3 rounded-xl font-semibold text-white shadow-lg transition-all flex items-center gap-2"
-            style={{ backgroundColor: 'var(--primary-600)' }}
-          >
-            <Sparkles className="w-5 h-5" />
-            {viewMode === 'specific' ? 'Personalizar Dashboard' : 'Dashboard Padrão'}
-          </motion.button>
+          {/* Botões de Controle */}
+          <div className="flex items-center gap-3">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowSettings(true)}
+              className="p-3 rounded-xl shadow-lg transition-all"
+              style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-light)' }}
+              title="Configurações do Dashboard"
+            >
+              <Settings className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setViewMode(viewMode === 'specific' ? 'customizable' : 'specific')}
+              className="px-6 py-3 rounded-xl font-semibold text-white shadow-lg transition-all flex items-center gap-2"
+              style={{ backgroundColor: 'var(--primary-600)' }}
+            >
+              <Sparkles className="w-5 h-5" />
+              {viewMode === 'specific' ? 'Personalizar Dashboard' : 'Dashboard Padrão'}
+            </motion.button>
+          </div>
         </div>
 
         {/* Grid Layout: Icebreaker + Gamification - COM ANIMAÇÃO GSAP */}
@@ -340,6 +354,17 @@ export default function ColaboradorDashboardPage() {
         </div>
 
       </div>
+
+      {/* Modal de Configurações do Dashboard */}
+      <DashboardSettings
+        userId={userId}
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onSave={(settings) => {
+          console.log('Configurações salvas:', settings)
+          // Aplicar configurações aqui se necessário
+        }}
+      />
     </div>
   )
 }
