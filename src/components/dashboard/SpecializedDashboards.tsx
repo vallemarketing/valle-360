@@ -10,7 +10,7 @@ import {
   UserPlus, Briefcase, Heart,
   Building2, ShoppingCart, Receipt,
   Wallet, Banknote, CalendarDays, Gift, Cake,
-  Gauge, Eye, TrendingDown, Folder
+  Gauge, Eye, TrendingDown, Folder, Globe
 } from 'lucide-react';
 
 // ==================== SOCIAL MEDIA DASHBOARD ====================
