@@ -71,7 +71,7 @@ export class SendGridClient {
     // SendGrid retorna 202 para sucesso em envio de email
     if (response.status === 202 || response.status === 200 || response.status === 201) {
       const text = await response.text();
-      return text ? JSON.parse(text) : { success: true };
+      return (text ? JSON.parse(text) : { success: true }) as T;
     }
 
     const error = await response.json();
