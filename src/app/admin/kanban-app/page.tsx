@@ -2,17 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { CardModal } from '@/components/kanban/CardModal'
-import { NewTaskForm } from '@/components/kanban/NewTaskForm'
-import { Plus, Search, Calendar, Filter, Layers, Clock, AlertTriangle, TrendingUp, ArrowRight, Eye, BarChart2 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  Plus, Search, Calendar, Filter, Layers, Clock, AlertTriangle, 
+  TrendingUp, ArrowRight, Eye, BarChart2, ChevronDown, Building2,
+  Users, DollarSign, Wallet, Receipt, Zap, X
+} from 'lucide-react'
 import { toast } from 'sonner'
-import { columnsByArea } from '@/lib/kanban/columnsByArea'
-import ProfitabilityView from '@/components/dashboards/widgets/ProfitabilityView'
+import { getPhasesForArea, getFinanceiroPhases, PhaseConfig } from '@/lib/kanban/phaseFields'
+import { KanbanInsights } from '@/components/kanban/KanbanInsights'
 
-// Definir tipos
+// Tipos
 type Card = {
   id: string
   title: string
@@ -22,6 +25,7 @@ type Card = {
   column_id: string
   assignee_id?: string
   labels?: string[]
+  client_name?: string
   assignee?: {
     full_name: string
     avatar_url?: string
@@ -38,419 +42,424 @@ type Column = {
 
 // Áreas disponíveis
 const AREAS = [
-  { id: 'design', label: 'Design', color: 'bg-purple-100 text-purple-700' },
-  { id: 'web_design', label: 'Web Design', color: 'bg-blue-100 text-blue-700' },
-  { id: 'marketing', label: 'Marketing', color: 'bg-pink-100 text-pink-700' },
-  { id: 'rh', label: 'RH', color: 'bg-green-100 text-green-700' },
-  { id: 'financeiro', label: 'Financeiro', color: 'bg-yellow-100 text-yellow-700' },
-  { id: 'audiovisual', label: 'Audiovisual', color: 'bg-red-100 text-red-700' },
-  { id: 'social_media', label: 'Social Media', color: 'bg-orange-100 text-orange-700' },
-  { id: 'trafego', label: 'Tráfego', color: 'bg-indigo-100 text-indigo-700' },
-  { id: 'comercial', label: 'Comercial', color: 'bg-emerald-100 text-emerald-700' },
+  { id: 'all', label: 'Todas as Áreas', icon: Layers, color: 'bg-gray-100 text-gray-700' },
+  { id: 'web_designer', label: 'Web Designer', icon: Layers, color: 'bg-blue-100 text-blue-700' },
+  { id: 'designer', label: 'Designer', icon: Layers, color: 'bg-purple-100 text-purple-700' },
+  { id: 'social_media', label: 'Social Media', icon: Layers, color: 'bg-pink-100 text-pink-700' },
+  { id: 'trafego', label: 'Tráfego', icon: TrendingUp, color: 'bg-orange-100 text-orange-700' },
+  { id: 'video_maker', label: 'Video Maker', icon: Layers, color: 'bg-red-100 text-red-700' },
+  { id: 'head_marketing', label: 'Head Marketing', icon: Users, color: 'bg-indigo-100 text-indigo-700' },
+  { id: 'comercial', label: 'Comercial', icon: Building2, color: 'bg-emerald-100 text-emerald-700' },
+  { id: 'rh', label: 'RH', icon: Users, color: 'bg-green-100 text-green-700' },
+  { id: 'financeiro_pagar', label: 'Contas a Pagar', icon: Wallet, color: 'bg-red-100 text-red-700' },
+  { id: 'financeiro_receber', label: 'Contas a Receber', icon: Receipt, color: 'bg-green-100 text-green-700' },
 ]
 
-export default function SuperAdminKanban() {
-  const [selectedArea, setSelectedArea] = useState('design')
-  const [columns, setColumns] = useState<Column[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isCardModalOpen, setIsCardModalOpen] = useState(false)
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showNewTaskForm, setShowNewTaskForm] = useState(false)
-  
-  // Métricas simuladas para o "God Mode"
-  const [metrics, setMetrics] = useState({
-    totalTasks: 128,
-    delayed: 12,
-    completedToday: 8,
-    productivity: 87
-  })
-
+export default function AdminKanbanPage() {
   const supabase = createClientComponentClient()
+  const [selectedArea, setSelectedArea] = useState('all')
+  const [columns, setColumns] = useState<Column[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showAreaSelector, setShowAreaSelector] = useState(false)
+  const [showInsights, setShowInsights] = useState(true)
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null)
 
-  // Carregar estrutura e dados
   useEffect(() => {
-    loadKanbanBoard()
+    loadKanbanData()
   }, [selectedArea])
 
-  const loadKanbanBoard = async () => {
-    setIsLoading(true)
+  const loadKanbanData = async () => {
+    setLoading(true)
     try {
-      // 1. Carregar colunas da área selecionada (columnsByArea.ts)
-      const areaConfig = columnsByArea[selectedArea] || columnsByArea['Default']
+      // Determinar fases baseado na área selecionada
+      let phases: PhaseConfig[]
       
-      // 2. Carregar cards do Supabase
-      const { data: tasks, error } = await supabase
-        .from('kanban_tasks')
-        .select(`
-          *,
-          assignee:employees(full_name)
-        `)
-        .eq('area', selectedArea) // Filtrar por área
-        .order('position')
+      if (selectedArea === 'financeiro_pagar') {
+        phases = getFinanceiroPhases('pagar')
+      } else if (selectedArea === 'financeiro_receber') {
+        phases = getFinanceiroPhases('receber')
+      } else if (selectedArea === 'all') {
+        phases = getPhasesForArea('Web Designer') // Fases padrão
+      } else {
+        const areaMap: Record<string, string> = {
+          'web_designer': 'Web Designer',
+          'designer': 'Designer',
+          'social_media': 'Social Media',
+          'trafego': 'Tráfego',
+          'video_maker': 'Video Maker',
+          'head_marketing': 'Head Marketing',
+          'comercial': 'Comercial',
+          'rh': 'RH'
+        }
+        phases = getPhasesForArea(areaMap[selectedArea] || 'Web Designer')
+      }
 
-      if (error) throw error
-
-      // 3. Organizar cards nas colunas
-      const newColumns = areaConfig.map(col => ({
-        id: col.id,
-        title: col.title,
-        color: col.color,
-        cards: tasks?.filter(t => t.column_id === col.id) || []
+      // Criar colunas baseadas nas fases
+      const newColumns: Column[] = phases.map(phase => ({
+        id: phase.id,
+        title: phase.title,
+        color: phase.color,
+        cards: []
       }))
 
-      setColumns(newColumns)
+      // Carregar cards do banco (mock por enquanto)
+      const mockCards = generateMockCards(selectedArea)
       
-      // Atualizar métricas simuladas (em produção viriam do banco)
-      setMetrics({
-        totalTasks: tasks?.length || 0,
-        delayed: tasks?.filter(t => t.due_date && new Date(t.due_date) < new Date()).length || 0,
-        completedToday: tasks?.filter(t => t.column_id === 'done' && new Date(t.updated_at).getDate() === new Date().getDate()).length || 0,
-        productivity: Math.floor(Math.random() * 20) + 80 // Simulado entre 80-100%
+      // Distribuir cards nas colunas
+      mockCards.forEach(card => {
+        const col = newColumns.find(c => c.id === card.column_id)
+        if (col) {
+          col.cards.push(card)
+        }
       })
 
+      setColumns(newColumns)
     } catch (error) {
-      console.error('Erro ao carregar Kanban:', error)
-      toast.error('Erro ao carregar o quadro.')
+      console.error('Erro ao carregar kanban:', error)
+      toast.error('Erro ao carregar dados')
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const onDragEnd = async (result: any) => {
-    const { destination, source, draggableId } = result
-
-    if (!destination) return
-
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return
+  const generateMockCards = (area: string): Card[] => {
+    if (area === 'financeiro_pagar') {
+      return [
+        { id: '1', title: 'Fornecedor ABC - Materiais', description: 'Compra de materiais', priority: 'high', due_date: '2025-01-05', column_id: 'pendente', client_name: 'Fornecedor ABC' },
+        { id: '2', title: 'Aluguel Escritório', description: 'Pagamento mensal', priority: 'high', due_date: '2025-01-10', column_id: 'agendado', client_name: 'Imobiliária XYZ' },
+        { id: '3', title: 'Serviços de TI', description: 'Manutenção mensal', priority: 'medium', due_date: '2025-01-15', column_id: 'pendente', client_name: 'TechSupport' },
+      ]
     }
-
-    // Atualização Otimista
-    const sourceColIndex = columns.findIndex(col => col.id === source.droppableId)
-    const destColIndex = columns.findIndex(col => col.id === destination.droppableId)
     
-    const newColumns = [...columns]
-    const sourceCards = [...newColumns[sourceColIndex].cards]
-    const destCards = source.droppableId === destination.droppableId 
-      ? sourceCards 
-      : [...newColumns[destColIndex].cards]
-
-    const [movedCard] = sourceCards.splice(source.index, 1)
-    movedCard.column_id = destination.droppableId
-    destCards.splice(destination.index, 0, movedCard)
-
-    newColumns[sourceColIndex].cards = sourceCards
-    if (source.droppableId !== destination.droppableId) {
-      newColumns[destColIndex].cards = destCards
+    if (area === 'financeiro_receber') {
+      return [
+        { id: '1', title: 'Tech Solutions - Mensalidade', description: 'Mensalidade Janeiro', priority: 'high', due_date: '2025-01-05', column_id: 'a_faturar', client_name: 'Tech Solutions' },
+        { id: '2', title: 'E-commerce Plus - Projeto', description: 'Landing Page', priority: 'medium', due_date: '2025-01-10', column_id: 'faturado', client_name: 'E-commerce Plus' },
+        { id: '3', title: 'Startup XYZ - Consultoria', description: 'Consultoria Marketing', priority: 'low', due_date: '2025-01-20', column_id: 'recebido', client_name: 'Startup XYZ' },
+      ]
     }
+
+    // Cards padrão para outras áreas
+    return [
+      { id: '1', title: 'Landing Page - Lançamento', description: 'Criar landing page', priority: 'high', due_date: '2025-01-05', column_id: 'demandas', client_name: 'Tech Solutions', area },
+      { id: '2', title: 'Redesign Site Institucional', description: 'Redesign completo', priority: 'medium', due_date: '2025-01-10', column_id: 'em_progresso', client_name: 'E-commerce Plus', area },
+      { id: '3', title: 'Blog Corporativo', description: 'Implementar blog', priority: 'low', due_date: '2025-01-20', column_id: 'revisao', client_name: 'Startup XYZ', area },
+      { id: '4', title: 'E-commerce Completo', description: 'Desenvolvimento loja', priority: 'high', due_date: '2025-01-08', column_id: 'aprovacao', client_name: 'Fashion Store', area },
+    ]
+  }
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return
+
+    const { source, destination } = result
+    const newColumns = [...columns]
+
+    const sourceColIndex = newColumns.findIndex(col => col.id === source.droppableId)
+    const destColIndex = newColumns.findIndex(col => col.id === destination.droppableId)
+
+    const [movedCard] = newColumns[sourceColIndex].cards.splice(source.index, 1)
+    movedCard.column_id = destination.droppableId
+    newColumns[destColIndex].cards.splice(destination.index, 0, movedCard)
 
     setColumns(newColumns)
+    toast.success('Card movido com sucesso')
+  }
 
-    // Persistir no Banco
-    try {
-      await supabase
-        .from('kanban_tasks')
-        .update({ 
-          column_id: destination.droppableId,
-          position: destination.index,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', draggableId)
-      
-      // Registrar métrica de movimentação (via Trigger SQL já criado)
-      toast.success('Tarefa movida com sucesso')
-    } catch (error) {
-      console.error('Erro ao mover card:', error)
-      toast.error('Erro ao salvar movimentação')
-      loadKanbanBoard() // Reverter em caso de erro
-    }
+  const filteredColumns = columns.map(col => ({
+    ...col,
+    cards: col.cards.filter(card =>
+      card.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      card.client_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }))
+
+  const totalCards = columns.reduce((sum, col) => sum + col.cards.length, 0)
+  const selectedAreaData = AREAS.find(a => a.id === selectedArea)
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 space-y-6">
-      
-      {/* Header e Métricas */}
-      <div className="flex flex-col gap-6 mb-8">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Eye className="w-8 h-8 text-indigo-600" />
-              Visão Global (Super Admin)
-            </h1>
-            <p className="text-gray-500">Monitore e gerencie todas as áreas em tempo real.</p>
-          </div>
-
-          {/* Seletor de Área */}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b px-6 py-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-600">Visualizando Área:</span>
-            <select 
-              value={selectedArea}
-              onChange={(e) => setSelectedArea(e.target.value)}
-              className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-64 p-2.5 shadow-sm"
-            >
-              {AREAS.map(area => (
-                <option key={area.id} value={area.id}>{area.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+            <h1 className="text-2xl font-bold text-gray-800">Kanban - Super Admin</h1>
+            
+            {/* Area Selector */}
+            <div className="relative">
+              <button
+                onClick={() => setShowAreaSelector(!showAreaSelector)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${selectedAreaData?.color || 'bg-gray-100'}`}
+              >
+                {selectedAreaData?.icon && <selectedAreaData.icon className="w-4 h-4" />}
+                {selectedAreaData?.label || 'Selecionar Área'}
+                <ChevronDown className={`w-4 h-4 transition-transform ${showAreaSelector ? 'rotate-180' : ''}`} />
+              </button>
 
-        {/* Widget de Lucratividade (God Mode) */}
-        <div className="mb-4">
-          <details className="group bg-white p-4 rounded-xl border border-indigo-100 shadow-sm open:ring-2 open:ring-indigo-500 open:ring-opacity-50 transition-all">
-            <summary className="flex justify-between items-center cursor-pointer list-none">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                  <BarChart2 size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">Painel de Lucratividade e Custos (God Mode)</h3>
-                  <p className="text-xs text-gray-500">Clique para expandir a visão financeira detalhada dos projetos.</p>
-                </div>
-              </div>
-              <div className="transform group-open:rotate-180 transition-transform text-gray-400">
-                ▼
-              </div>
-            </summary>
-            <div className="mt-6 border-t border-gray-100 pt-6">
-              <ProfitabilityView />
-            </div>
-          </details>
-        </div>
-
-        {/* Cards de Métricas da Área */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Total de Tarefas</p>
-              <h3 className="text-2xl font-bold text-gray-900">{metrics.totalTasks}</h3>
-            </div>
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-              <Layers size={20} />
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Atrasadas</p>
-              <h3 className="text-2xl font-bold text-red-600">{metrics.delayed}</h3>
-            </div>
-            <div className="p-3 bg-red-50 text-red-600 rounded-lg">
-              <AlertTriangle size={20} />
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Concluídas Hoje</p>
-              <h3 className="text-2xl font-bold text-green-600">{metrics.completedToday}</h3>
-            </div>
-            <div className="p-3 bg-green-50 text-green-600 rounded-lg">
-              <Calendar size={20} />
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Produtividade</p>
-              <h3 className="text-2xl font-bold text-purple-600">{metrics.productivity}%</h3>
-            </div>
-            <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
-              <TrendingUp size={20} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filtros e Ações */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="relative w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input 
-            type="text"
-            placeholder="Filtrar tarefas por nome, responsável ou tag..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        
-        <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
-            <Filter className="w-4 h-4" />
-            Filtros Avançados
-          </button>
-          <button 
-            onClick={() => setShowNewTaskForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Nova Tarefa Global
-          </button>
-        </div>
-      </div>
-
-      {/* Kanban Board Horizontal */}
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-6 overflow-x-auto pb-8 min-h-[calc(100vh-300px)] items-start">
-          {columns.map(column => (
-            <div key={column.id} className="flex-shrink-0 w-80 flex flex-col bg-gray-100/50 rounded-xl border border-gray-200/60 max-h-full">
-              {/* Header da Coluna */}
-              <div className={`p-4 border-b border-gray-200 rounded-t-xl bg-white/50 backdrop-blur-sm sticky top-0 z-10 flex justify-between items-center`}>
-                <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full ${column.color || 'bg-gray-400'}`}></div>
-                  <h3 className="font-semibold text-gray-700">{column.title}</h3>
-                </div>
-                <span className="text-xs font-medium bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
-                  {column.cards.length}
-                </span>
-              </div>
-
-              {/* Área de Droppable */}
-              <Droppable droppableId={column.id}>
-                {(provided, snapshot) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className={`flex-1 p-3 space-y-3 overflow-y-auto min-h-[150px] transition-colors ${
-                      snapshot.isDraggingOver ? 'bg-indigo-50/50' : ''
-                    }`}
+              <AnimatePresence>
+                {showAreaSelector && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border z-50"
                   >
-                    {column.cards
-                      .filter(card => 
-                        card.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        card.assignee?.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
-                      )
-                      .map((card, index) => (
-                      <Draggable key={card.id} draggableId={card.id} index={index}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            onClick={() => {
-                              setSelectedCard(card)
-                              setIsCardModalOpen(true)
-                            }}
-                            className={`
-                              bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer group relative
-                              ${snapshot.isDragging ? 'rotate-2 shadow-xl ring-2 ring-indigo-500 ring-opacity-50 z-50' : ''}
-                            `}
-                          >
-                            {/* Prioridade */}
-                            <div className="flex justify-between items-start mb-2">
-                              <div className="flex gap-1 flex-wrap">
-                                {card.priority === 'high' && (
-                                  <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold uppercase rounded tracking-wider">Urgente</span>
-                                )}
-                                {card.priority === 'medium' && (
-                                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase rounded tracking-wider">Média</span>
-                                )}
-                              </div>
-                              {/* Menu de Contexto (visible on hover) */}
-                              <button className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                                •••
-                              </button>
-                            </div>
+                    <div className="p-2 max-h-96 overflow-y-auto">
+                      {AREAS.map(area => (
+                        <button
+                          key={area.id}
+                          onClick={() => {
+                            setSelectedArea(area.id)
+                            setShowAreaSelector(false)
+                          }}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                            selectedArea === area.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <area.icon className="w-4 h-4" />
+                          <span className="font-medium">{area.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
-                            <h4 className="font-medium text-gray-900 mb-2 line-clamp-2">{card.title}</h4>
-                            
-                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
-                              {/* Responsável */}
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700">
-                                  {card.assignee?.full_name?.charAt(0) || '?'}
+            <span className="text-sm text-gray-500">{totalCards} cards</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar cards..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Toggle Insights */}
+            <button
+              onClick={() => setShowInsights(!showInsights)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                showInsights ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              <Zap className="w-4 h-4" />
+              Insights
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Insights Panel */}
+      <AnimatePresence>
+        {showInsights && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="px-6 py-4 bg-white border-b overflow-hidden"
+          >
+            <KanbanInsights 
+              columns={filteredColumns.map(col => ({
+                ...col,
+                cards: col.cards.map(c => ({
+                  id: c.id,
+                  title: c.title,
+                  dueDate: c.due_date ? new Date(c.due_date) : undefined,
+                  createdAt: new Date(),
+                  assignees: c.assignee ? [c.assignee.full_name] : ['Não atribuído']
+                }))
+              }))} 
+              area={selectedAreaData?.label || 'Geral'} 
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Kanban Board */}
+      <div className="p-6 overflow-x-auto">
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="flex gap-4" style={{ minWidth: `${columns.length * 300}px` }}>
+            {filteredColumns.map(column => (
+              <div
+                key={column.id}
+                className="w-72 flex-shrink-0 bg-gray-100 rounded-xl"
+              >
+                {/* Column Header */}
+                <div 
+                  className="p-3 rounded-t-xl"
+                  style={{ backgroundColor: `${column.color}20` }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: column.color }}
+                      />
+                      <h3 className="font-semibold text-gray-800">{column.title}</h3>
+                      <span className="text-xs bg-white px-2 py-0.5 rounded-full text-gray-600">
+                        {column.cards.length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cards */}
+                <Droppable droppableId={column.id}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={`p-2 space-y-2 min-h-[200px] ${snapshot.isDraggingOver ? 'bg-blue-50' : ''}`}
+                    >
+                      {column.cards.map((card, index) => (
+                        <Draggable key={card.id} draggableId={card.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              onClick={() => setSelectedCard(card)}
+                              className={`bg-white rounded-lg p-3 shadow-sm border cursor-pointer transition-all hover:shadow-md ${
+                                snapshot.isDragging ? 'shadow-lg ring-2 ring-blue-500' : ''
+                              }`}
+                            >
+                              {/* Priority Badge */}
+                              <div className={`inline-block px-2 py-0.5 rounded text-xs font-medium mb-2 ${
+                                card.priority === 'high' ? 'bg-red-100 text-red-700' :
+                                card.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-green-100 text-green-700'
+                              }`}>
+                                {card.priority === 'high' ? 'Alta' : card.priority === 'medium' ? 'Média' : 'Baixa'}
+                              </div>
+
+                              {/* Title */}
+                              <h4 className="font-medium text-gray-800 text-sm line-clamp-2">
+                                {card.title}
+                              </h4>
+
+                              {/* Client */}
+                              {card.client_name && (
+                                <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+                                  <Building2 className="w-3 h-3" />
+                                  <span className="truncate">{card.client_name}</span>
                                 </div>
-                                <span className="text-xs text-gray-500 truncate max-w-[80px]">
-                                  {card.assignee?.full_name?.split(' ')[0] || 'Sem resp.'}
-                                </span>
-                              </div>
+                              )}
 
-                              {/* Data */}
+                              {/* Due Date */}
                               {card.due_date && (
-                                <div className={`flex items-center gap-1 text-xs ${
-                                  new Date(card.due_date) < new Date() ? 'text-red-500 font-semibold' : 'text-gray-400'
+                                <div className={`flex items-center gap-1 mt-1 text-xs ${
+                                  new Date(card.due_date) < new Date() ? 'text-red-600' : 'text-gray-500'
                                 }`}>
-                                  <Clock size={12} />
+                                  <Calendar className="w-3 h-3" />
                                   {format(new Date(card.due_date), 'dd/MM', { locale: ptBR })}
                                 </div>
                               )}
+
+                              {/* Area Badge */}
+                              {card.area && (
+                                <div className="mt-2">
+                                  <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                    {card.area}
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </div>
+            ))}
+          </div>
+        </DragDropContext>
+      </div>
+
+      {/* Card Detail Modal */}
+      <AnimatePresence>
+        {selectedCard && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setSelectedCard(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-800">{selectedCard.title}</h2>
+                <button onClick={() => setSelectedCard(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {selectedCard.description && (
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-1">Descrição</h4>
+                    <p className="text-gray-600">{selectedCard.description}</p>
                   </div>
                 )}
-              </Droppable>
-            </div>
-          ))}
-        </div>
-      </DragDropContext>
 
-      {/* Modal de Detalhes do Card */}
-      {selectedCard && (
-        <CardModal
-          card={{
-            id: selectedCard.id,
-            title: selectedCard.title,
-            description: selectedCard.description,
-            column: selectedCard.column_id,
-            priority: selectedCard.priority === 'high' ? 'high' : selectedCard.priority === 'medium' ? 'normal' : 'low',
-            // Mapeamento de campos incompatíveis
-            assignees: selectedCard.assignee ? [selectedCard.assignee.full_name] : [],
-            tags: selectedCard.labels || [],
-            dueDate: selectedCard.due_date ? new Date(selectedCard.due_date) : undefined,
-            attachments: 0, // TODO: Buscar do banco
-            comments: 0,    // TODO: Buscar do banco
-            createdAt: new Date(), // TODO: Buscar do banco
-            area: selectedCard.area
-          }}
-          isOpen={isCardModalOpen}
-          onClose={() => {
-            setIsCardModalOpen(false)
-            setSelectedCard(null)
-          }}
-          onSave={(updatedCard) => {
-            // Converter de volta para salvar no banco se necessário, ou apenas recarregar
-            loadKanbanBoard()
-            setIsCardModalOpen(false)
-          }}
-          onDelete={async (cardId) => {
-             await supabase.from('kanban_tasks').delete().eq('id', cardId)
-             loadKanbanBoard()
-             setIsCardModalOpen(false)
-          }}
-          isSuperAdmin={true} // Habilita delete
-        />
-      )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-1">Prioridade</h4>
+                    <span className={`inline-block px-2 py-1 rounded text-sm ${
+                      selectedCard.priority === 'high' ? 'bg-red-100 text-red-700' :
+                      selectedCard.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-green-100 text-green-700'
+                    }`}>
+                      {selectedCard.priority === 'high' ? 'Alta' : selectedCard.priority === 'medium' ? 'Média' : 'Baixa'}
+                    </span>
+                  </div>
 
-      {/* Modal de Nova Tarefa */}
-      {showNewTaskForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">Nova Tarefa para {AREAS.find(a => a.id === selectedArea)?.label}</h2>
-              <button onClick={() => setShowNewTaskForm(false)} className="text-gray-500 hover:text-gray-700">✕</button>
-            </div>
-            <NewTaskForm 
-              isOpen={true} // Sempre aberto dentro do modal
-              onClose={() => setShowNewTaskForm(false)}
-              onSave={(taskData) => {
-                setShowNewTaskForm(false)
-                loadKanbanBoard()
-                toast.success('Tarefa criada!')
-              }}
-              userArea={selectedArea} // Passar a área selecionada como userArea
-            />
-          </div>
-        </div>
-      )}
+                  {selectedCard.due_date && (
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-1">Vencimento</h4>
+                      <p className="text-gray-600">
+                        {format(new Date(selectedCard.due_date), "dd 'de' MMMM", { locale: ptBR })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {selectedCard.client_name && (
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-1">Cliente</h4>
+                    <p className="text-gray-600 flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      {selectedCard.client_name}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -7,14 +7,19 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import {
   Plus, Search, Filter, X, Clock, User, Building2, Calendar,
   MoreHorizontal, Paperclip, MessageSquare, CheckCircle2, AlertCircle,
-  Flame, Thermometer, Snowflake, Edit, Trash2, ZoomIn, ZoomOut, Maximize2
+  Flame, Thermometer, Snowflake, Edit, Trash2, ZoomIn, ZoomOut, Maximize2,
+  History, Zap, ChevronDown
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale/pt-BR'
+import { PhaseTransitionModal } from '@/components/kanban/PhaseTransitionModal'
+import { CardHistory, HistoryEntry } from '@/components/kanban/CardHistory'
+import { KanbanInsights } from '@/components/kanban/KanbanInsights'
+import { getPhasesForArea, PhaseConfig, getPhaseFields } from '@/lib/kanban/phaseFields'
 
 // ==================== TIPOS ====================
-interface PipefyCard {
+interface KanbanCard {
   id: string
   title: string
   description?: string
@@ -24,6 +29,8 @@ interface PipefyCard {
   contactPhone?: string
   industry?: string
   company?: string
+  clientId?: string
+  clientName?: string
   dueDate?: Date
   createdAt: Date
   updatedAt: Date
@@ -31,14 +38,22 @@ interface PipefyCard {
   tags: string[]
   attachments: number
   comments: number
+  phaseData: Record<string, any>
+  history: HistoryEntry[]
 }
 
-interface PipefyColumn {
+interface KanbanColumn {
   id: string
   title: string
   color: string
-  cards: PipefyCard[]
+  cards: KanbanCard[]
   description?: string
+}
+
+interface Client {
+  id: string
+  name: string
+  company?: string
 }
 
 // ==================== CONSTANTES ====================
@@ -48,14 +63,6 @@ const TEMPERATURE_CONFIG = {
   cold: { label: 'Frio', color: 'bg-blue-400', textColor: 'text-blue-700', bgLight: 'bg-blue-50', icon: Snowflake }
 }
 
-const DEFAULT_COLUMNS: PipefyColumn[] = [
-  { id: 'backlog', title: 'Backlog', color: '#6366f1', cards: [], description: 'Tarefas a fazer' },
-  { id: 'em_progresso', title: 'Em Progresso', color: '#f97316', cards: [], description: 'Em andamento' },
-  { id: 'revisao', title: 'Revisão', color: '#eab308', cards: [], description: 'Aguardando revisão' },
-  { id: 'aprovacao', title: 'Aprovação Cliente', color: '#06b6d4', cards: [], description: 'Enviado para cliente' },
-  { id: 'concluido', title: 'Concluído', color: '#10b981', cards: [], description: 'Finalizado' }
-]
-
 const ZOOM_LEVELS = [
   { value: 0.6, label: '60%' },
   { value: 0.75, label: '75%' },
@@ -64,20 +71,66 @@ const ZOOM_LEVELS = [
 ]
 
 // ==================== COMPONENTE PRINCIPAL ====================
-export default function KanbanPipefyPage() {
-  const [columns, setColumns] = useState<PipefyColumn[]>(DEFAULT_COLUMNS)
+export default function KanbanPage() {
+  const [columns, setColumns] = useState<KanbanColumn[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCard, setSelectedCard] = useState<PipefyCard | null>(null)
+  const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null)
   const [isCardModalOpen, setIsCardModalOpen] = useState(false)
   const [isNewCardModalOpen, setIsNewCardModalOpen] = useState(false)
-  const [newCardColumn, setNewCardColumn] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [userArea, setUserArea] = useState('Web Designer')
+  const [userName, setUserName] = useState('')
   const [zoomLevel, setZoomLevel] = useState(0.85)
+  const [showInsights, setShowInsights] = useState(true)
+  const [clients, setClients] = useState<Client[]>([])
+  const [employees, setEmployees] = useState<Array<{ id: string; name: string }>>([])
+  
+  // Modal de transição de fase
+  const [transitionModal, setTransitionModal] = useState<{
+    isOpen: boolean
+    card: KanbanCard | null
+    fromPhase: PhaseConfig | null
+    toPhase: PhaseConfig | null
+    fromColumnId: string
+    toColumnId: string
+    sourceIndex: number
+    destIndex: number
+  }>({
+    isOpen: false,
+    card: null,
+    fromPhase: null,
+    toPhase: null,
+    fromColumnId: '',
+    toColumnId: '',
+    sourceIndex: 0,
+    destIndex: 0
+  })
+
+  // Fases baseadas na área
+  const phases = getPhasesForArea(userArea)
 
   useEffect(() => {
     loadData()
   }, [])
+
+  useEffect(() => {
+    // Atualizar colunas quando a área mudar
+    if (userArea) {
+      const newPhases = getPhasesForArea(userArea)
+      setColumns(prevColumns => {
+        return newPhases.map(phase => {
+          const existingCol = prevColumns.find(c => c.id === phase.id)
+          return {
+            id: phase.id,
+            title: phase.title,
+            color: phase.color,
+            description: phase.description,
+            cards: existingCol?.cards || []
+          }
+        })
+      })
+    }
+  }, [userArea])
 
   const loadData = async () => {
     try {
@@ -89,11 +142,38 @@ export default function KanbanPipefyPage() {
           .eq('user_id', user.id)
           .single()
 
-        // Usar area_of_expertise diretamente da tabela employees
         const area = employee?.area_of_expertise || 'Web Designer'
         setUserArea(area)
+        setUserName(employee?.full_name || 'Colaborador')
+
+        // Carregar clientes do setor
+        const { data: clientsData } = await supabase
+          .from('clients')
+          .select('id, name, company_name')
+          .eq('status', 'active')
+        
+        if (clientsData) {
+          setClients(clientsData.map(c => ({
+            id: c.id,
+            name: c.name,
+            company: c.company_name
+          })))
+        }
+
+        // Carregar colaboradores
+        const { data: employeesData } = await supabase
+          .from('employees')
+          .select('id, full_name')
+        
+        if (employeesData) {
+          setEmployees(employeesData.map(e => ({
+            id: e.id,
+            name: e.full_name
+          })))
+        }
       }
 
+      // Inicializar colunas com dados mock
       loadMockData()
     } catch (error) {
       console.error('Erro:', error)
@@ -104,148 +184,78 @@ export default function KanbanPipefyPage() {
   }
 
   const loadMockData = () => {
-    const mockCards: PipefyCard[] = [
+    const mockCards: KanbanCard[] = [
       {
         id: '1',
-        title: 'Indústrias Wonka',
-        contactName: 'Willy Wonka',
-        company: 'Wonka Industries',
-        industry: 'Manufatura',
-        temperature: 'warm',
-        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
+        title: 'Landing Page - Lançamento Produto',
+        clientId: '1',
+        clientName: 'Tech Solutions',
+        company: 'Tech Solutions',
+        temperature: 'hot',
+        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
         updatedAt: new Date(),
         assignees: ['Você'],
-        tags: ['Novo Cliente'],
-        attachments: 0,
-        comments: 0
+        tags: ['URGENTE'],
+        attachments: 2,
+        comments: 5,
+        description: 'Criar landing page para lançamento do novo produto',
+        phaseData: {},
+        history: [
+          { id: '1', type: 'created', user: 'Sistema', timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) }
+        ]
       },
       {
         id: '2',
-        title: 'Bem-vindo',
-        description: 'Verifique se os leads recebidos são potenciais clientes',
-        temperature: 'cold',
-        createdAt: new Date(Date.now() - 1148 * 24 * 60 * 60 * 1000),
+        title: 'Redesign Site Institucional',
+        clientId: '2',
+        clientName: 'E-commerce Plus',
+        company: 'E-commerce Plus',
+        temperature: 'warm',
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
         updatedAt: new Date(),
-        assignees: [],
-        tags: [],
-        attachments: 0,
-        comments: 0
+        assignees: ['Você'],
+        tags: ['SITE'],
+        attachments: 1,
+        comments: 3,
+        description: 'Redesign completo do site institucional',
+        phaseData: {},
+        history: [
+          { id: '1', type: 'created', user: 'Sistema', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) }
+        ]
       },
       {
         id: '3',
-        title: 'Corporação Umbrella',
-        contactName: 'Edward Ashford',
-        company: 'Umbrella Corp',
-        industry: 'Saúde',
-        temperature: 'warm',
-        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-        assignees: ['Você'],
-        tags: ['EXEMPLO'],
-        attachments: 0,
-        comments: 0,
-        description: 'Colete as informações iniciais sobre o lead'
-      },
-      {
-        id: '4',
-        title: 'Indústrias Stark',
-        contactName: 'Tony Stark',
-        company: 'Stark Industries',
-        industry: 'Tecnologia',
-        temperature: 'hot',
-        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-        assignees: ['Você'],
-        tags: ['EXEMPLO'],
-        attachments: 0,
-        comments: 0,
-        description: 'Colete as informações iniciais sobre o lead'
-      },
-      {
-        id: '5',
-        title: 'Empresas Wayne',
-        contactName: 'Bruce Wayne',
-        company: 'Wayne Enterprises',
-        industry: 'Tecnologia',
-        temperature: 'cold',
-        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-        assignees: ['Você'],
-        tags: ['EXEMPLO'],
-        attachments: 0,
-        comments: 0,
-        description: 'Descubra as necessidades e prazos para compra'
-      },
-      {
-        id: '6',
-        title: 'Los Pollos Hermanos',
-        contactName: 'Gustavo Fring',
-        company: 'Los Pollos',
-        industry: 'Outras',
-        temperature: 'warm',
-        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-        assignees: ['Você'],
-        tags: ['EXEMPLO'],
-        attachments: 0,
-        comments: 0,
-        description: 'Acompanhe o status do lead'
-      },
-      {
-        id: '7',
-        title: 'Central Perk',
-        contactName: 'Gunther',
-        company: 'Central Perk',
-        industry: 'Outras',
-        temperature: 'cold',
-        createdAt: new Date(Date.now() - 1151 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-        assignees: ['Você'],
-        tags: ['EXEMPLO'],
-        attachments: 0,
-        comments: 0,
-        description: 'Agende uma demonstração do produto'
-      },
-      {
-        id: '8',
-        title: 'ACME',
-        contactName: 'Coiote',
-        company: 'ACME Corp',
-        industry: 'Energia e Utilitários',
-        temperature: 'warm',
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        assignees: ['Você'],
-        tags: ['EXEMPLO'],
-        attachments: 0,
-        comments: 0,
-        description: 'Acesse o processo "Funil de Vendas" para continuar'
-      },
-      {
-        id: '9',
-        title: 'Oscorp',
-        contactName: 'Norman Osborn',
-        company: 'Oscorp Industries',
-        industry: 'Marketing, Mídia e Entretenimento',
+        title: 'Blog Corporativo',
+        clientId: '3',
+        clientName: 'Startup XYZ',
+        company: 'Startup XYZ',
         temperature: 'cold',
         dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-        createdAt: new Date(),
+        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
         updatedAt: new Date(),
         assignees: ['Você'],
-        tags: ['EXEMPLO'],
+        tags: ['BLOG'],
         attachments: 0,
-        comments: 0,
-        description: 'Oportunidades descartadas'
+        comments: 1,
+        description: 'Implementar seção de blog no site',
+        phaseData: {},
+        history: [
+          { id: '1', type: 'created', user: 'Sistema', timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+        ]
       }
     ]
 
-    const newColumns = [...DEFAULT_COLUMNS]
-    newColumns[0].cards = [mockCards[0], mockCards[1]]
-    newColumns[1].cards = [mockCards[2], mockCards[3]]
-    newColumns[2].cards = [mockCards[4]]
-    newColumns[3].cards = [mockCards[5], mockCards[6]]
-    newColumns[4].cards = [mockCards[7], mockCards[8]]
+    const initialPhases = getPhasesForArea(userArea)
+    const newColumns: KanbanColumn[] = initialPhases.map((phase, index) => ({
+      id: phase.id,
+      title: phase.title,
+      color: phase.color,
+      description: phase.description,
+      cards: index === 0 ? [mockCards[0], mockCards[1]] : 
+             index === 1 ? [mockCards[2]] : []
+    }))
 
     setColumns(newColumns)
   }
@@ -254,48 +264,126 @@ export default function KanbanPipefyPage() {
     if (!result.destination) return
 
     const { source, destination } = result
+    
+    // Se moveu para a mesma posição, não fazer nada
+    if (source.droppableId === destination.droppableId && source.index === destination.index) {
+      return
+    }
+
+    const sourceColIndex = columns.findIndex(col => col.id === source.droppableId)
+    const destColIndex = columns.findIndex(col => col.id === destination.droppableId)
+    const card = columns[sourceColIndex].cards[source.index]
+
+    // Se moveu para outra coluna, abrir modal de transição
+    if (source.droppableId !== destination.droppableId) {
+      const fromPhase = phases.find(p => p.id === source.droppableId)
+      const toPhase = phases.find(p => p.id === destination.droppableId)
+
+      if (fromPhase && toPhase) {
+        setTransitionModal({
+          isOpen: true,
+          card,
+          fromPhase,
+          toPhase,
+          fromColumnId: source.droppableId,
+          toColumnId: destination.droppableId,
+          sourceIndex: source.index,
+          destIndex: destination.index
+        })
+        return
+      }
+    }
+
+    // Mover dentro da mesma coluna
     const newColumns = [...columns]
-
-    const sourceColIndex = newColumns.findIndex(col => col.id === source.droppableId)
-    const destColIndex = newColumns.findIndex(col => col.id === destination.droppableId)
-
     const [movedCard] = newColumns[sourceColIndex].cards.splice(source.index, 1)
     newColumns[destColIndex].cards.splice(destination.index, 0, movedCard)
-
     setColumns(newColumns)
   }
 
-  const handleOpenCard = (card: PipefyCard) => {
+  const handleTransitionConfirm = (data: Record<string, any>) => {
+    if (!transitionModal.card) return
+
+    const newColumns = [...columns]
+    const sourceColIndex = newColumns.findIndex(col => col.id === transitionModal.fromColumnId)
+    const destColIndex = newColumns.findIndex(col => col.id === transitionModal.toColumnId)
+
+    // Remover card da coluna origem
+    const [movedCard] = newColumns[sourceColIndex].cards.splice(transitionModal.sourceIndex, 1)
+
+    // Atualizar dados do card
+    movedCard.phaseData = {
+      ...movedCard.phaseData,
+      [transitionModal.toColumnId]: data
+    }
+    movedCard.updatedAt = new Date()
+
+    // Adicionar ao histórico
+    movedCard.history = [
+      ...movedCard.history,
+      {
+        id: Date.now().toString(),
+        type: 'moved' as const,
+        fromPhase: transitionModal.fromColumnId,
+        toPhase: transitionModal.toColumnId,
+        user: userName,
+        timestamp: new Date(),
+        data
+      }
+    ]
+
+    // Adicionar na coluna destino
+    newColumns[destColIndex].cards.splice(transitionModal.destIndex, 0, movedCard)
+
+    setColumns(newColumns)
+    setTransitionModal({
+      isOpen: false,
+      card: null,
+      fromPhase: null,
+      toPhase: null,
+      fromColumnId: '',
+      toColumnId: '',
+      sourceIndex: 0,
+      destIndex: 0
+    })
+  }
+
+  const handleOpenCard = (card: KanbanCard) => {
     setSelectedCard(card)
     setIsCardModalOpen(true)
   }
 
-  const handleNewCard = (columnId: string) => {
-    setNewCardColumn(columnId)
-    setIsNewCardModalOpen(true)
-  }
-
-  const handleCreateCard = (cardData: Partial<PipefyCard>) => {
-    const newCard: PipefyCard = {
+  const handleCreateCard = (cardData: Partial<KanbanCard>) => {
+    const client = clients.find(c => c.id === cardData.clientId)
+    
+    const newCard: KanbanCard = {
       id: Date.now().toString(),
-      title: cardData.title || 'Novo Card',
+      title: cardData.title || 'Nova Demanda',
       description: cardData.description,
       temperature: cardData.temperature || 'warm',
-      contactName: cardData.contactName,
-      contactEmail: cardData.contactEmail,
-      contactPhone: cardData.contactPhone,
-      industry: cardData.industry,
-      company: cardData.company,
+      clientId: cardData.clientId,
+      clientName: client?.name,
+      company: client?.company || client?.name,
+      dueDate: cardData.dueDate,
       createdAt: new Date(),
       updatedAt: new Date(),
-      assignees: ['Você'],
+      assignees: [userName],
       tags: cardData.tags || [],
       attachments: 0,
-      comments: 0
+      comments: 0,
+      phaseData: {},
+      history: [
+        {
+          id: '1',
+          type: 'created',
+          user: userName,
+          timestamp: new Date()
+        }
+      ]
     }
 
     const newColumns = columns.map(col => {
-      if (col.id === newCardColumn) {
+      if (col.id === 'demandas') {
         return { ...col, cards: [...col.cards, newCard] }
       }
       return col
@@ -309,7 +397,7 @@ export default function KanbanPipefyPage() {
     ...col,
     cards: col.cards.filter(card =>
       card.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      card.contactName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      card.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       card.company?.toLowerCase().includes(searchTerm.toLowerCase())
     )
   }))
@@ -328,6 +416,10 @@ export default function KanbanPipefyPage() {
     }
   }
 
+  // Phase colors e names para o histórico
+  const phaseColors = phases.reduce((acc, p) => ({ ...acc, [p.id]: p.color }), {} as Record<string, string>)
+  const phaseNames = phases.reduce((acc, p) => ({ ...acc, [p.id]: p.title }), {} as Record<string, string>)
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f5f5f5' }}>
@@ -336,7 +428,6 @@ export default function KanbanPipefyPage() {
     )
   }
 
-  // Calcular largura da coluna baseado no zoom
   const columnWidth = Math.round(280 * zoomLevel)
   const cardPadding = zoomLevel < 0.8 ? 'p-2' : 'p-3'
   const fontSize = zoomLevel < 0.8 ? 'text-xs' : 'text-sm'
@@ -347,113 +438,124 @@ export default function KanbanPipefyPage() {
       <div className="bg-white border-b px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold text-gray-800">Kanban - {userArea}</h1>
-            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-              {columns.reduce((acc, col) => acc + col.cards.length, 0)} cards
+            <h1 className="text-xl font-bold text-gray-800">Kanban - {userArea}</h1>
+            <span className="text-sm text-gray-500">
+              {columns.reduce((sum, col) => sum + col.cards.length, 0)} cards
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-lg">
-              <button 
-                onClick={handleZoomOut}
-                disabled={zoomLevel === ZOOM_LEVELS[0].value}
-                className="p-1 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Zoom Out"
-              >
-                <ZoomOut className="w-4 h-4 text-gray-600" />
-              </button>
-              <span className="text-xs font-medium text-gray-600 min-w-[40px] text-center">
-                {Math.round(zoomLevel * 100)}%
-              </span>
-              <button 
-                onClick={handleZoomIn}
-                disabled={zoomLevel === ZOOM_LEVELS[ZOOM_LEVELS.length - 1].value}
-                className="p-1 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Zoom In"
-              >
-                <ZoomIn className="w-4 h-4 text-gray-600" />
-              </button>
-            </div>
-
-            {/* Busca */}
+          <div className="flex items-center gap-3">
+            {/* Search */}
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Procurar cards"
+                placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 pr-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
+                className="pl-9 pr-4 py-2 border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
-            {/* Filtros */}
-            <button className="flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">
-              <Filter className="w-4 h-4" />
-              Filtros
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={handleZoomOut}
+                disabled={zoomLevel === ZOOM_LEVELS[0].value}
+                className="p-1.5 hover:bg-white rounded transition-colors disabled:opacity-50"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-medium px-2 min-w-[40px] text-center">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <button
+                onClick={handleZoomIn}
+                disabled={zoomLevel === ZOOM_LEVELS[ZOOM_LEVELS.length - 1].value}
+                className="p-1.5 hover:bg-white rounded transition-colors disabled:opacity-50"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Toggle Insights */}
+            <button
+              onClick={() => setShowInsights(!showInsights)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                showInsights ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              <Zap className="w-4 h-4" />
+              Insights
             </button>
           </div>
         </div>
       </div>
 
-      {/* Kanban Board - Scroll nativo */}
-      <div 
-        className="flex-1 overflow-auto p-4"
-        style={{ 
-          scrollbarWidth: 'thin',
-          scrollbarColor: '#cbd5e1 #f1f5f9'
-        }}
-      >
+      {/* Insights Panel */}
+      <AnimatePresence>
+        {showInsights && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="px-4 py-3 bg-white border-b overflow-hidden"
+          >
+            <KanbanInsights columns={filteredColumns} area={userArea} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Kanban Board */}
+      <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div 
-            className="flex gap-3 min-h-full pb-4"
+            className="flex gap-4 p-4 h-full"
             style={{ 
-              width: 'fit-content',
-              minWidth: '100%'
+              minWidth: `${columns.length * (columnWidth + 16)}px`,
+              transform: `scale(${zoomLevel})`,
+              transformOrigin: 'top left'
             }}
           >
-            {filteredColumns.map((column) => (
+            {filteredColumns.map((column, colIndex) => (
               <div
                 key={column.id}
-                className="flex-shrink-0 flex flex-col bg-gray-100 rounded-lg overflow-hidden"
-                style={{ 
-                  width: `${columnWidth}px`,
-                  maxHeight: 'calc(100vh - 200px)'
-                }}
+                className="flex flex-col bg-gray-100 rounded-xl"
+                style={{ width: columnWidth, minWidth: columnWidth }}
               >
                 {/* Column Header */}
                 <div 
-                  className="px-3 py-2 flex items-center justify-between flex-shrink-0"
-                  style={{ backgroundColor: column.color }}
+                  className="p-3 rounded-t-xl"
+                  style={{ backgroundColor: `${column.color}15` }}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className={`font-semibold text-white ${fontSize}`}>{column.title}</span>
-                    <span className="px-1.5 py-0.5 bg-white/20 rounded-full text-[10px] text-white font-medium">
-                      {column.cards.length}
-                    </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: column.color }}
+                      />
+                      <h3 className="font-semibold text-gray-800">{column.title}</h3>
+                      <span className="text-xs bg-white px-2 py-0.5 rounded-full text-gray-600">
+                        {column.cards.length}
+                      </span>
+                    </div>
                   </div>
-                  <button className="text-white/80 hover:text-white">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
+                  {column.description && (
+                    <p className="text-xs text-gray-500 mt-1">{column.description}</p>
+                  )}
                 </div>
 
-                {/* Cards Container - Scroll vertical */}
+                {/* Cards Container */}
                 <Droppable droppableId={column.id}>
                   {(provided, snapshot) => (
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
                       className={cn(
-                        "flex-1 overflow-y-auto p-2 space-y-2",
+                        "flex-1 p-2 space-y-2 overflow-y-auto",
                         snapshot.isDraggingOver && "bg-blue-50"
                       )}
-                      style={{ 
-                        minHeight: '100px',
-                        scrollbarWidth: 'thin',
-                        scrollbarColor: '#cbd5e1 transparent'
-                      }}
+                      style={{ maxHeight: 'calc(100vh - 300px)' }}
                     >
                       {column.cards.map((card, index) => (
                         <Draggable key={card.id} draggableId={card.id} index={index}>
@@ -464,126 +566,161 @@ export default function KanbanPipefyPage() {
                               {...provided.dragHandleProps}
                               onClick={() => handleOpenCard(card)}
                               className={cn(
-                                `bg-white rounded-lg ${cardPadding} cursor-pointer transition-all`,
-                                "border border-gray-200 hover:shadow-md",
+                                `bg-white rounded-lg ${cardPadding} shadow-sm border border-gray-200 cursor-pointer transition-all hover:shadow-md`,
                                 snapshot.isDragging && "shadow-lg ring-2 ring-blue-500"
                               )}
-                              style={{
-                                ...provided.draggableProps.style
-                              }}
                             >
-                              {/* Tag EXEMPLO */}
-                              {card.tags.includes('EXEMPLO') && (
-                                <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                                  EXEMPLO
-                                </span>
-                              )}
-
                               {/* Temperature Badge */}
-                              {card.temperature && (
-                                <div className="mb-1.5">
-                                  <span className={cn(
-                                    `inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${fontSize} font-medium`,
-                                    TEMPERATURE_CONFIG[card.temperature].color,
-                                    "text-white"
-                                  )}>
-                                    {TEMPERATURE_CONFIG[card.temperature].label}
-                                  </span>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className={cn(
+                                  "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                                  TEMPERATURE_CONFIG[card.temperature].bgLight,
+                                  TEMPERATURE_CONFIG[card.temperature].textColor
+                                )}>
+                                  {(() => {
+                                    const TempIcon = TEMPERATURE_CONFIG[card.temperature].icon
+                                    return <TempIcon className="w-3 h-3" />
+                                  })()}
+                                  {TEMPERATURE_CONFIG[card.temperature].label}
                                 </div>
-                              )}
+                                {card.dueDate && differenceInDays(card.dueDate, new Date()) <= 2 && (
+                                  <AlertCircle className="w-4 h-4 text-red-500" />
+                                )}
+                              </div>
 
                               {/* Title */}
-                              <h3 className={`font-semibold text-gray-800 mb-1.5 ${fontSize}`}>{card.title}</h3>
+                              <h4 className={`font-medium text-gray-800 ${fontSize} line-clamp-2`}>
+                                {card.title}
+                              </h4>
 
-                              {/* Contact Info */}
-                              {card.contactName && (
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  <User className="w-3 h-3 text-gray-400" />
-                                  <span className="text-[10px] text-gray-500">NOME DO CONTATO</span>
+                              {/* Client */}
+                              {card.clientName && (
+                                <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+                                  <Building2 className="w-3 h-3" />
+                                  <span className="truncate">{card.clientName}</span>
                                 </div>
                               )}
-                              {card.contactName && (
-                                <p className={`text-gray-700 mb-1.5 ml-4 ${fontSize}`}>{card.contactName}</p>
+
+                              {/* Due Date */}
+                              {card.dueDate && (
+                                <div className={cn(
+                                  "flex items-center gap-1 mt-1 text-xs",
+                                  differenceInDays(card.dueDate, new Date()) < 0 ? "text-red-600" :
+                                  differenceInDays(card.dueDate, new Date()) <= 2 ? "text-orange-600" :
+                                  "text-gray-500"
+                                )}>
+                                  <Calendar className="w-3 h-3" />
+                                  {format(card.dueDate, "dd/MM", { locale: ptBR })}
+                                </div>
                               )}
 
-                              {/* Industry */}
-                              {card.industry && (
-                                <>
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <Building2 className="w-3 h-3 text-gray-400" />
-                                    <span className="text-[10px] text-gray-500">INDÚSTRIA</span>
-                                  </div>
-                                  <p className={`text-gray-700 mb-1.5 ml-4 ${fontSize}`}>{card.industry}</p>
-                                </>
-                              )}
-
-                              {/* Description */}
-                              {card.description && (
-                                <p className={`text-gray-600 mt-1.5 line-clamp-2 ${fontSize}`}>
-                                  {card.description}
-                                </p>
-                              )}
-
-                              {/* Footer - Dates */}
-                              <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-gray-100">
-                                <div className="flex items-center gap-0.5 text-[10px] text-gray-500">
-                                  <AlertCircle className="w-2.5 h-2.5 text-red-400" />
-                                  <span>{differenceInDays(new Date(), card.createdAt)}d</span>
+                              {/* Footer */}
+                              <div className="flex items-center justify-between mt-3 pt-2 border-t">
+                                <div className="flex items-center gap-2 text-xs text-gray-400">
+                                  {card.attachments > 0 && (
+                                    <span className="flex items-center gap-0.5">
+                                      <Paperclip className="w-3 h-3" />
+                                      {card.attachments}
+                                    </span>
+                                  )}
+                                  {card.comments > 0 && (
+                                    <span className="flex items-center gap-0.5">
+                                      <MessageSquare className="w-3 h-3" />
+                                      {card.comments}
+                                    </span>
+                                  )}
+                                  {card.history.length > 1 && (
+                                    <span className="flex items-center gap-0.5">
+                                      <History className="w-3 h-3" />
+                                      {card.history.length}
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-0.5 text-[10px] text-gray-500">
-                                  <Clock className="w-2.5 h-2.5 text-green-400" />
-                                  <span>{differenceInDays(new Date(), card.createdAt)}d</span>
+                                <div className="flex -space-x-1">
+                                  {card.assignees.slice(0, 2).map((assignee, i) => (
+                                    <div
+                                      key={i}
+                                      className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium border-2 border-white"
+                                    >
+                                      {assignee[0]}
+                                    </div>
+                                  ))}
                                 </div>
-                                <div className="flex items-center gap-0.5 text-[10px] text-gray-500">
-                                  <Calendar className="w-2.5 h-2.5 text-blue-400" />
-                                  <span>{differenceInDays(new Date(), card.createdAt)}d</span>
-                                </div>
-                                {card.dueDate && (
-                                  <div className="flex items-center gap-0.5 text-[10px] text-gray-500 ml-auto">
-                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
-                                    <span>0min</span>
-                                  </div>
-                                )}
                               </div>
                             </div>
                           )}
                         </Draggable>
                       ))}
                       {provided.placeholder}
+
+                      {/* Add Card Button - Only on first column (Demandas) */}
+                      {colIndex === 0 && (
+                        <button
+                          onClick={() => setIsNewCardModalOpen(true)}
+                          className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span className="text-sm">Criar nova demanda</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </Droppable>
-
-                {/* Add Card Button */}
-                <button
-                  onClick={() => handleNewCard(column.id)}
-                  className={`m-2 p-2 flex items-center gap-1.5 ${fontSize} text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Criar novo card
-                </button>
               </div>
             ))}
           </div>
         </DragDropContext>
       </div>
 
-      {/* Card Detail Modal */}
-      <AnimatePresence>
-        {isCardModalOpen && selectedCard && (
-          <CardDetailModal
-            card={selectedCard}
-            onClose={() => setIsCardModalOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+      {/* Phase Transition Modal */}
+      {transitionModal.fromPhase && transitionModal.toPhase && (
+        <PhaseTransitionModal
+          isOpen={transitionModal.isOpen}
+          onClose={() => setTransitionModal({
+            isOpen: false,
+            card: null,
+            fromPhase: null,
+            toPhase: null,
+            fromColumnId: '',
+            toColumnId: '',
+            sourceIndex: 0,
+            destIndex: 0
+          })}
+          onConfirm={handleTransitionConfirm}
+          fromPhase={transitionModal.fromPhase}
+          toPhase={transitionModal.toPhase}
+          cardTitle={transitionModal.card?.title || ''}
+          existingData={transitionModal.card?.phaseData[transitionModal.toColumnId] || {}}
+          clients={clients}
+          employees={employees}
+        />
+      )}
 
       {/* New Card Modal */}
       <AnimatePresence>
         {isNewCardModalOpen && (
           <NewCardModal
+            isOpen={isNewCardModalOpen}
             onClose={() => setIsNewCardModalOpen(false)}
-            onCreate={handleCreateCard}
+            onSubmit={handleCreateCard}
+            clients={clients}
+            area={userArea}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Card Detail Modal */}
+      <AnimatePresence>
+        {isCardModalOpen && selectedCard && (
+          <CardDetailModal
+            isOpen={isCardModalOpen}
+            onClose={() => {
+              setIsCardModalOpen(false)
+              setSelectedCard(null)
+            }}
+            card={selectedCard}
+            phaseColors={phaseColors}
+            phaseNames={phaseNames}
           />
         )}
       </AnimatePresence>
@@ -591,306 +728,330 @@ export default function KanbanPipefyPage() {
   )
 }
 
-// ==================== MODAL DETALHES DO CARD ====================
-function CardDetailModal({ card, onClose }: { card: PipefyCard; onClose: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="p-6 border-b">
-          <div className="flex items-start justify-between">
-            <div>
-              {card.temperature && (
-                <span className={cn(
-                  "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium mb-2",
-                  TEMPERATURE_CONFIG[card.temperature].color,
-                  "text-white"
-                )}>
-                  {TEMPERATURE_CONFIG[card.temperature].label}
-                </span>
-              )}
-              <h2 className="text-xl font-bold text-gray-800">{card.title}</h2>
-              {card.company && (
-                <p className="text-sm text-gray-500 mt-1">{card.company}</p>
-              )}
-            </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-              <X className="w-5 h-5 text-gray-500" />
-            </button>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 200px)' }}>
-          <div className="grid grid-cols-2 gap-6">
-            {/* Left Column */}
-            <div className="space-y-4">
-              {card.contactName && (
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Nome do Contato</label>
-                  <p className="text-gray-800 mt-1">{card.contactName}</p>
-                </div>
-              )}
-
-              {card.contactEmail && (
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Email</label>
-                  <p className="text-gray-800 mt-1">{card.contactEmail}</p>
-                </div>
-              )}
-
-              {card.contactPhone && (
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Telefone</label>
-                  <p className="text-gray-800 mt-1">{card.contactPhone}</p>
-                </div>
-              )}
-
-              {card.industry && (
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Indústria</label>
-                  <p className="text-gray-800 mt-1">{card.industry}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-4">
-              {card.description && (
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Descrição</label>
-                  <p className="text-gray-700 mt-1">{card.description}</p>
-                </div>
-              )}
-
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase">Criado em</label>
-                <p className="text-gray-800 mt-1">
-                  {format(card.createdAt, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                </p>
-              </div>
-
-              {card.dueDate && (
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Prazo</label>
-                  <p className="text-gray-800 mt-1">
-                    {format(card.dueDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Tags */}
-          {card.tags.length > 0 && (
-            <div className="mt-6">
-              <label className="text-xs font-semibold text-gray-500 uppercase">Tags</label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {card.tags.map((tag, i) => (
-                  <span key={i} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
-          <div className="flex items-center gap-4 text-sm text-gray-500">
-            <span className="flex items-center gap-1">
-              <Paperclip className="w-4 h-4" />
-              {card.attachments} anexos
-            </span>
-            <span className="flex items-center gap-1">
-              <MessageSquare className="w-4 h-4" />
-              {card.comments} comentários
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
-              <Edit className="w-4 h-4 inline mr-1" />
-              Editar
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  )
-}
-
-// ==================== MODAL NOVO CARD ====================
-function NewCardModal({ onClose, onCreate }: { onClose: () => void; onCreate: (data: Partial<PipefyCard>) => void }) {
+// ==================== NEW CARD MODAL ====================
+function NewCardModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  clients,
+  area
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onSubmit: (data: Partial<KanbanCard>) => void
+  clients: Client[]
+  area: string
+}) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    contactName: '',
-    contactEmail: '',
-    contactPhone: '',
-    company: '',
-    industry: '',
+    clientId: '',
     temperature: 'warm' as 'hot' | 'warm' | 'cold',
-    tags: ''
+    dueDate: '',
+    tags: [] as string[]
   })
 
   const handleSubmit = () => {
-    if (!formData.title.trim()) return
-    onCreate({
+    if (!formData.title || !formData.clientId) {
+      alert('Preencha o título e selecione um cliente')
+      return
+    }
+    onSubmit({
       ...formData,
-      tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)
+      dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined
+    })
+    setFormData({
+      title: '',
+      description: '',
+      clientId: '',
+      temperature: 'warm',
+      dueDate: '',
+      tags: []
     })
   }
+
+  if (!isOpen) return null
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-lg"
-        onClick={e => e.stopPropagation()}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg"
       >
-        {/* Header */}
-        <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-800">Novo Card</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+        <div className="p-6 border-b">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-800">Nova Demanda</h2>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Body */}
-        <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+        <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Título <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              placeholder="Ex: Criação de Landing Page"
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Nome do lead ou tarefa"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Cliente <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.clientId}
+              onChange={(e) => setFormData(prev => ({ ...prev, clientId: e.target.value }))}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Selecione um cliente...</option>
+              {clients.map(client => (
+                <option key={client.id} value={client.id}>
+                  {client.name} {client.company && `(${client.company})`}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="Descreva os detalhes da demanda..."
               rows={3}
-              placeholder="Detalhes sobre o card..."
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Contato</label>
-              <input
-                type="text"
-                value={formData.contactName}
-                onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+              <label className="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+              <select
+                value={formData.temperature}
+                onChange={(e) => setFormData(prev => ({ ...prev, temperature: e.target.value as any }))}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              >
+                <option value="cold">🔵 Baixa</option>
+                <option value="warm">🟠 Média</option>
+                <option value="hot">🔴 Alta/Urgente</option>
+              </select>
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data de Entrega</label>
               <input
-                type="text"
-                value={formData.company}
-                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                type="date"
+                value={formData.dueDate}
+                onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Indústria</label>
-            <select
-              value={formData.industry}
-              onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Selecione...</option>
-              <option value="Tecnologia">Tecnologia</option>
-              <option value="Saúde">Saúde</option>
-              <option value="Manufatura">Manufatura</option>
-              <option value="Varejo">Varejo</option>
-              <option value="Serviços">Serviços</option>
-              <option value="Educação">Educação</option>
-              <option value="Energia e Utilitários">Energia e Utilitários</option>
-              <option value="Marketing, Mídia e Entretenimento">Marketing, Mídia e Entretenimento</option>
-              <option value="Outras">Outras</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Temperatura</label>
-            <div className="flex gap-2">
-              {(['hot', 'warm', 'cold'] as const).map((temp) => (
-                <button
-                  key={temp}
-                  onClick={() => setFormData({ ...formData, temperature: temp })}
-                  className={cn(
-                    "flex-1 py-2 rounded-lg text-sm font-medium transition-all",
-                    formData.temperature === temp
-                      ? cn(TEMPERATURE_CONFIG[temp].color, "text-white")
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  )}
-                >
-                  {TEMPERATURE_CONFIG[temp].label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tags (separadas por vírgula)</label>
-            <input
-              type="text"
-              value={formData.tags}
-              onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ex: Urgente, Novo Cliente"
-            />
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 flex justify-end gap-3">
+        <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!formData.title.trim()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Criar Card
+            Criar Demanda
           </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ==================== CARD DETAIL MODAL ====================
+function CardDetailModal({
+  isOpen,
+  onClose,
+  card,
+  phaseColors,
+  phaseNames
+}: {
+  isOpen: boolean
+  onClose: () => void
+  card: KanbanCard
+  phaseColors: Record<string, string>
+  phaseNames: Record<string, string>
+}) {
+  const [activeTab, setActiveTab] = useState<'details' | 'history'>('details')
+
+  if (!isOpen) return null
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+      >
+        <div className="p-6 border-b">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-gray-800">{card.title}</h2>
+              {card.clientName && (
+                <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                  <Building2 className="w-4 h-4" />
+                  {card.clientName}
+                </p>
+              )}
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-4 mt-4">
+            <button
+              onClick={() => setActiveTab('details')}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                activeTab === 'details' ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"
+              )}
+            >
+              Detalhes
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2",
+                activeTab === 'history' ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"
+              )}
+            >
+              <History className="w-4 h-4" />
+              Histórico ({card.history.length})
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 overflow-y-auto max-h-[60vh]">
+          {activeTab === 'details' ? (
+            <div className="space-y-4">
+              {/* Temperature & Due Date */}
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",
+                  TEMPERATURE_CONFIG[card.temperature].bgLight,
+                  TEMPERATURE_CONFIG[card.temperature].textColor
+                )}>
+                  {(() => {
+                    const TempIcon = TEMPERATURE_CONFIG[card.temperature].icon
+                    return <TempIcon className="w-4 h-4" />
+                  })()}
+                  {TEMPERATURE_CONFIG[card.temperature].label}
+                </div>
+                {card.dueDate && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Calendar className="w-4 h-4" />
+                    Entrega: {format(card.dueDate, "dd/MM/yyyy", { locale: ptBR })}
+                  </div>
+                )}
+              </div>
+
+              {/* Description */}
+              {card.description && (
+                <div>
+                  <h4 className="font-medium text-gray-800 mb-2">Descrição</h4>
+                  <p className="text-gray-600">{card.description}</p>
+                </div>
+              )}
+
+              {/* Phase Data */}
+              {Object.keys(card.phaseData).length > 0 && (
+                <div>
+                  <h4 className="font-medium text-gray-800 mb-2">Dados por Fase</h4>
+                  <div className="space-y-3">
+                    {Object.entries(card.phaseData).map(([phaseId, data]) => (
+                      <div key={phaseId} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div 
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: phaseColors[phaseId] }}
+                          />
+                          <span className="font-medium text-sm">{phaseNames[phaseId]}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {Object.entries(data as Record<string, any>)
+                            .filter(([key]) => !key.startsWith('_'))
+                            .map(([key, value]) => (
+                              <div key={key}>
+                                <span className="text-gray-500">{key}:</span>{' '}
+                                <span className="text-gray-800">
+                                  {Array.isArray(value) ? value.join(', ') : String(value)}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Assignees */}
+              <div>
+                <h4 className="font-medium text-gray-800 mb-2">Responsáveis</h4>
+                <div className="flex gap-2">
+                  {card.assignees.map((assignee, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-full"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium">
+                        {assignee[0]}
+                      </div>
+                      <span className="text-sm text-blue-700">{assignee}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Timestamps */}
+              <div className="text-xs text-gray-400 pt-4 border-t">
+                <p>Criado em: {format(card.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                <p>Atualizado em: {format(card.updatedAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+              </div>
+            </div>
+          ) : (
+            <CardHistory 
+              history={card.history} 
+              phaseColors={phaseColors}
+              phaseNames={phaseNames}
+            />
+          )}
         </div>
       </motion.div>
     </motion.div>
