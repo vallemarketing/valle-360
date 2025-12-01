@@ -251,12 +251,14 @@ export class WhatsAppClient {
 
   // Upload de mídia
   async uploadMedia(
-    file: Buffer,
+    file: Buffer | Uint8Array,
     mimeType: string,
     filename: string
   ): Promise<{ id: string }> {
     const formData = new FormData();
-    formData.append('file', new Blob([file], { type: mimeType }), filename);
+    // Converter para Uint8Array para compatibilidade com Blob
+    const fileData = file instanceof Uint8Array ? file : new Uint8Array(file);
+    formData.append('file', new Blob([fileData], { type: mimeType }), filename);
     formData.append('messaging_product', 'whatsapp');
     formData.append('type', mimeType);
 
