@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plug, Check, X, Settings, ExternalLink, RefreshCw,
   CreditCard, MessageSquare, Mail, Calendar, BarChart3,
-  Globe, Zap, Shield, AlertTriangle, ChevronRight
+  Globe, Zap, Shield, AlertTriangle, ChevronRight, Loader2,
+  Eye, EyeOff, Activity, Clock, CheckCircle2, XCircle
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Integration {
   id: string;
@@ -16,11 +18,114 @@ interface Integration {
   color: string;
   category: 'payment' | 'communication' | 'marketing' | 'productivity' | 'ai';
   connected: boolean;
-  lastSync?: Date;
-  status?: 'active' | 'error' | 'pending';
+  lastSync?: string;
+  status?: 'connected' | 'disconnected' | 'error' | 'pending';
+  error?: string;
+  fields: IntegrationField[];
 }
 
-const INTEGRATIONS: Integration[] = [
+interface IntegrationField {
+  key: string;
+  label: string;
+  type: 'text' | 'password' | 'select';
+  placeholder?: string;
+  required?: boolean;
+  options?: { value: string; label: string }[];
+  helpText?: string;
+}
+
+const INTEGRATION_CONFIGS: Record<string, { fields: IntegrationField[] }> = {
+  openai: {
+    fields: [
+      { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'sk-...', required: true, helpText: 'Encontre em platform.openai.com' }
+    ]
+  },
+  stripe: {
+    fields: [
+      { key: 'apiKey', label: 'Secret Key', type: 'password', placeholder: 'sk_live_... ou sk_test_...', required: true },
+      { key: 'webhookSecret', label: 'Webhook Secret', type: 'password', placeholder: 'whsec_...', helpText: 'Para receber eventos' }
+    ]
+  },
+  paypal: {
+    fields: [
+      { key: 'apiKey', label: 'Client ID', type: 'text', required: true },
+      { key: 'apiSecret', label: 'Client Secret', type: 'password', required: true }
+    ]
+  },
+  whatsapp: {
+    fields: [
+      { key: 'accessToken', label: 'Access Token', type: 'password', required: true },
+      { key: 'config.phoneNumberId', label: 'Phone Number ID', type: 'text', required: true },
+      { key: 'config.businessId', label: 'Business Account ID', type: 'text' }
+    ]
+  },
+  sendgrid: {
+    fields: [
+      { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'SG....', required: true },
+      { key: 'config.fromEmail', label: 'Email de Envio', type: 'text', placeholder: 'noreply@suaempresa.com' }
+    ]
+  },
+  slack: {
+    fields: [
+      { key: 'accessToken', label: 'Bot Token', type: 'password', placeholder: 'xoxb-...', required: true },
+      { key: 'config.channel', label: 'Canal Padrão', type: 'text', placeholder: '#geral' }
+    ]
+  },
+  google_ads: {
+    fields: [
+      { key: 'accessToken', label: 'Access Token', type: 'password', required: true },
+      { key: 'config.customerId', label: 'Customer ID', type: 'text', required: true },
+      { key: 'config.developerToken', label: 'Developer Token', type: 'password' }
+    ]
+  },
+  meta_ads: {
+    fields: [
+      { key: 'accessToken', label: 'Access Token', type: 'password', required: true },
+      { key: 'config.adAccountId', label: 'Ad Account ID', type: 'text', placeholder: 'act_...' }
+    ]
+  },
+  instagram: {
+    fields: [
+      { key: 'accessToken', label: 'Access Token', type: 'password', required: true },
+      { key: 'config.businessAccountId', label: 'Business Account ID', type: 'text' }
+    ]
+  },
+  linkedin: {
+    fields: [
+      { key: 'accessToken', label: 'Access Token', type: 'password', required: true },
+      { key: 'config.organizationId', label: 'Organization ID', type: 'text' }
+    ]
+  },
+  google_calendar: {
+    fields: [
+      { key: 'accessToken', label: 'Access Token', type: 'password', required: true },
+      { key: 'refreshToken', label: 'Refresh Token', type: 'password' }
+    ]
+  },
+  google_meet: {
+    fields: [
+      { key: 'accessToken', label: 'Access Token', type: 'password', required: true },
+      { key: 'refreshToken', label: 'Refresh Token', type: 'password' }
+    ]
+  },
+  zapier: {
+    fields: [
+      { key: 'webhookSecret', label: 'Webhook URL', type: 'text', required: true, helpText: 'URL do seu Zap' }
+    ]
+  }
+};
+
+const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' | 'error'>[] = [
+  // IA
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    description: 'Val IA, análise de sentimentos e geração de textos',
+    icon: <Zap className="w-6 h-6" />,
+    color: '#10A37F',
+    category: 'ai',
+    fields: INTEGRATION_CONFIGS.openai.fields
+  },
   // Pagamentos
   {
     id: 'stripe',
@@ -29,7 +134,7 @@ const INTEGRATIONS: Integration[] = [
     icon: <CreditCard className="w-6 h-6" />,
     color: '#635BFF',
     category: 'payment',
-    connected: false
+    fields: INTEGRATION_CONFIGS.stripe.fields
   },
   {
     id: 'paypal',
@@ -38,7 +143,7 @@ const INTEGRATIONS: Integration[] = [
     icon: <CreditCard className="w-6 h-6" />,
     color: '#003087',
     category: 'payment',
-    connected: false
+    fields: INTEGRATION_CONFIGS.paypal.fields
   },
   // Comunicação
   {
@@ -48,9 +153,7 @@ const INTEGRATIONS: Integration[] = [
     icon: <MessageSquare className="w-6 h-6" />,
     color: '#25D366',
     category: 'communication',
-    connected: true,
-    lastSync: new Date(),
-    status: 'active'
+    fields: INTEGRATION_CONFIGS.whatsapp.fields
   },
   {
     id: 'sendgrid',
@@ -59,9 +162,7 @@ const INTEGRATIONS: Integration[] = [
     icon: <Mail className="w-6 h-6" />,
     color: '#1A82E2',
     category: 'communication',
-    connected: true,
-    lastSync: new Date(),
-    status: 'active'
+    fields: INTEGRATION_CONFIGS.sendgrid.fields
   },
   {
     id: 'slack',
@@ -70,7 +171,7 @@ const INTEGRATIONS: Integration[] = [
     icon: <MessageSquare className="w-6 h-6" />,
     color: '#4A154B',
     category: 'communication',
-    connected: false
+    fields: INTEGRATION_CONFIGS.slack.fields
   },
   // Marketing
   {
@@ -80,9 +181,7 @@ const INTEGRATIONS: Integration[] = [
     icon: <BarChart3 className="w-6 h-6" />,
     color: '#4285F4',
     category: 'marketing',
-    connected: true,
-    lastSync: new Date(Date.now() - 3600000),
-    status: 'active'
+    fields: INTEGRATION_CONFIGS.google_ads.fields
   },
   {
     id: 'meta_ads',
@@ -91,18 +190,7 @@ const INTEGRATIONS: Integration[] = [
     icon: <Globe className="w-6 h-6" />,
     color: '#1877F2',
     category: 'marketing',
-    connected: true,
-    lastSync: new Date(Date.now() - 7200000),
-    status: 'active'
-  },
-  {
-    id: 'linkedin',
-    name: 'LinkedIn',
-    description: 'Publicar vagas e posts',
-    icon: <Globe className="w-6 h-6" />,
-    color: '#0A66C2',
-    category: 'marketing',
-    connected: false
+    fields: INTEGRATION_CONFIGS.meta_ads.fields
   },
   {
     id: 'instagram',
@@ -111,7 +199,16 @@ const INTEGRATIONS: Integration[] = [
     icon: <Globe className="w-6 h-6" />,
     color: '#E4405F',
     category: 'marketing',
-    connected: false
+    fields: INTEGRATION_CONFIGS.instagram.fields
+  },
+  {
+    id: 'linkedin',
+    name: 'LinkedIn',
+    description: 'Publicar vagas e posts',
+    icon: <Globe className="w-6 h-6" />,
+    color: '#0A66C2',
+    category: 'marketing',
+    fields: INTEGRATION_CONFIGS.linkedin.fields
   },
   // Produtividade
   {
@@ -121,7 +218,16 @@ const INTEGRATIONS: Integration[] = [
     icon: <Calendar className="w-6 h-6" />,
     color: '#4285F4',
     category: 'productivity',
-    connected: false
+    fields: INTEGRATION_CONFIGS.google_calendar.fields
+  },
+  {
+    id: 'google_meet',
+    name: 'Google Meet',
+    description: 'Criar reuniões automaticamente',
+    icon: <Calendar className="w-6 h-6" />,
+    color: '#00897B',
+    category: 'productivity',
+    fields: INTEGRATION_CONFIGS.google_meet.fields
   },
   {
     id: 'zapier',
@@ -130,54 +236,205 @@ const INTEGRATIONS: Integration[] = [
     icon: <Zap className="w-6 h-6" />,
     color: '#FF4A00',
     category: 'productivity',
-    connected: false
-  },
-  // IA
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    description: 'Val IA e geração de textos',
-    icon: <Zap className="w-6 h-6" />,
-    color: '#10A37F',
-    category: 'ai',
-    connected: true,
-    lastSync: new Date(),
-    status: 'active'
+    fields: INTEGRATION_CONFIGS.zapier.fields
   }
 ];
 
 const CATEGORIES = [
-  { id: 'all', label: 'Todas' },
-  { id: 'payment', label: 'Pagamentos' },
-  { id: 'communication', label: 'Comunicação' },
-  { id: 'marketing', label: 'Marketing' },
-  { id: 'productivity', label: 'Produtividade' },
-  { id: 'ai', label: 'Inteligência Artificial' }
+  { id: 'all', label: 'Todas', icon: Globe },
+  { id: 'ai', label: 'Inteligência Artificial', icon: Zap },
+  { id: 'payment', label: 'Pagamentos', icon: CreditCard },
+  { id: 'communication', label: 'Comunicação', icon: MessageSquare },
+  { id: 'marketing', label: 'Marketing', icon: BarChart3 },
+  { id: 'productivity', label: 'Produtividade', icon: Calendar }
 ];
 
 export default function IntegracoesPage() {
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
 
-  const filteredIntegrations = INTEGRATIONS.filter(integration => {
+  // Carregar status das integrações
+  useEffect(() => {
+    loadIntegrations();
+  }, []);
+
+  const loadIntegrations = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/integrations/status');
+      const data = await response.json();
+
+      if (data.success) {
+        // Mesclar dados do banco com configurações base
+        const merged = INTEGRATIONS_BASE.map(base => {
+          const dbData = data.integrations.find((i: any) => i.id === base.id);
+          return {
+            ...base,
+            connected: dbData?.connected || false,
+            lastSync: dbData?.lastSync,
+            status: dbData?.status || 'disconnected',
+            error: dbData?.error
+          };
+        });
+        setIntegrations(merged);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar integrações:', error);
+      // Fallback para dados base
+      setIntegrations(INTEGRATIONS_BASE.map(base => ({
+        ...base,
+        connected: false,
+        status: 'disconnected'
+      })));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredIntegrations = integrations.filter(integration => {
     const matchesCategory = selectedCategory === 'all' || integration.category === selectedCategory;
     const matchesSearch = integration.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           integration.description.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
-  const connectedCount = INTEGRATIONS.filter(i => i.connected).length;
+  const connectedCount = integrations.filter(i => i.connected).length;
 
-  const handleConnect = (integration: Integration) => {
-    // TODO: Implement OAuth flow or API key configuration
+  const handleOpenConfig = (integration: Integration) => {
     setSelectedIntegration(integration);
+    setFormData({});
+    setShowPasswords({});
   };
 
-  const handleDisconnect = (integration: Integration) => {
-    // TODO: Implement disconnect
-    console.log('Disconnecting:', integration.name);
+  const handleConnect = async () => {
+    if (!selectedIntegration) return;
+
+    // Validar campos obrigatórios
+    const requiredFields = selectedIntegration.fields.filter(f => f.required);
+    const missingFields = requiredFields.filter(f => !formData[f.key]);
+    
+    if (missingFields.length > 0) {
+      toast.error(`Preencha os campos obrigatórios: ${missingFields.map(f => f.label).join(', ')}`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Preparar dados para envio
+      const payload: any = {
+        integrationId: selectedIntegration.id
+      };
+
+      // Mapear campos para o formato esperado pela API
+      selectedIntegration.fields.forEach(field => {
+        const value = formData[field.key];
+        if (value) {
+          if (field.key.startsWith('config.')) {
+            const configKey = field.key.replace('config.', '');
+            if (!payload.config) payload.config = {};
+            payload.config[configKey] = value;
+          } else {
+            payload[field.key] = value;
+          }
+        }
+      });
+
+      const response = await fetch('/api/integrations/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.message);
+        setSelectedIntegration(null);
+        loadIntegrations();
+      } else {
+        toast.error(data.error || 'Erro ao conectar');
+        if (data.details) {
+          toast.error(data.details);
+        }
+      }
+    } catch (error: any) {
+      toast.error('Erro ao conectar: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const handleDisconnect = async (integration: Integration) => {
+    if (!confirm(`Deseja desconectar ${integration.name}? Isso removerá todas as credenciais salvas.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/integrations/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ integrationId: integration.id })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.message);
+        loadIntegrations();
+      } else {
+        toast.error(data.error || 'Erro ao desconectar');
+      }
+    } catch (error: any) {
+      toast.error('Erro ao desconectar: ' + error.message);
+    }
+  };
+
+  const handleTestConnection = async (integration: Integration) => {
+    setTesting(integration.id);
+    try {
+      const response = await fetch('/api/integrations/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ integrationId: integration.id })
+      });
+
+      const data = await response.json();
+
+      if (data.healthy) {
+        toast.success(`${integration.name} está funcionando! (${data.responseTime}ms)`);
+      } else {
+        toast.error(`${integration.name}: ${data.reason || data.error || 'Falha na conexão'}`);
+      }
+    } catch (error: any) {
+      toast.error('Erro ao testar: ' + error.message);
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const togglePasswordVisibility = (key: string) => {
+    setShowPasswords(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+        <div className="flex items-center gap-3">
+          <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--primary-500)' }} />
+          <span style={{ color: 'var(--text-secondary)' }}>Carregando integrações...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -197,52 +454,105 @@ export default function IntegracoesPage() {
                 Integrações
               </h1>
               <p style={{ color: 'var(--text-secondary)' }}>
-                {connectedCount} de {INTEGRATIONS.length} conectadas
+                {connectedCount} de {integrations.length} conectadas
               </p>
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Buscar integração..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full md:w-64 px-4 py-2 pl-10 rounded-xl border"
+          <div className="flex items-center gap-3">
+            {/* Refresh Button */}
+            <button
+              onClick={loadIntegrations}
+              className="p-2 rounded-xl border transition-colors hover:bg-opacity-80"
               style={{
                 backgroundColor: 'var(--bg-primary)',
-                borderColor: 'var(--border-light)',
-                color: 'var(--text-primary)'
+                borderColor: 'var(--border-light)'
               }}
-            />
-            <Globe 
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
-              style={{ color: 'var(--text-tertiary)' }}
-            />
+              title="Atualizar"
+            >
+              <RefreshCw className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+            </button>
+
+            {/* Search */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar integração..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full md:w-64 px-4 py-2 pl-10 rounded-xl border"
+                style={{
+                  backgroundColor: 'var(--bg-primary)',
+                  borderColor: 'var(--border-light)',
+                  color: 'var(--text-primary)'
+                }}
+              />
+              <Globe 
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
+                style={{ color: 'var(--text-tertiary)' }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-primary)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--success-500)' }} />
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Conectadas</span>
+            </div>
+            <p className="text-2xl font-bold" style={{ color: 'var(--success-600)' }}>{connectedCount}</p>
+          </div>
+          <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-primary)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <XCircle className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Desconectadas</span>
+            </div>
+            <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{integrations.length - connectedCount}</p>
+          </div>
+          <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-primary)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-5 h-5" style={{ color: 'var(--warning-500)' }} />
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Com Erro</span>
+            </div>
+            <p className="text-2xl font-bold" style={{ color: 'var(--warning-600)' }}>
+              {integrations.filter(i => i.status === 'error').length}
+            </p>
+          </div>
+          <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-primary)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Activity className="w-5 h-5" style={{ color: 'var(--primary-500)' }} />
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Disponíveis</span>
+            </div>
+            <p className="text-2xl font-bold" style={{ color: 'var(--primary-600)' }}>{integrations.length}</p>
           </div>
         </div>
 
         {/* Categories */}
         <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
-              className="px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: selectedCategory === category.id 
-                  ? 'var(--primary-500)' 
-                  : 'var(--bg-primary)',
-                color: selectedCategory === category.id 
-                  ? 'white' 
-                  : 'var(--text-secondary)',
-                border: `1px solid ${selectedCategory === category.id ? 'var(--primary-500)' : 'var(--border-light)'}`
-              }}
-            >
-              {category.label}
-            </button>
-          ))}
+          {CATEGORIES.map((category) => {
+            const Icon = category.icon;
+            return (
+              <button
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: selectedCategory === category.id 
+                    ? 'var(--primary-500)' 
+                    : 'var(--bg-primary)',
+                  color: selectedCategory === category.id 
+                    ? 'white' 
+                    : 'var(--text-secondary)',
+                  border: `1px solid ${selectedCategory === category.id ? 'var(--primary-500)' : 'var(--border-light)'}`
+                }}
+              >
+                <Icon className="w-4 h-4" />
+                {category.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Integrations Grid */}
@@ -284,34 +594,42 @@ export default function IntegracoesPage() {
                 </div>
 
                 {/* Status Badge */}
-                {integration.connected && (
-                  <div 
-                    className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
-                    style={{
-                      backgroundColor: integration.status === 'active' 
-                        ? 'var(--success-100)' 
-                        : integration.status === 'error'
-                          ? 'var(--error-100)'
-                          : 'var(--warning-100)',
-                      color: integration.status === 'active' 
-                        ? 'var(--success-700)' 
-                        : integration.status === 'error'
-                          ? 'var(--error-700)'
-                          : 'var(--warning-700)'
-                    }}
-                  >
-                    {integration.status === 'active' && <Check className="w-3 h-3" />}
-                    {integration.status === 'error' && <AlertTriangle className="w-3 h-3" />}
-                    {integration.status === 'active' ? 'Ativo' : integration.status === 'error' ? 'Erro' : 'Pendente'}
-                  </div>
-                )}
+                <div 
+                  className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                  style={{
+                    backgroundColor: integration.status === 'connected' 
+                      ? 'var(--success-100)' 
+                      : integration.status === 'error'
+                        ? 'var(--error-100)'
+                        : 'var(--bg-secondary)',
+                    color: integration.status === 'connected' 
+                      ? 'var(--success-700)' 
+                      : integration.status === 'error'
+                        ? 'var(--error-700)'
+                        : 'var(--text-tertiary)'
+                  }}
+                >
+                  {integration.status === 'connected' && <Check className="w-3 h-3" />}
+                  {integration.status === 'error' && <AlertTriangle className="w-3 h-3" />}
+                  {integration.status === 'connected' ? 'Ativo' : 
+                   integration.status === 'error' ? 'Erro' : 'Desconectado'}
+                </div>
               </div>
 
-              {/* Last Sync */}
+              {/* Last Sync & Error */}
               {integration.connected && integration.lastSync && (
-                <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
-                  Último sync: {integration.lastSync.toLocaleString('pt-BR')}
-                </p>
+                <div className="flex items-center gap-2 text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
+                  <Clock className="w-3 h-3" />
+                  Último sync: {new Date(integration.lastSync).toLocaleString('pt-BR')}
+                </div>
+              )}
+
+              {integration.error && (
+                <div className="flex items-center gap-2 text-xs mb-3 p-2 rounded-lg" 
+                  style={{ backgroundColor: 'var(--error-100)', color: 'var(--error-700)' }}>
+                  <AlertTriangle className="w-3 h-3" />
+                  {integration.error}
+                </div>
               )}
 
               {/* Actions */}
@@ -319,7 +637,7 @@ export default function IntegracoesPage() {
                 {integration.connected ? (
                   <>
                     <button
-                      onClick={() => handleConnect(integration)}
+                      onClick={() => handleOpenConfig(integration)}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                       style={{
                         backgroundColor: 'var(--bg-secondary)',
@@ -330,19 +648,36 @@ export default function IntegracoesPage() {
                       Configurar
                     </button>
                     <button
+                      onClick={() => handleTestConnection(integration)}
+                      disabled={testing === integration.id}
+                      className="p-2 rounded-lg transition-colors"
+                      style={{
+                        backgroundColor: 'var(--primary-100)',
+                        color: 'var(--primary-600)'
+                      }}
+                      title="Testar conexão"
+                    >
+                      {testing === integration.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Activity className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
                       onClick={() => handleDisconnect(integration)}
                       className="p-2 rounded-lg transition-colors"
                       style={{
                         backgroundColor: 'var(--error-100)',
                         color: 'var(--error-600)'
                       }}
+                      title="Desconectar"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </>
                 ) : (
                   <button
-                    onClick={() => handleConnect(integration)}
+                    onClick={() => handleOpenConfig(integration)}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors text-white"
                     style={{ backgroundColor: integration.color }}
                   >
@@ -383,7 +718,7 @@ export default function IntegracoesPage() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-6 rounded-2xl shadow-2xl z-50"
+                className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg p-6 rounded-2xl shadow-2xl z-50 max-h-[90vh] overflow-y-auto"
                 style={{ backgroundColor: 'var(--bg-primary)' }}
               >
                 <div className="flex items-center gap-3 mb-6">
@@ -408,44 +743,48 @@ export default function IntegracoesPage() {
 
                 {/* Configuration Form */}
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                      API Key
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="sk_live_..."
-                      className="w-full px-4 py-2 rounded-lg border"
-                      style={{
-                        backgroundColor: 'var(--bg-secondary)',
-                        borderColor: 'var(--border-light)',
-                        color: 'var(--text-primary)'
-                      }}
-                    />
-                  </div>
-
-                  {selectedIntegration.id === 'whatsapp' && (
-                    <div>
+                  {selectedIntegration.fields.map((field) => (
+                    <div key={field.key}>
                       <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                        Phone Number ID
+                        {field.label}
+                        {field.required && <span style={{ color: 'var(--error-500)' }}> *</span>}
                       </label>
-                      <input
-                        type="text"
-                        placeholder="1234567890"
-                        className="w-full px-4 py-2 rounded-lg border"
-                        style={{
-                          backgroundColor: 'var(--bg-secondary)',
-                          borderColor: 'var(--border-light)',
-                          color: 'var(--text-primary)'
-                        }}
-                      />
+                      <div className="relative">
+                        <input
+                          type={field.type === 'password' && !showPasswords[field.key] ? 'password' : 'text'}
+                          placeholder={field.placeholder}
+                          value={formData[field.key] || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))}
+                          className="w-full px-4 py-2 rounded-lg border pr-10"
+                          style={{
+                            backgroundColor: 'var(--bg-secondary)',
+                            borderColor: 'var(--border-light)',
+                            color: 'var(--text-primary)'
+                          }}
+                        />
+                        {field.type === 'password' && (
+                          <button
+                            type="button"
+                            onClick={() => togglePasswordVisibility(field.key)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                            style={{ color: 'var(--text-tertiary)' }}
+                          >
+                            {showPasswords[field.key] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        )}
+                      </div>
+                      {field.helpText && (
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                          {field.helpText}
+                        </p>
+                      )}
                     </div>
-                  )}
+                  ))}
 
                   <div className="flex items-center gap-2 p-3 rounded-lg" style={{ backgroundColor: 'var(--info-100)' }}>
-                    <Shield className="w-5 h-5" style={{ color: 'var(--info-600)' }} />
+                    <Shield className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--info-600)' }} />
                     <p className="text-xs" style={{ color: 'var(--info-700)' }}>
-                      Suas credenciais são criptografadas e armazenadas com segurança.
+                      Suas credenciais são criptografadas e armazenadas com segurança. Nunca compartilhamos seus dados.
                     </p>
                   </div>
                 </div>
@@ -454,6 +793,7 @@ export default function IntegracoesPage() {
                 <div className="flex items-center gap-3 mt-6">
                   <button
                     onClick={() => setSelectedIntegration(null)}
+                    disabled={saving}
                     className="flex-1 px-4 py-2 rounded-lg font-medium transition-colors"
                     style={{
                       backgroundColor: 'var(--bg-secondary)',
@@ -463,15 +803,36 @@ export default function IntegracoesPage() {
                     Cancelar
                   </button>
                   <button
-                    onClick={() => {
-                      // TODO: Save configuration
-                      setSelectedIntegration(null);
-                    }}
-                    className="flex-1 px-4 py-2 rounded-lg font-medium text-white transition-colors"
+                    onClick={handleConnect}
+                    disabled={saving}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-white transition-colors"
                     style={{ backgroundColor: selectedIntegration.color }}
                   >
-                    {selectedIntegration.connected ? 'Salvar' : 'Conectar'}
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Conectando...
+                      </>
+                    ) : (
+                      <>
+                        {selectedIntegration.connected ? 'Salvar' : 'Conectar'}
+                      </>
+                    )}
                   </button>
+                </div>
+
+                {/* Documentation Link */}
+                <div className="mt-4 text-center">
+                  <a
+                    href={`https://docs.valle360.com.br/integracoes/${selectedIntegration.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm hover:underline"
+                    style={{ color: 'var(--primary-500)' }}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Ver documentação
+                  </a>
                 </div>
               </motion.div>
             </>
