@@ -88,25 +88,25 @@ export default function LoginPage() {
       }
 
       // Acesso Jurídico
-      if (email === 'juridico@valleai.com.br' || email.includes('juridico@')) {
+      if (email === 'juridico@valle360.com' || email.includes('juridico@')) {
         router.push('/juridico')
         return
       }
 
       // Acesso Financeiro - Contas a Pagar
-      if (email === 'financeiro.pagar@valleai.com.br' || email.includes('financeiro.pagar@')) {
+      if (email === 'pagar@valle360.com' || email.includes('pagar@')) {
         router.push('/colaborador/financeiro/contas-pagar')
         return
       }
 
       // Acesso Financeiro - Contas a Receber
-      if (email === 'financeiro.receber@valleai.com.br' || email.includes('financeiro.receber@')) {
+      if (email === 'receber@valle360.com' || email.includes('receber@')) {
         router.push('/colaborador/financeiro/contas-receber')
         return
       }
 
       // Acesso Financeiro Geral
-      if (email === 'financeiro@valleai.com.br' || email.includes('financeiro@')) {
+      if (email === 'financeiro@valle360.com') {
         router.push('/colaborador/financeiro/contas-receber')
         return
       }
