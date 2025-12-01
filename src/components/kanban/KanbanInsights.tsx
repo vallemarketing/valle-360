@@ -4,308 +4,232 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   TrendingUp, Clock, AlertTriangle, CheckCircle2, 
-  BarChart3, Users, Zap, Target, ArrowUpRight, ArrowDownRight
+  BarChart3, Users, Zap, Target, ArrowUp, ArrowDown
 } from 'lucide-react';
 
 interface KanbanInsightsProps {
-  columns: Array<{
+  columns: {
     id: string;
     title: string;
     color: string;
-    cards: Array<{
-      id: string;
-      title: string;
-      dueDate?: Date;
-      createdAt: Date;
-      assignees: string[];
-    }>;
-  }>;
+    cards: any[];
+  }[];
   area: string;
 }
 
-export function KanbanInsights({ columns, area }: KanbanInsightsProps) {
+export default function KanbanInsights({ columns, area }: KanbanInsightsProps) {
   // Calcular métricas
-  const totalCards = columns.reduce((sum, col) => sum + col.cards.length, 0);
-  const completedCards = columns.find(c => c.id === 'concluido')?.cards.length || 0;
+  const totalCards = columns.reduce((acc, col) => acc + col.cards.length, 0);
+  const completedCards = columns.find(c => c.id === 'concluido' || c.id === 'recebido' || c.id === 'pago')?.cards.length || 0;
   const inProgressCards = columns.find(c => c.id === 'em_progresso')?.cards.length || 0;
-  const overdueCards = columns.flatMap(col => col.cards).filter(card => 
-    card.dueDate && new Date(card.dueDate) < new Date() && 
-    !columns.find(c => c.id === 'concluido')?.cards.includes(card)
-  ).length;
+  const pendingCards = columns.find(c => c.id === 'demandas' || c.id === 'pendente' || c.id === 'a_faturar')?.cards.length || 0;
 
-  // Tempo médio por fase (simulado)
+  // Cards atrasados (com due_date no passado e não concluídos)
+  const today = new Date();
+  const overdueCards = columns
+    .filter(c => !['concluido', 'recebido', 'pago', 'arquivado'].includes(c.id))
+    .flatMap(c => c.cards)
+    .filter(card => card.dueDate && new Date(card.dueDate) < today);
+
+  // Calcular tempo médio por fase (simulado)
   const avgTimePerPhase = {
-    demandas: 2.3,
-    em_progresso: 4.5,
-    revisao: 1.2,
+    demandas: 2.5,
+    em_progresso: 3.2,
+    revisao: 1.1,
     aprovacao: 2.8,
-    concluido: 0
   };
-
-  // Gargalos identificados
-  const bottlenecks = columns
-    .filter(col => col.id !== 'concluido' && col.id !== 'demandas')
-    .sort((a, b) => b.cards.length - a.cards.length)
-    .slice(0, 2);
 
   // Taxa de conclusão
   const completionRate = totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0;
 
-  // Insights inteligentes baseados nos dados
-  const insights = generateInsights(columns, area, overdueCards, completionRate);
+  // Identificar gargalos (fase com mais cards)
+  const bottleneck = columns
+    .filter(c => !['concluido', 'recebido', 'pago', 'arquivado'].includes(c.id))
+    .reduce((max, col) => col.cards.length > max.cards.length ? col : max, columns[0]);
+
+  const insights = [
+    {
+      id: 'completion',
+      title: 'Taxa de Conclusão',
+      value: `${completionRate}%`,
+      change: '+12%',
+      positive: true,
+      icon: CheckCircle2,
+      color: '#10b981',
+    },
+    {
+      id: 'in_progress',
+      title: 'Em Andamento',
+      value: inProgressCards.toString(),
+      subtitle: 'cards ativos',
+      icon: Zap,
+      color: '#f97316',
+    },
+    {
+      id: 'pending',
+      title: 'Aguardando',
+      value: pendingCards.toString(),
+      subtitle: 'na fila',
+      icon: Clock,
+      color: '#6366f1',
+    },
+    {
+      id: 'overdue',
+      title: 'Atrasados',
+      value: overdueCards.length.toString(),
+      subtitle: overdueCards.length > 0 ? 'atenção!' : 'nenhum',
+      icon: AlertTriangle,
+      color: overdueCards.length > 0 ? '#ef4444' : '#10b981',
+      alert: overdueCards.length > 0,
+    },
+  ];
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-          <Zap className="w-5 h-5 text-yellow-500" />
-          Insights Inteligentes
+    <div className="bg-white rounded-xl border shadow-sm p-4 mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-blue-500" />
+          Insights do Kanban
         </h3>
-        <span className="text-xs text-gray-500">{area}</span>
+        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+          {area}
+        </span>
       </div>
 
-      {/* Métricas Principais */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricCard
-          label="Total de Cards"
-          value={totalCards}
-          icon={<BarChart3 className="w-4 h-4" />}
-          color="blue"
-        />
-        <MetricCard
-          label="Em Progresso"
-          value={inProgressCards}
-          icon={<Clock className="w-4 h-4" />}
-          color="orange"
-        />
-        <MetricCard
-          label="Concluídos"
-          value={completedCards}
-          icon={<CheckCircle2 className="w-4 h-4" />}
-          color="green"
-        />
-        <MetricCard
-          label="Atrasados"
-          value={overdueCards}
-          icon={<AlertTriangle className="w-4 h-4" />}
-          color="red"
-          highlight={overdueCards > 0}
-        />
+      {/* Métricas principais */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        {insights.map((insight, index) => {
+          const Icon = insight.icon;
+          return (
+            <motion.div
+              key={insight.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className={`p-3 rounded-xl border ${insight.alert ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-gray-50'}`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <div 
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: `${insight.color}20` }}
+                >
+                  <Icon className="w-4 h-4" style={{ color: insight.color }} />
+                </div>
+                <span className="text-xs text-gray-500">{insight.title}</span>
+              </div>
+              <div className="flex items-end justify-between">
+                <span className="text-2xl font-bold" style={{ color: insight.color }}>
+                  {insight.value}
+                </span>
+                {insight.change && (
+                  <span className={`text-xs flex items-center gap-0.5 ${insight.positive ? 'text-green-600' : 'text-red-600'}`}>
+                    {insight.positive ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                    {insight.change}
+                  </span>
+                )}
+                {insight.subtitle && (
+                  <span className="text-xs text-gray-400">{insight.subtitle}</span>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
 
-      {/* Taxa de Conclusão */}
-      <div className="p-3 bg-gray-50 rounded-lg">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-gray-600">Taxa de Conclusão</span>
-          <span className={`text-sm font-bold ${
-            completionRate >= 70 ? 'text-green-600' : 
-            completionRate >= 40 ? 'text-yellow-600' : 'text-red-600'
-          }`}>
-            {completionRate}%
-          </span>
-        </div>
-        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${completionRate}%` }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            className={`h-full rounded-full ${
-              completionRate >= 70 ? 'bg-green-500' : 
-              completionRate >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-            }`}
-          />
-        </div>
-      </div>
-
-      {/* Gargalos */}
-      {bottlenecks.length > 0 && bottlenecks[0].cards.length > 3 && (
-        <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-orange-500 mt-0.5" />
+      {/* Insights inteligentes */}
+      <div className="space-y-2">
+        {/* Gargalo identificado */}
+        {bottleneck && bottleneck.cards.length > 3 && (
+          <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-orange-800">Gargalo Identificado</p>
-              <p className="text-xs text-orange-600 mt-1">
-                A fase "{bottlenecks[0].title}" tem {bottlenecks[0].cards.length} cards acumulados. 
-                Considere redistribuir tarefas ou priorizar esta etapa.
+              <p className="text-sm font-medium text-amber-800">Gargalo identificado</p>
+              <p className="text-xs text-amber-700">
+                A fase <strong>{bottleneck.title}</strong> tem {bottleneck.cards.length} cards acumulados. 
+                Considere redistribuir tarefas ou adicionar recursos.
               </p>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Insights Inteligentes */}
-      <div className="space-y-2">
-        {insights.map((insight, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className={`p-3 rounded-lg border ${
-              insight.type === 'success' ? 'bg-green-50 border-green-200' :
-              insight.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
-              insight.type === 'danger' ? 'bg-red-50 border-red-200' :
-              'bg-blue-50 border-blue-200'
-            }`}
-          >
-            <div className="flex items-start gap-2">
-              {insight.type === 'success' ? (
-                <TrendingUp className="w-4 h-4 text-green-500 mt-0.5" />
-              ) : insight.type === 'warning' ? (
-                <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5" />
-              ) : insight.type === 'danger' ? (
-                <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5" />
-              ) : (
-                <Target className="w-4 h-4 text-blue-500 mt-0.5" />
-              )}
-              <div>
-                <p className={`text-sm font-medium ${
-                  insight.type === 'success' ? 'text-green-800' :
-                  insight.type === 'warning' ? 'text-yellow-800' :
-                  insight.type === 'danger' ? 'text-red-800' :
-                  'text-blue-800'
-                }`}>
-                  {insight.title}
-                </p>
-                <p className={`text-xs mt-0.5 ${
-                  insight.type === 'success' ? 'text-green-600' :
-                  insight.type === 'warning' ? 'text-yellow-600' :
-                  insight.type === 'danger' ? 'text-red-600' :
-                  'text-blue-600'
-                }`}>
-                  {insight.message}
-                </p>
-              </div>
+        {/* Cards atrasados */}
+        {overdueCards.length > 0 && (
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <Clock className="w-4 h-4 text-red-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-800">
+                {overdueCards.length} {overdueCards.length === 1 ? 'card atrasado' : 'cards atrasados'}
+              </p>
+              <p className="text-xs text-red-700">
+                {overdueCards.slice(0, 3).map(c => c.title).join(', ')}
+                {overdueCards.length > 3 && ` e mais ${overdueCards.length - 3}`}
+              </p>
             </div>
-          </motion.div>
-        ))}
+          </div>
+        )}
+
+        {/* Boa performance */}
+        {completionRate >= 70 && overdueCards.length === 0 && (
+          <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <TrendingUp className="w-4 h-4 text-green-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-green-800">Excelente performance!</p>
+              <p className="text-xs text-green-700">
+                Sua taxa de conclusão está em {completionRate}% e não há cards atrasados. Continue assim!
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Tempo médio */}
+        <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <Target className="w-4 h-4 text-blue-600 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-blue-800">Tempo médio por fase</p>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {Object.entries(avgTimePerPhase).map(([phase, days]) => (
+                <span key={phase} className="text-xs bg-white px-2 py-0.5 rounded border border-blue-200">
+                  {phase.replace('_', ' ')}: <strong>{days}d</strong>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Distribuição por Fase */}
-      <div className="pt-3 border-t">
-        <p className="text-xs text-gray-500 mb-2">Distribuição por Fase</p>
-        <div className="flex gap-1">
-          {columns.map(col => {
+      {/* Distribuição por fase */}
+      <div className="mt-4 pt-4 border-t">
+        <p className="text-xs text-gray-500 mb-2">Distribuição por fase</p>
+        <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
+          {columns.map((col, index) => {
             const percentage = totalCards > 0 ? (col.cards.length / totalCards) * 100 : 0;
+            if (percentage === 0) return null;
             return (
-              <div
+              <motion.div
                 key={col.id}
-                className="h-6 rounded transition-all hover:opacity-80 cursor-pointer group relative"
-                style={{ 
-                  backgroundColor: col.color,
-                  width: `${Math.max(percentage, 5)}%`
-                }}
-                title={`${col.title}: ${col.cards.length} cards`}
-              >
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                  {col.title}: {col.cards.length}
-                </div>
-              </div>
+                initial={{ width: 0 }}
+                animate={{ width: `${percentage}%` }}
+                transition={{ delay: index * 0.1, duration: 0.5 }}
+                className="h-full"
+                style={{ backgroundColor: col.color }}
+                title={`${col.title}: ${col.cards.length} cards (${Math.round(percentage)}%)`}
+              />
             );
           })}
         </div>
-        <div className="flex justify-between mt-1">
+        <div className="flex flex-wrap gap-3 mt-2">
           {columns.map(col => (
-            <span key={col.id} className="text-[10px] text-gray-400">{col.cards.length}</span>
+            <div key={col.id} className="flex items-center gap-1 text-xs">
+              <div 
+                className="w-2 h-2 rounded-full" 
+                style={{ backgroundColor: col.color }} 
+              />
+              <span className="text-gray-600">{col.title}</span>
+              <span className="text-gray-400">({col.cards.length})</span>
+            </div>
           ))}
         </div>
       </div>
     </div>
   );
 }
-
-// Componente de métrica
-function MetricCard({ 
-  label, 
-  value, 
-  icon, 
-  color, 
-  highlight = false 
-}: { 
-  label: string; 
-  value: number; 
-  icon: React.ReactNode; 
-  color: 'blue' | 'green' | 'orange' | 'red';
-  highlight?: boolean;
-}) {
-  const colors = {
-    blue: { bg: 'bg-blue-50', text: 'text-blue-600', icon: 'text-blue-500' },
-    green: { bg: 'bg-green-50', text: 'text-green-600', icon: 'text-green-500' },
-    orange: { bg: 'bg-orange-50', text: 'text-orange-600', icon: 'text-orange-500' },
-    red: { bg: 'bg-red-50', text: 'text-red-600', icon: 'text-red-500' }
-  };
-
-  return (
-    <div className={`p-3 rounded-lg ${colors[color].bg} ${highlight ? 'ring-2 ring-red-300' : ''}`}>
-      <div className={`${colors[color].icon} mb-1`}>{icon}</div>
-      <p className={`text-xl font-bold ${colors[color].text}`}>{value}</p>
-      <p className="text-xs text-gray-500">{label}</p>
-    </div>
-  );
-}
-
-// Gerar insights baseados nos dados
-function generateInsights(
-  columns: any[], 
-  area: string, 
-  overdueCards: number,
-  completionRate: number
-): Array<{ type: 'success' | 'warning' | 'danger' | 'info'; title: string; message: string }> {
-  const insights: Array<{ type: 'success' | 'warning' | 'danger' | 'info'; title: string; message: string }> = [];
-
-  // Insight sobre atrasos
-  if (overdueCards > 0) {
-    insights.push({
-      type: 'danger',
-      title: `${overdueCards} card${overdueCards > 1 ? 's' : ''} atrasado${overdueCards > 1 ? 's' : ''}`,
-      message: 'Priorize estas entregas para não impactar o cliente.'
-    });
-  }
-
-  // Insight sobre taxa de conclusão
-  if (completionRate >= 70) {
-    insights.push({
-      type: 'success',
-      title: 'Excelente produtividade!',
-      message: `Taxa de conclusão de ${completionRate}% está acima da média.`
-    });
-  } else if (completionRate < 30) {
-    insights.push({
-      type: 'warning',
-      title: 'Atenção à produtividade',
-      message: 'Muitos cards ainda não foram concluídos. Revise as prioridades.'
-    });
-  }
-
-  // Insight sobre demandas acumuladas
-  const demandasCount = columns.find(c => c.id === 'demandas')?.cards.length || 0;
-  if (demandasCount > 10) {
-    insights.push({
-      type: 'warning',
-      title: 'Muitas demandas pendentes',
-      message: `${demandasCount} demandas aguardando início. Considere priorizar ou delegar.`
-    });
-  }
-
-  // Insight sobre aprovação
-  const aprovacaoCount = columns.find(c => c.id === 'aprovacao')?.cards.length || 0;
-  if (aprovacaoCount > 5) {
-    insights.push({
-      type: 'info',
-      title: 'Cards aguardando cliente',
-      message: `${aprovacaoCount} cards estão aguardando aprovação do cliente.`
-    });
-  }
-
-  // Insight positivo se tudo estiver bem
-  if (insights.length === 0) {
-    insights.push({
-      type: 'success',
-      title: 'Tudo em ordem!',
-      message: 'Seu fluxo de trabalho está equilibrado. Continue assim!'
-    });
-  }
-
-  return insights.slice(0, 3); // Limitar a 3 insights
-}
-

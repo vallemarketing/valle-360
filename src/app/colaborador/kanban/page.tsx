@@ -13,10 +13,10 @@ import {
 import { cn } from '@/lib/utils'
 import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale/pt-BR'
-import { PhaseTransitionModal } from '@/components/kanban/PhaseTransitionModal'
-import { CardHistory, HistoryEntry } from '@/components/kanban/CardHistory'
-import { KanbanInsights } from '@/components/kanban/KanbanInsights'
-import { getPhasesForArea, PhaseConfig, getPhaseFields } from '@/lib/kanban/phaseFields'
+import PhaseTransitionModal from '@/components/kanban/PhaseTransitionModal'
+import CardHistory, { HistoryEntry } from '@/components/kanban/CardHistory'
+import KanbanInsights from '@/components/kanban/KanbanInsights'
+import { getPhaseConfig, getPhaseFields, PhaseConfig, KANBAN_PHASES } from '@/lib/kanban/phaseFields'
 
 // ==================== TIPOS ====================
 interface KanbanCard {
@@ -89,8 +89,8 @@ export default function KanbanPage() {
   const [transitionModal, setTransitionModal] = useState<{
     isOpen: boolean
     card: KanbanCard | null
-    fromPhase: PhaseConfig | null
-    toPhase: PhaseConfig | null
+    fromPhase: { id: string; title: string; color: string } | null
+    toPhase: { id: string; title: string; color: string } | null
     fromColumnId: string
     toColumnId: string
     sourceIndex: number
@@ -107,7 +107,7 @@ export default function KanbanPage() {
   })
 
   // Fases baseadas na área
-  const phases = getPhasesForArea(userArea)
+  const phases = getPhaseConfig(userArea)
 
   useEffect(() => {
     loadData()
@@ -115,16 +115,14 @@ export default function KanbanPage() {
 
   useEffect(() => {
     // Atualizar colunas quando a área mudar
-    if (userArea) {
-      const newPhases = getPhasesForArea(userArea)
+    if (userArea && phases.length > 0) {
       setColumns(prevColumns => {
-        return newPhases.map(phase => {
+        return phases.map(phase => {
           const existingCol = prevColumns.find(c => c.id === phase.id)
           return {
             id: phase.id,
             title: phase.title,
             color: phase.color,
-            description: phase.description,
             cards: existingCol?.cards || []
           }
         })
@@ -146,7 +144,7 @@ export default function KanbanPage() {
         setUserArea(area)
         setUserName(employee?.full_name || 'Colaborador')
 
-        // Carregar clientes do setor
+        // Carregar clientes
         const { data: clientsData } = await supabase
           .from('clients')
           .select('id, name, company_name')
@@ -202,7 +200,7 @@ export default function KanbanPage() {
         description: 'Criar landing page para lançamento do novo produto',
         phaseData: {},
         history: [
-          { id: '1', type: 'created', user: 'Sistema', timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) }
+          { id: '1', type: 'created', timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), user: { id: '1', name: 'Sistema' }, data: {} }
         ]
       },
       {
@@ -222,7 +220,7 @@ export default function KanbanPage() {
         description: 'Redesign completo do site institucional',
         phaseData: {},
         history: [
-          { id: '1', type: 'created', user: 'Sistema', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) }
+          { id: '1', type: 'created', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), user: { id: '1', name: 'Sistema' }, data: {} }
         ]
       },
       {
@@ -242,17 +240,16 @@ export default function KanbanPage() {
         description: 'Implementar seção de blog no site',
         phaseData: {},
         history: [
-          { id: '1', type: 'created', user: 'Sistema', timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+          { id: '1', type: 'created', timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), user: { id: '1', name: 'Sistema' }, data: {} }
         ]
       }
     ]
 
-    const initialPhases = getPhasesForArea(userArea)
+    const initialPhases = getPhaseConfig(userArea)
     const newColumns: KanbanColumn[] = initialPhases.map((phase, index) => ({
       id: phase.id,
       title: phase.title,
       color: phase.color,
-      description: phase.description,
       cards: index === 0 ? [mockCards[0], mockCards[1]] : 
              index === 1 ? [mockCards[2]] : []
     }))
@@ -283,8 +280,8 @@ export default function KanbanPage() {
         setTransitionModal({
           isOpen: true,
           card,
-          fromPhase,
-          toPhase,
+          fromPhase: { id: fromPhase.id, title: fromPhase.title, color: fromPhase.color },
+          toPhase: { id: toPhase.id, title: toPhase.title, color: toPhase.color },
           fromColumnId: source.droppableId,
           toColumnId: destination.droppableId,
           sourceIndex: source.index,
@@ -319,18 +316,21 @@ export default function KanbanPage() {
     movedCard.updatedAt = new Date()
 
     // Adicionar ao histórico
-    movedCard.history = [
-      ...movedCard.history,
-      {
-        id: Date.now().toString(),
-        type: 'moved' as const,
-        fromPhase: transitionModal.fromColumnId,
-        toPhase: transitionModal.toColumnId,
-        user: userName,
-        timestamp: new Date(),
-        data
+    const historyEntry: HistoryEntry = {
+      id: Date.now().toString(),
+      type: 'phase_change',
+      timestamp: new Date(),
+      user: { id: '1', name: userName },
+      data: {
+        fromPhase: transitionModal.fromPhase || undefined,
+        toPhase: transitionModal.toPhase || undefined,
+        fieldsUpdated: Object.entries(data).map(([key, value]) => ({
+          field: key,
+          newValue: value
+        }))
       }
-    ]
+    }
+    movedCard.history = [...movedCard.history, historyEntry]
 
     // Adicionar na coluna destino
     newColumns[destColIndex].cards.splice(transitionModal.destIndex, 0, movedCard)
@@ -376,8 +376,9 @@ export default function KanbanPage() {
         {
           id: '1',
           type: 'created',
-          user: userName,
-          timestamp: new Date()
+          timestamp: new Date(),
+          user: { id: '1', name: userName },
+          data: {}
         }
       ]
     }
@@ -415,10 +416,6 @@ export default function KanbanPage() {
       setZoomLevel(ZOOM_LEVELS[currentIndex - 1].value)
     }
   }
-
-  // Phase colors e names para o histórico
-  const phaseColors = phases.reduce((acc, p) => ({ ...acc, [p.id]: p.color }), {} as Record<string, string>)
-  const phaseNames = phases.reduce((acc, p) => ({ ...acc, [p.id]: p.title }), {} as Record<string, string>)
 
   if (loading) {
     return (
@@ -499,7 +496,7 @@ export default function KanbanPage() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="px-4 py-3 bg-white border-b overflow-hidden"
+            className="px-4 overflow-hidden"
           >
             <KanbanInsights columns={filteredColumns} area={userArea} />
           </motion.div>
@@ -540,9 +537,6 @@ export default function KanbanPage() {
                       </span>
                     </div>
                   </div>
-                  {column.description && (
-                    <p className="text-xs text-gray-500 mt-1">{column.description}</p>
-                  )}
                 </div>
 
                 {/* Cards Container */}
@@ -690,6 +684,7 @@ export default function KanbanPage() {
           fromPhase={transitionModal.fromPhase}
           toPhase={transitionModal.toPhase}
           cardTitle={transitionModal.card?.title || ''}
+          area={userArea}
           existingData={transitionModal.card?.phaseData[transitionModal.toColumnId] || {}}
           clients={clients}
           employees={employees}
@@ -719,8 +714,7 @@ export default function KanbanPage() {
               setSelectedCard(null)
             }}
             card={selectedCard}
-            phaseColors={phaseColors}
-            phaseNames={phaseNames}
+            phases={phases}
           />
         )}
       </AnimatePresence>
@@ -889,16 +883,17 @@ function CardDetailModal({
   isOpen,
   onClose,
   card,
-  phaseColors,
-  phaseNames
+  phases
 }: {
   isOpen: boolean
   onClose: () => void
   card: KanbanCard
-  phaseColors: Record<string, string>
-  phaseNames: Record<string, string>
+  phases: PhaseConfig[]
 }) {
   const [activeTab, setActiveTab] = useState<'details' | 'history'>('details')
+
+  const phaseColors = phases.reduce((acc, p) => ({ ...acc, [p.id]: p.color }), {} as Record<string, string>)
+  const phaseNames = phases.reduce((acc, p) => ({ ...acc, [p.id]: p.title }), {} as Record<string, string>)
 
   if (!isOpen) return null
 
@@ -1046,11 +1041,7 @@ function CardDetailModal({
               </div>
             </div>
           ) : (
-            <CardHistory 
-              history={card.history} 
-              phaseColors={phaseColors}
-              phaseNames={phaseNames}
-            />
+            <CardHistory history={card.history} />
           )}
         </div>
       </motion.div>

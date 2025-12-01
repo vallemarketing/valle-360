@@ -1,17 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import {
-  Plus, Search, Calendar, DollarSign, Building2, AlertTriangle,
-  Clock, CheckCircle2, Archive, X, Filter, TrendingDown, Wallet,
-  CreditCard, Banknote, Receipt, Zap
+  Plus, Search, X, Calendar, Building2, DollarSign, 
+  AlertCircle, Receipt, CreditCard, Banknote, Archive,
+  TrendingDown, Wallet, Filter, Download, Upload, Clock
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { format, differenceInDays, addDays } from 'date-fns'
-import { ptBR } from 'date-fns/locale/pt-BR'
-import { getFinanceiroPhases, PhaseConfig } from '@/lib/kanban/phaseFields'
-import { PhaseTransitionModal } from '@/components/kanban/PhaseTransitionModal'
+import { ptBR } from 'date-fns/locale'
+import { toast } from 'sonner'
 
 interface ContaPagar {
   id: string
@@ -21,10 +22,8 @@ interface ContaPagar {
   dueDate: Date
   category: string
   costCenter: string
-  status: string
   paymentMethod?: string
-  scheduledDate?: Date
-  paidDate?: Date
+  paymentDate?: Date
   paidValue?: number
   receipt?: string
   createdAt: Date
@@ -34,237 +33,172 @@ interface Column {
   id: string
   title: string
   color: string
+  icon: any
   cards: ContaPagar[]
 }
 
-const CATEGORY_ICONS: Record<string, any> = {
-  fornecedores: Building2,
-  servicos: Receipt,
-  impostos: DollarSign,
-  folha: Wallet,
-  aluguel: Building2,
-  outros: CreditCard
-}
+const CATEGORIES = [
+  { value: 'servicos', label: 'Serviços' },
+  { value: 'software', label: 'Software/Assinaturas' },
+  { value: 'marketing', label: 'Marketing/Ads' },
+  { value: 'pessoal', label: 'Pessoal' },
+  { value: 'infraestrutura', label: 'Infraestrutura' },
+  { value: 'impostos', label: 'Impostos' },
+  { value: 'outros', label: 'Outros' }
+]
+
+const COST_CENTERS = [
+  { value: 'operacional', label: 'Operacional' },
+  { value: 'administrativo', label: 'Administrativo' },
+  { value: 'comercial', label: 'Comercial' },
+  { value: 'marketing', label: 'Marketing' }
+]
+
+const PAYMENT_METHODS = [
+  { value: 'pix', label: 'PIX' },
+  { value: 'boleto', label: 'Boleto' },
+  { value: 'transferencia', label: 'Transferência' },
+  { value: 'cartao', label: 'Cartão' },
+  { value: 'debito', label: 'Débito Automático' }
+]
+
+const INITIAL_COLUMNS: Column[] = [
+  { id: 'pendente', title: 'Pendente', color: '#ef4444', icon: AlertCircle, cards: [] },
+  { id: 'agendado', title: 'Agendado', color: '#f97316', icon: Calendar, cards: [] },
+  { id: 'pago', title: 'Pago', color: '#10b981', icon: Banknote, cards: [] },
+  { id: 'arquivado', title: 'Arquivado', color: '#6b7280', icon: Archive, cards: [] }
+]
 
 export default function ContasPagarPage() {
-  const [columns, setColumns] = useState<Column[]>([])
-  const [loading, setLoading] = useState(true)
+  const [columns, setColumns] = useState<Column[]>(INITIAL_COLUMNS)
   const [searchTerm, setSearchTerm] = useState('')
   const [isNewModalOpen, setIsNewModalOpen] = useState(false)
-  const [showInsights, setShowInsights] = useState(true)
-  const [transitionModal, setTransitionModal] = useState<{
-    isOpen: boolean
-    card: ContaPagar | null
-    fromPhase: PhaseConfig | null
-    toPhase: PhaseConfig | null
-    fromColumnId: string
-    toColumnId: string
-    sourceIndex: number
-    destIndex: number
-  }>({
-    isOpen: false,
-    card: null,
-    fromPhase: null,
-    toPhase: null,
-    fromColumnId: '',
-    toColumnId: '',
-    sourceIndex: 0,
-    destIndex: 0
-  })
-
-  const phases = getFinanceiroPhases('pagar')
+  const [selectedCard, setSelectedCard] = useState<ContaPagar | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [filterCategory, setFilterCategory] = useState('')
 
   useEffect(() => {
     loadData()
   }, [])
 
-  const loadData = () => {
-    // Mock data
-    const mockContas: ContaPagar[] = [
-      {
-        id: '1',
-        supplier: 'Fornecedor ABC',
-        description: 'Compra de materiais de escritório',
-        value: 2500,
-        dueDate: addDays(new Date(), 5),
-        category: 'fornecedores',
-        costCenter: 'administrativo',
-        status: 'pendente',
-        createdAt: new Date()
-      },
-      {
-        id: '2',
-        supplier: 'Imobiliária XYZ',
-        description: 'Aluguel do escritório - Janeiro',
-        value: 8500,
-        dueDate: addDays(new Date(), 10),
-        category: 'aluguel',
-        costCenter: 'administrativo',
-        status: 'agendado',
-        paymentMethod: 'transferencia',
-        scheduledDate: addDays(new Date(), 9),
-        createdAt: new Date()
-      },
-      {
-        id: '3',
-        supplier: 'Receita Federal',
-        description: 'DAS - Simples Nacional',
-        value: 3200,
-        dueDate: addDays(new Date(), 2),
-        category: 'impostos',
-        costCenter: 'administrativo',
-        status: 'pendente',
-        createdAt: new Date()
-      },
-      {
-        id: '4',
-        supplier: 'Colaboradores',
-        description: 'Folha de Pagamento - Dezembro',
-        value: 45000,
-        dueDate: addDays(new Date(), -2),
-        category: 'folha',
-        costCenter: 'operacional',
-        status: 'pago',
-        paymentMethod: 'transferencia',
-        paidDate: addDays(new Date(), -2),
-        paidValue: 45000,
-        createdAt: new Date()
-      },
-      {
-        id: '5',
-        supplier: 'TechSupport',
-        description: 'Manutenção de TI',
-        value: 1500,
-        dueDate: addDays(new Date(), 15),
-        category: 'servicos',
-        costCenter: 'operacional',
-        status: 'pendente',
-        createdAt: new Date()
-      }
-    ]
+  const loadData = async () => {
+    try {
+      // Mock data
+      const mockData: ContaPagar[] = [
+        {
+          id: '1',
+          supplier: 'Google',
+          description: 'Google Workspace',
+          value: 299.90,
+          dueDate: addDays(new Date(), 5),
+          category: 'software',
+          costCenter: 'operacional',
+          createdAt: new Date()
+        },
+        {
+          id: '2',
+          supplier: 'Meta',
+          description: 'Facebook Ads - Dezembro',
+          value: 5000,
+          dueDate: addDays(new Date(), 3),
+          category: 'marketing',
+          costCenter: 'marketing',
+          createdAt: new Date()
+        },
+        {
+          id: '3',
+          supplier: 'Aluguel',
+          description: 'Aluguel Escritório',
+          value: 3500,
+          dueDate: addDays(new Date(), 10),
+          category: 'infraestrutura',
+          costCenter: 'administrativo',
+          paymentMethod: 'boleto',
+          paymentDate: addDays(new Date(), 8),
+          createdAt: new Date()
+        },
+        {
+          id: '4',
+          supplier: 'Contador',
+          description: 'Honorários Contábeis',
+          value: 1200,
+          dueDate: addDays(new Date(), -2),
+          category: 'servicos',
+          costCenter: 'administrativo',
+          paymentMethod: 'pix',
+          paymentDate: new Date(),
+          paidValue: 1200,
+          createdAt: new Date()
+        }
+      ]
 
-    const newColumns: Column[] = phases.map(phase => ({
-      id: phase.id,
-      title: phase.title,
-      color: phase.color,
-      cards: mockContas.filter(c => c.status === phase.id)
-    }))
+      const newColumns = INITIAL_COLUMNS.map(col => ({
+        ...col,
+        cards: col.id === 'pendente' ? mockData.slice(0, 2) :
+               col.id === 'agendado' ? mockData.slice(2, 3) :
+               col.id === 'pago' ? mockData.slice(3) : []
+      }))
 
-    setColumns(newColumns)
-    setLoading(false)
+      setColumns(newColumns)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return
 
     const { source, destination } = result
-
-    if (source.droppableId === destination.droppableId && source.index === destination.index) {
-      return
-    }
-
-    const sourceColIndex = columns.findIndex(col => col.id === source.droppableId)
-    const destColIndex = columns.findIndex(col => col.id === destination.droppableId)
-    const card = columns[sourceColIndex].cards[source.index]
-
-    if (source.droppableId !== destination.droppableId) {
-      const fromPhase = phases.find(p => p.id === source.droppableId)
-      const toPhase = phases.find(p => p.id === destination.droppableId)
-
-      if (fromPhase && toPhase) {
-        setTransitionModal({
-          isOpen: true,
-          card,
-          fromPhase,
-          toPhase,
-          fromColumnId: source.droppableId,
-          toColumnId: destination.droppableId,
-          sourceIndex: source.index,
-          destIndex: destination.index
-        })
-        return
-      }
-    }
-
     const newColumns = [...columns]
+
+    const sourceColIndex = newColumns.findIndex(col => col.id === source.droppableId)
+    const destColIndex = newColumns.findIndex(col => col.id === destination.droppableId)
+
     const [movedCard] = newColumns[sourceColIndex].cards.splice(source.index, 1)
     newColumns[destColIndex].cards.splice(destination.index, 0, movedCard)
-    setColumns(newColumns)
-  }
-
-  const handleTransitionConfirm = (data: Record<string, any>) => {
-    if (!transitionModal.card) return
-
-    const newColumns = [...columns]
-    const sourceColIndex = newColumns.findIndex(col => col.id === transitionModal.fromColumnId)
-    const destColIndex = newColumns.findIndex(col => col.id === transitionModal.toColumnId)
-
-    const [movedCard] = newColumns[sourceColIndex].cards.splice(transitionModal.sourceIndex, 1)
-    movedCard.status = transitionModal.toColumnId
-
-    // Atualizar campos específicos
-    if (transitionModal.toColumnId === 'agendado') {
-      movedCard.scheduledDate = data.scheduled_date ? new Date(data.scheduled_date) : undefined
-      movedCard.paymentMethod = data.payment_method
-    } else if (transitionModal.toColumnId === 'pago') {
-      movedCard.paidDate = data.paid_date ? new Date(data.paid_date) : undefined
-      movedCard.paidValue = data.paid_value
-      movedCard.receipt = data.receipt
-    }
-
-    newColumns[destColIndex].cards.splice(transitionModal.destIndex, 0, movedCard)
 
     setColumns(newColumns)
-    setTransitionModal({
-      isOpen: false,
-      card: null,
-      fromPhase: null,
-      toPhase: null,
-      fromColumnId: '',
-      toColumnId: '',
-      sourceIndex: 0,
-      destIndex: 0
-    })
+    toast.success(`Conta movida para ${newColumns[destColIndex].title}`)
   }
 
-  const handleCreateConta = (data: Partial<ContaPagar>) => {
-    const newConta: ContaPagar = {
+  const handleCreateCard = (data: Partial<ContaPagar>) => {
+    const newCard: ContaPagar = {
       id: Date.now().toString(),
       supplier: data.supplier || '',
       description: data.description || '',
       value: data.value || 0,
       dueDate: data.dueDate || new Date(),
       category: data.category || 'outros',
-      costCenter: data.costCenter || 'administrativo',
-      status: 'pendente',
+      costCenter: data.costCenter || 'operacional',
       createdAt: new Date()
     }
 
-    setColumns(prev => prev.map(col => {
+    setColumns(cols => cols.map(col => {
       if (col.id === 'pendente') {
-        return { ...col, cards: [...col.cards, newConta] }
+        return { ...col, cards: [...col.cards, newCard] }
       }
       return col
     }))
 
     setIsNewModalOpen(false)
+    toast.success('Conta criada com sucesso')
   }
-
-  // Métricas
-  const totalPendente = columns.find(c => c.id === 'pendente')?.cards.reduce((sum, c) => sum + c.value, 0) || 0
-  const totalAgendado = columns.find(c => c.id === 'agendado')?.cards.reduce((sum, c) => sum + c.value, 0) || 0
-  const totalPago = columns.find(c => c.id === 'pago')?.cards.reduce((sum, c) => sum + (c.paidValue || c.value), 0) || 0
-  const contasAtrasadas = columns.flatMap(c => c.cards).filter(c => 
-    c.status !== 'pago' && c.status !== 'arquivado' && differenceInDays(c.dueDate, new Date()) < 0
-  ).length
 
   const filteredColumns = columns.map(col => ({
     ...col,
-    cards: col.cards.filter(card =>
-      card.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      card.description.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    cards: col.cards.filter(card => {
+      const matchesSearch = card.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           card.description.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesCategory = !filterCategory || card.category === filterCategory
+      return matchesSearch && matchesCategory
+    })
   }))
+
+  // Cálculos
+  const totalPendente = columns.find(c => c.id === 'pendente')?.cards.reduce((sum, c) => sum + c.value, 0) || 0
+  const totalAgendado = columns.find(c => c.id === 'agendado')?.cards.reduce((sum, c) => sum + c.value, 0) || 0
+  const totalPago = columns.find(c => c.id === 'pago')?.cards.reduce((sum, c) => sum + (c.paidValue || c.value), 0) || 0
+  const vencidosCount = columns.find(c => c.id === 'pendente')?.cards.filter(c => differenceInDays(c.dueDate, new Date()) < 0).length || 0
 
   if (loading) {
     return (
@@ -277,15 +211,17 @@ export default function ContasPagarPage() {
   return (
     <div className="h-[calc(100vh-73px)] flex flex-col bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4">
+      <div className="bg-white border-b px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-              <TrendingDown className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-800">Contas a Pagar</h1>
-              <p className="text-sm text-gray-500">Gerencie suas despesas e pagamentos</p>
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+                <TrendingDown className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">Contas a Pagar</h1>
+                <p className="text-sm text-gray-500">Gerencie suas despesas</p>
+              </div>
             </div>
           </div>
 
@@ -297,19 +233,20 @@ export default function ContasPagarPage() {
                 placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-4 py-2 border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="pl-9 pr-4 py-2 border rounded-lg text-sm w-48 focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
 
-            <button
-              onClick={() => setShowInsights(!showInsights)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                showInsights ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
-              }`}
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             >
-              <Zap className="w-4 h-4" />
-              Insights
-            </button>
+              <option value="">Todas categorias</option>
+              {CATEGORIES.map(cat => (
+                <option key={cat.value} value={cat.value}>{cat.label}</option>
+              ))}
+            </select>
 
             <button
               onClick={() => setIsNewModalOpen(true)}
@@ -320,218 +257,157 @@ export default function ContasPagarPage() {
             </button>
           </div>
         </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-4 mt-4">
+          <div className="bg-red-50 rounded-xl p-3 border border-red-100">
+            <p className="text-xs text-red-600 font-medium">Pendente</p>
+            <p className="text-xl font-bold text-red-700">
+              R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+            {vencidosCount > 0 && (
+              <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                <AlertCircle className="w-3 h-3" />
+                {vencidosCount} vencido(s)
+              </p>
+            )}
+          </div>
+          <div className="bg-orange-50 rounded-xl p-3 border border-orange-100">
+            <p className="text-xs text-orange-600 font-medium">Agendado</p>
+            <p className="text-xl font-bold text-orange-700">
+              R$ {totalAgendado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+          <div className="bg-green-50 rounded-xl p-3 border border-green-100">
+            <p className="text-xs text-green-600 font-medium">Pago (Mês)</p>
+            <p className="text-xl font-bold text-green-700">
+              R$ {totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
+            <p className="text-xs text-gray-600 font-medium">Total Previsto</p>
+            <p className="text-xl font-bold text-gray-700">
+              R$ {(totalPendente + totalAgendado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Insights Panel */}
-      <AnimatePresence>
-        {showInsights && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="bg-white border-b px-6 py-4 overflow-hidden"
-          >
-            <div className="grid grid-cols-4 gap-4">
-              <div className="p-4 bg-red-50 rounded-xl">
-                <div className="flex items-center gap-2 text-red-600 mb-2">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span className="text-sm font-medium">Pendente</span>
-                </div>
-                <p className="text-2xl font-bold text-red-700">
-                  R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-
-              <div className="p-4 bg-orange-50 rounded-xl">
-                <div className="flex items-center gap-2 text-orange-600 mb-2">
-                  <Clock className="w-4 h-4" />
-                  <span className="text-sm font-medium">Agendado</span>
-                </div>
-                <p className="text-2xl font-bold text-orange-700">
-                  R$ {totalAgendado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-
-              <div className="p-4 bg-green-50 rounded-xl">
-                <div className="flex items-center gap-2 text-green-600 mb-2">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span className="text-sm font-medium">Pago (mês)</span>
-                </div>
-                <p className="text-2xl font-bold text-green-700">
-                  R$ {totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-
-              <div className={`p-4 rounded-xl ${contasAtrasadas > 0 ? 'bg-red-100' : 'bg-gray-50'}`}>
-                <div className={`flex items-center gap-2 mb-2 ${contasAtrasadas > 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                  <AlertTriangle className="w-4 h-4" />
-                  <span className="text-sm font-medium">Atrasadas</span>
-                </div>
-                <p className={`text-2xl font-bold ${contasAtrasadas > 0 ? 'text-red-700' : 'text-gray-700'}`}>
-                  {contasAtrasadas}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto p-6">
+      {/* Kanban */}
+      <div className="flex-1 overflow-x-auto">
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-4 h-full" style={{ minWidth: `${columns.length * 320}px` }}>
-            {filteredColumns.map((column, colIndex) => (
-              <div
-                key={column.id}
-                className="w-80 flex-shrink-0 bg-gray-100 rounded-xl flex flex-col"
-              >
-                {/* Column Header */}
-                <div 
-                  className="p-3 rounded-t-xl"
-                  style={{ backgroundColor: `${column.color}20` }}
+          <div className="flex gap-4 p-6 h-full min-w-max">
+            {filteredColumns.map((column) => {
+              const Icon = column.icon
+              return (
+                <div
+                  key={column.id}
+                  className="flex flex-col bg-gray-100 rounded-xl w-80"
                 >
-                  <div className="flex items-center justify-between">
+                  <div 
+                    className="p-3 rounded-t-xl"
+                    style={{ backgroundColor: `${column.color}15` }}
+                  >
                     <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: column.color }}
-                      />
+                      <Icon className="w-5 h-5" style={{ color: column.color }} />
                       <h3 className="font-semibold text-gray-800">{column.title}</h3>
                       <span className="text-xs bg-white px-2 py-0.5 rounded-full text-gray-600">
                         {column.cards.length}
                       </span>
                     </div>
-                    <span className="text-sm font-medium text-gray-600">
-                      R$ {column.cards.reduce((sum, c) => sum + c.value, 0).toLocaleString('pt-BR')}
-                    </span>
                   </div>
-                </div>
 
-                {/* Cards */}
-                <Droppable droppableId={column.id}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={`flex-1 p-2 space-y-2 overflow-y-auto ${snapshot.isDraggingOver ? 'bg-red-50' : ''}`}
-                    >
-                      {column.cards.map((card, index) => {
-                        const daysUntilDue = differenceInDays(card.dueDate, new Date())
-                        const isOverdue = daysUntilDue < 0 && card.status !== 'pago' && card.status !== 'arquivado'
-                        const CategoryIcon = CATEGORY_ICONS[card.category] || Receipt
+                  <Droppable droppableId={column.id}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={cn(
+                          "flex-1 p-2 space-y-2 overflow-y-auto",
+                          snapshot.isDraggingOver && "bg-red-50"
+                        )}
+                        style={{ maxHeight: 'calc(100vh - 350px)' }}
+                      >
+                        {column.cards.map((card, index) => {
+                          const isOverdue = differenceInDays(card.dueDate, new Date()) < 0 && column.id === 'pendente'
+                          const daysUntilDue = differenceInDays(card.dueDate, new Date())
+                          const categoryLabel = CATEGORIES.find(c => c.value === card.category)?.label
 
-                        return (
-                          <Draggable key={card.id} draggableId={card.id} index={index}>
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={`bg-white rounded-lg p-3 shadow-sm border cursor-pointer transition-all hover:shadow-md ${
-                                  snapshot.isDragging ? 'shadow-lg ring-2 ring-red-500' : ''
-                                } ${isOverdue ? 'border-red-300 bg-red-50' : ''}`}
-                              >
-                                {/* Category Badge */}
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">
-                                    <CategoryIcon className="w-3 h-3" />
-                                    {card.category}
-                                  </div>
-                                  {isOverdue && (
-                                    <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded font-medium">
-                                      Atrasado
-                                    </span>
+                          return (
+                            <Draggable key={card.id} draggableId={card.id} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  onClick={() => setSelectedCard(card)}
+                                  className={cn(
+                                    "bg-white rounded-lg p-3 shadow-sm border cursor-pointer hover:shadow-md transition-all",
+                                    isOverdue && "border-red-300 bg-red-50",
+                                    snapshot.isDragging && "shadow-lg ring-2 ring-red-500"
                                   )}
-                                </div>
-
-                                {/* Supplier */}
-                                <h4 className="font-medium text-gray-800 text-sm">{card.supplier}</h4>
-                                <p className="text-xs text-gray-500 line-clamp-1 mt-1">{card.description}</p>
-
-                                {/* Value */}
-                                <div className="flex items-center justify-between mt-3">
-                                  <span className="text-lg font-bold text-gray-800">
-                                    R$ {card.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                  </span>
-                                </div>
-
-                                {/* Due Date */}
-                                <div className={`flex items-center gap-1 mt-2 text-xs ${
-                                  isOverdue ? 'text-red-600' :
-                                  daysUntilDue <= 3 ? 'text-orange-600' :
-                                  'text-gray-500'
-                                }`}>
-                                  <Calendar className="w-3 h-3" />
-                                  {format(card.dueDate, "dd/MM/yyyy", { locale: ptBR })}
-                                  {daysUntilDue === 0 && ' (Hoje)'}
-                                  {daysUntilDue === 1 && ' (Amanhã)'}
-                                  {isOverdue && ` (${Math.abs(daysUntilDue)} dias atrasado)`}
-                                </div>
-
-                                {/* Payment Info */}
-                                {card.paymentMethod && (
-                                  <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
-                                    <CreditCard className="w-3 h-3" />
-                                    {card.paymentMethod}
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">
+                                      {categoryLabel}
+                                    </span>
+                                    {isOverdue && (
+                                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded flex items-center gap-1">
+                                        <AlertCircle className="w-3 h-3" />
+                                        Vencido
+                                      </span>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                            )}
-                          </Draggable>
-                        )
-                      })}
-                      {provided.placeholder}
 
-                      {/* Add Button - Only on first column */}
-                      {colIndex === 0 && (
-                        <button
-                          onClick={() => setIsNewModalOpen(true)}
-                          className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-red-400 hover:text-red-500 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span className="text-sm">Nova conta</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </Droppable>
-              </div>
-            ))}
+                                  <h4 className="font-medium text-gray-800">{card.supplier}</h4>
+                                  <p className="text-sm text-gray-500 line-clamp-1">{card.description}</p>
+
+                                  <div className="flex items-center justify-between mt-3">
+                                    <span className="text-lg font-bold text-gray-800">
+                                      R$ {card.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                    <div className={cn(
+                                      "flex items-center gap-1 text-xs",
+                                      isOverdue ? "text-red-600" :
+                                      daysUntilDue <= 3 ? "text-orange-600" :
+                                      "text-gray-500"
+                                    )}>
+                                      <Calendar className="w-3 h-3" />
+                                      {format(card.dueDate, "dd/MM", { locale: ptBR })}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          )
+                        })}
+                        {provided.placeholder}
+
+                        {column.id === 'pendente' && (
+                          <button
+                            onClick={() => setIsNewModalOpen(true)}
+                            className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-red-400 hover:text-red-500 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span className="text-sm">Nova conta</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </Droppable>
+                </div>
+              )
+            })}
           </div>
         </DragDropContext>
       </div>
 
-      {/* Phase Transition Modal */}
-      {transitionModal.fromPhase && transitionModal.toPhase && (
-        <PhaseTransitionModal
-          isOpen={transitionModal.isOpen}
-          onClose={() => setTransitionModal({
-            isOpen: false,
-            card: null,
-            fromPhase: null,
-            toPhase: null,
-            fromColumnId: '',
-            toColumnId: '',
-            sourceIndex: 0,
-            destIndex: 0
-          })}
-          onConfirm={handleTransitionConfirm}
-          fromPhase={transitionModal.fromPhase}
-          toPhase={transitionModal.toPhase}
-          cardTitle={transitionModal.card?.supplier || ''}
-          existingData={{}}
-          clients={[]}
-          employees={[]}
-        />
-      )}
-
-      {/* New Conta Modal */}
+      {/* New Card Modal */}
       <AnimatePresence>
         {isNewModalOpen && (
           <NewContaModal
-            isOpen={isNewModalOpen}
             onClose={() => setIsNewModalOpen(false)}
-            onSubmit={handleCreateConta}
+            onSubmit={handleCreateCard}
           />
         )}
       </AnimatePresence>
@@ -539,13 +415,10 @@ export default function ContasPagarPage() {
   )
 }
 
-// New Conta Modal Component
 function NewContaModal({
-  isOpen,
   onClose,
   onSubmit
 }: {
-  isOpen: boolean
   onClose: () => void
   onSubmit: (data: Partial<ContaPagar>) => void
 }) {
@@ -554,26 +427,21 @@ function NewContaModal({
     description: '',
     value: '',
     dueDate: '',
-    category: 'fornecedores',
-    costCenter: 'administrativo'
+    category: 'servicos',
+    costCenter: 'operacional'
   })
 
   const handleSubmit = () => {
     if (!formData.supplier || !formData.value || !formData.dueDate) {
-      alert('Preencha os campos obrigatórios')
+      toast.error('Preencha os campos obrigatórios')
       return
     }
     onSubmit({
-      supplier: formData.supplier,
-      description: formData.description,
+      ...formData,
       value: parseFloat(formData.value),
-      dueDate: new Date(formData.dueDate),
-      category: formData.category,
-      costCenter: formData.costCenter
+      dueDate: new Date(formData.dueDate)
     })
   }
-
-  if (!isOpen) return null
 
   return (
     <motion.div
@@ -588,7 +456,7 @@ function NewContaModal({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
       >
         <div className="p-6 border-b">
           <div className="flex items-center justify-between">
@@ -627,7 +495,7 @@ function NewContaModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Valor <span className="text-red-500">*</span>
+                Valor (R$) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -659,12 +527,9 @@ function NewContaModal({
                 onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
               >
-                <option value="fornecedores">Fornecedores</option>
-                <option value="servicos">Serviços</option>
-                <option value="impostos">Impostos</option>
-                <option value="folha">Folha de Pagamento</option>
-                <option value="aluguel">Aluguel</option>
-                <option value="outros">Outros</option>
+                {CATEGORIES.map(cat => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
               </select>
             </div>
 
@@ -675,10 +540,9 @@ function NewContaModal({
                 onChange={(e) => setFormData(prev => ({ ...prev, costCenter: e.target.value }))}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
               >
-                <option value="marketing">Marketing</option>
-                <option value="comercial">Comercial</option>
-                <option value="administrativo">Administrativo</option>
-                <option value="operacional">Operacional</option>
+                {COST_CENTERS.map(cc => (
+                  <option key={cc.value} value={cc.value}>{cc.label}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -702,4 +566,3 @@ function NewContaModal({
     </motion.div>
   )
 }
-
