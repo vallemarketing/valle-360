@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Send, Sparkles, Loader2, Copy, Check, 
   Lightbulb, FileText, Target, TrendingUp,
-  MessageSquare, Zap, ChevronDown
+  MessageSquare, Zap, ChevronDown, Coffee,
+  Brain, RefreshCw, Clock, AlertTriangle, Users, Calendar
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 
@@ -30,6 +31,13 @@ interface QuickAction {
   icon: React.ReactNode;
 }
 
+interface Icebreaker {
+  id: string;
+  question: string;
+  category: 'fun' | 'professional' | 'creative';
+}
+
+// ==================== QUICK ACTIONS POR ÁREA ====================
 const QUICK_ACTIONS: Record<string, QuickAction[]> = {
   comercial: [
     { id: '1', label: 'Texto de Upsell', prompt: 'Gere um texto persuasivo para oferecer serviços adicionais ao cliente', icon: <TrendingUp className="w-4 h-4" /> },
@@ -55,11 +63,179 @@ const QUICK_ACTIONS: Record<string, QuickAction[]> = {
     { id: '3', label: 'Feedback de Arte', prompt: 'Dê feedback sobre esta arte', icon: <Target className="w-4 h-4" /> },
     { id: '4', label: 'Tendências', prompt: 'Quais as tendências de design atuais?', icon: <TrendingUp className="w-4 h-4" /> },
   ],
+  web_designer: [
+    { id: '1', label: 'Estrutura de Site', prompt: 'Sugira a melhor estrutura para este site', icon: <FileText className="w-4 h-4" /> },
+    { id: '2', label: 'Otimização SEO', prompt: 'Dê dicas de SEO para este projeto', icon: <TrendingUp className="w-4 h-4" /> },
+    { id: '3', label: 'UX/UI Review', prompt: 'Analise a UX/UI deste layout', icon: <Target className="w-4 h-4" /> },
+    { id: '4', label: 'Performance', prompt: 'Como otimizar a performance deste site?', icon: <Lightbulb className="w-4 h-4" /> },
+  ],
+  video_maker: [
+    { id: '1', label: 'Roteiro', prompt: 'Me ajude a criar um roteiro para este vídeo', icon: <FileText className="w-4 h-4" /> },
+    { id: '2', label: 'Sugerir Cortes', prompt: 'Sugira os melhores cortes para este vídeo', icon: <Target className="w-4 h-4" /> },
+    { id: '3', label: 'Trilha Sonora', prompt: 'Qual trilha sonora combina com este vídeo?', icon: <TrendingUp className="w-4 h-4" /> },
+    { id: '4', label: 'Legendas', prompt: 'Gere legendas para este vídeo', icon: <Lightbulb className="w-4 h-4" /> },
+  ],
+  head_marketing: [
+    { id: '1', label: 'Análise de Cliente', prompt: 'Analise a performance deste cliente', icon: <Target className="w-4 h-4" /> },
+    { id: '2', label: 'Relatório Mensal', prompt: 'Me ajude a criar o relatório mensal', icon: <FileText className="w-4 h-4" /> },
+    { id: '3', label: 'Alocação de Equipe', prompt: 'Sugira a melhor alocação da equipe', icon: <Users className="w-4 h-4" /> },
+    { id: '4', label: 'Estratégia', prompt: 'Sugira uma estratégia de marketing integrada', icon: <Lightbulb className="w-4 h-4" /> },
+  ],
+  rh: [
+    { id: '1', label: 'Triagem de CV', prompt: 'Analise este currículo e dê uma pontuação', icon: <FileText className="w-4 h-4" /> },
+    { id: '2', label: 'Perguntas Entrevista', prompt: 'Sugira perguntas para entrevista', icon: <Target className="w-4 h-4" /> },
+    { id: '3', label: 'Feedback', prompt: 'Me ajude a dar feedback para um colaborador', icon: <MessageSquare className="w-4 h-4" /> },
+    { id: '4', label: 'Onboarding', prompt: 'Crie um checklist de onboarding', icon: <Lightbulb className="w-4 h-4" /> },
+  ],
+  financeiro: [
+    { id: '1', label: 'Texto de Cobrança', prompt: 'Gere um texto de cobrança amigável', icon: <FileText className="w-4 h-4" /> },
+    { id: '2', label: 'Análise de Fluxo', prompt: 'Analise o fluxo de caixa', icon: <TrendingUp className="w-4 h-4" /> },
+    { id: '3', label: 'Projeção', prompt: 'Faça uma projeção financeira', icon: <Target className="w-4 h-4" /> },
+    { id: '4', label: 'Relatório', prompt: 'Me ajude a criar um relatório financeiro', icon: <Lightbulb className="w-4 h-4" /> },
+  ],
+  juridico: [
+    { id: '1', label: 'Analisar Contrato', prompt: 'Analise este contrato e identifique riscos', icon: <FileText className="w-4 h-4" /> },
+    { id: '2', label: 'Calcular Multa', prompt: 'Calcule a multa por quebra de contrato', icon: <Target className="w-4 h-4" /> },
+    { id: '3', label: 'Carta de Cobrança', prompt: 'Gere uma carta de cobrança extrajudicial', icon: <MessageSquare className="w-4 h-4" /> },
+    { id: '4', label: 'Dúvida Trabalhista', prompt: 'Tenho uma dúvida sobre direito trabalhista', icon: <Lightbulb className="w-4 h-4" /> },
+  ],
   default: [
     { id: '1', label: 'Priorizar Tarefas', prompt: 'Me ajude a priorizar minhas tarefas de hoje', icon: <Target className="w-4 h-4" /> },
     { id: '2', label: 'Resumir Semana', prompt: 'Resuma minha performance desta semana', icon: <TrendingUp className="w-4 h-4" /> },
     { id: '3', label: 'Dicas de Produtividade', prompt: 'Me dê dicas para ser mais produtivo', icon: <Lightbulb className="w-4 h-4" /> },
     { id: '4', label: 'Criar Tarefa', prompt: 'Me ajude a criar uma nova tarefa', icon: <FileText className="w-4 h-4" /> },
+  ]
+};
+
+// ==================== ICEBREAKERS POR ÁREA ====================
+const ICEBREAKERS: Record<string, Icebreaker[]> = {
+  comercial: [
+    { id: '1', question: 'Qual foi a venda mais desafiadora que você já fechou?', category: 'professional' },
+    { id: '2', question: 'Se você pudesse vender qualquer produto no mundo, qual seria?', category: 'creative' },
+    { id: '3', question: 'Qual é a sua técnica favorita de rapport?', category: 'professional' },
+    { id: '4', question: 'Café ou chá para começar as ligações do dia?', category: 'fun' },
+  ],
+  trafego: [
+    { id: '1', question: 'Qual foi a campanha com melhor ROAS que você já fez?', category: 'professional' },
+    { id: '2', question: 'Meta Ads ou Google Ads: qual você prefere e por quê?', category: 'professional' },
+    { id: '3', question: 'Se você tivesse budget ilimitado, que tipo de campanha criaria?', category: 'creative' },
+    { id: '4', question: 'Qual métrica você olha primeiro ao acordar?', category: 'fun' },
+  ],
+  social_media: [
+    { id: '1', question: 'Qual foi o post que mais viralizou na sua carreira?', category: 'professional' },
+    { id: '2', question: 'Reels ou TikTok: onde você mais gosta de criar?', category: 'professional' },
+    { id: '3', question: 'Se você fosse um meme, qual seria?', category: 'fun' },
+    { id: '4', question: 'Qual trend você adoraria que voltasse?', category: 'creative' },
+  ],
+  designer: [
+    { id: '1', question: 'Qual é o seu projeto de design favorito até hoje?', category: 'professional' },
+    { id: '2', question: 'Figma ou Photoshop para começar um projeto?', category: 'professional' },
+    { id: '3', question: 'Se você pudesse redesenhar qualquer marca famosa, qual seria?', category: 'creative' },
+    { id: '4', question: 'Qual cor você nunca usaria em um projeto?', category: 'fun' },
+  ],
+  web_designer: [
+    { id: '1', question: 'Qual foi o site mais complexo que você já desenvolveu?', category: 'professional' },
+    { id: '2', question: 'Next.js ou Wordpress: qual você prefere?', category: 'professional' },
+    { id: '3', question: 'Se você pudesse redesenhar qualquer site famoso, qual seria?', category: 'creative' },
+    { id: '4', question: 'Light mode ou dark mode no seu IDE?', category: 'fun' },
+  ],
+  video_maker: [
+    { id: '1', question: 'Qual foi o vídeo mais desafiador que você já editou?', category: 'professional' },
+    { id: '2', question: 'Premiere ou DaVinci Resolve?', category: 'professional' },
+    { id: '3', question: 'Se você pudesse dirigir um filme, qual gênero seria?', category: 'creative' },
+    { id: '4', question: 'Qual é a sua trilha sonora favorita para editar?', category: 'fun' },
+  ],
+  head_marketing: [
+    { id: '1', question: 'Qual foi a campanha mais bem-sucedida que você liderou?', category: 'professional' },
+    { id: '2', question: 'Como você equilibra criatividade e dados nas decisões?', category: 'professional' },
+    { id: '3', question: 'Se você pudesse ter qualquer ferramenta de marketing, qual seria?', category: 'creative' },
+    { id: '4', question: 'Reunião de segunda ou sexta: qual você prefere?', category: 'fun' },
+  ],
+  rh: [
+    { id: '1', question: 'Qual foi a contratação mais acertada que você já fez?', category: 'professional' },
+    { id: '2', question: 'Entrevista presencial ou remota: qual você prefere?', category: 'professional' },
+    { id: '3', question: 'Se você pudesse criar um benefício inovador, qual seria?', category: 'creative' },
+    { id: '4', question: 'Qual é a pergunta de entrevista mais inusitada que você já fez?', category: 'fun' },
+  ],
+  default: [
+    { id: '1', question: 'O que te motivou a trabalhar nessa área?', category: 'professional' },
+    { id: '2', question: 'Qual habilidade você gostaria de desenvolver este ano?', category: 'professional' },
+    { id: '3', question: 'Se você pudesse trabalhar em qualquer lugar do mundo, onde seria?', category: 'creative' },
+    { id: '4', question: 'Café ou chá para começar o dia?', category: 'fun' },
+  ]
+};
+
+// ==================== CONHECIMENTO DA ÁREA ====================
+const AREA_KNOWLEDGE: Record<string, string[]> = {
+  comercial: [
+    'Técnicas de vendas consultivas e SPIN Selling',
+    'Gestão de pipeline e funil de vendas',
+    'Negociação e fechamento de contratos',
+    'CRM e automação de vendas',
+    'Métricas: CAC, LTV, Churn Rate, MRR'
+  ],
+  trafego: [
+    'Meta Ads, Google Ads, TikTok Ads',
+    'Otimização de campanhas e ROAS',
+    'Pixel, conversões e tracking',
+    'Remarketing e públicos semelhantes',
+    'Métricas: CTR, CPC, CPM, CPA, ROAS'
+  ],
+  social_media: [
+    'Estratégia de conteúdo para redes sociais',
+    'Algoritmos e melhores horários de postagem',
+    'Engajamento e crescimento orgânico',
+    'Tendências e formatos (Reels, Stories, Carrossel)',
+    'Métricas: Alcance, Impressões, Engajamento, Crescimento'
+  ],
+  designer: [
+    'Princípios de design e composição',
+    'Teoria das cores e tipografia',
+    'Ferramentas: Figma, Photoshop, Illustrator',
+    'Branding e identidade visual',
+    'Tendências de design e UI/UX'
+  ],
+  web_designer: [
+    'Desenvolvimento web responsivo',
+    'Next.js, React, WordPress',
+    'SEO técnico e performance',
+    'UX/UI e acessibilidade',
+    'Integração com APIs e backends'
+  ],
+  video_maker: [
+    'Edição de vídeo profissional',
+    'Premiere Pro, DaVinci Resolve, After Effects',
+    'Motion graphics e animação',
+    'Colorização e correção de cor',
+    'Trilha sonora e sound design'
+  ],
+  head_marketing: [
+    'Gestão de equipes multidisciplinares',
+    'Planejamento estratégico de marketing',
+    'Análise de ROI e performance',
+    'Gestão de clientes e relacionamento',
+    'Métricas consolidadas e reporting'
+  ],
+  rh: [
+    'Recrutamento e seleção',
+    'Gestão de desempenho e avaliações',
+    'Clima organizacional e engajamento',
+    'Onboarding e treinamento',
+    'Legislação trabalhista'
+  ],
+  financeiro: [
+    'Gestão de contas a pagar e receber',
+    'Fluxo de caixa e projeções',
+    'Faturamento e cobrança',
+    'Conciliação bancária',
+    'Relatórios financeiros'
+  ],
+  juridico: [
+    'Contratos e cláusulas',
+    'Direito trabalhista',
+    'Cobrança judicial e extrajudicial',
+    'Compliance e LGPD',
+    'Multas e penalidades contratuais'
   ]
 };
 
@@ -70,6 +246,8 @@ export function ValSidebar() {
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showQuickActions, setShowQuickActions] = useState(true);
+  const [showIcebreaker, setShowIcebreaker] = useState(false);
+  const [currentIcebreaker, setCurrentIcebreaker] = useState<Icebreaker | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -85,8 +263,18 @@ export function ValSidebar() {
     }
   }, [valChatOpen]);
 
-  // Get quick actions based on user role
-  const quickActions = QUICK_ACTIONS[user?.role || 'default'] || QUICK_ACTIONS.default;
+  // Get quick actions and icebreakers based on user role
+  const userArea = user?.area || user?.role || 'default';
+  const quickActions = QUICK_ACTIONS[userArea] || QUICK_ACTIONS.default;
+  const icebreakers = ICEBREAKERS[userArea] || ICEBREAKERS.default;
+  const areaKnowledge = AREA_KNOWLEDGE[userArea] || [];
+
+  // Get random icebreaker
+  const getRandomIcebreaker = () => {
+    const randomIndex = Math.floor(Math.random() * icebreakers.length);
+    setCurrentIcebreaker(icebreakers[randomIndex]);
+    setShowIcebreaker(true);
+  };
 
   // Send message to Val
   const sendMessage = async (content: string) => {
@@ -103,6 +291,7 @@ export function ValSidebar() {
     setInput('');
     setIsLoading(true);
     setShowQuickActions(false);
+    setShowIcebreaker(false);
 
     try {
       const response = await fetch('/api/chat', {
@@ -116,7 +305,8 @@ export function ValSidebar() {
           context: {
             userName: user?.fullName,
             userRole: user?.role,
-            userArea: user?.area
+            userArea: user?.area,
+            areaKnowledge: areaKnowledge
           }
         })
       });
@@ -174,6 +364,7 @@ export function ValSidebar() {
   const clearChat = () => {
     setMessages([]);
     setShowQuickActions(true);
+    setShowIcebreaker(false);
   };
 
   if (!valChatOpen) return null;
@@ -230,7 +421,7 @@ export function ValSidebar() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-center py-8"
+              className="text-center py-6"
             >
               <div 
                 className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
@@ -241,9 +432,106 @@ export function ValSidebar() {
               <h3 className="font-bold text-lg mb-2" style={{ color: 'var(--text-primary)' }}>
                 Olá, {user?.fullName?.split(' ')[0]}! 👋
               </h3>
-              <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
-                Sou a Val, sua assistente de IA. Como posso ajudar você hoje?
+              <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+                Sou a Val, sua assistente de IA especializada em {userArea === 'default' ? 'produtividade' : userArea.replace('_', ' ')}.
               </p>
+              
+              {/* Area Knowledge Badge */}
+              {areaKnowledge.length > 0 && (
+                <div className="mb-4 p-3 rounded-xl text-left" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="w-4 h-4" style={{ color: 'var(--purple-500)' }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                      Meu conhecimento inclui:
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {areaKnowledge.slice(0, 3).map((knowledge, i) => (
+                      <span 
+                        key={i}
+                        className="text-xs px-2 py-0.5 rounded-full"
+                        style={{ 
+                          backgroundColor: 'var(--purple-100)',
+                          color: 'var(--purple-700)'
+                        }}
+                      >
+                        {knowledge}
+                      </span>
+                    ))}
+                    {areaKnowledge.length > 3 && (
+                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        +{areaKnowledge.length - 3} mais
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Icebreaker Button */}
+          {messages.length === 0 && !showIcebreaker && (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              onClick={getRandomIcebreaker}
+              className="w-full p-3 rounded-xl border flex items-center justify-center gap-2 hover:shadow-md transition-all"
+              style={{ 
+                borderColor: 'var(--border-light)',
+                backgroundColor: 'var(--bg-secondary)'
+              }}
+            >
+              <Coffee className="w-4 h-4" style={{ color: 'var(--purple-500)' }} />
+              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                Pergunta quebra-gelo ☕
+              </span>
+            </motion.button>
+          )}
+
+          {/* Icebreaker Display */}
+          {showIcebreaker && currentIcebreaker && messages.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="p-4 rounded-xl"
+              style={{ 
+                background: 'linear-gradient(135deg, var(--purple-50) 0%, var(--primary-50) 100%)',
+                border: '1px solid var(--purple-200)'
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Coffee className="w-4 h-4" style={{ color: 'var(--purple-500)' }} />
+                <span className="text-xs font-medium" style={{ color: 'var(--purple-600)' }}>
+                  Pergunta Quebra-Gelo
+                </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  currentIcebreaker.category === 'fun' ? 'bg-yellow-100 text-yellow-700' :
+                  currentIcebreaker.category === 'professional' ? 'bg-blue-100 text-blue-700' :
+                  'bg-green-100 text-green-700'
+                }`}>
+                  {currentIcebreaker.category === 'fun' ? '😄 Divertida' :
+                   currentIcebreaker.category === 'professional' ? '💼 Profissional' : '🎨 Criativa'}
+                </span>
+              </div>
+              <p className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
+                "{currentIcebreaker.question}"
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => sendMessage(currentIcebreaker.question)}
+                  className="flex-1 px-3 py-2 rounded-lg text-sm font-medium text-white"
+                  style={{ backgroundColor: 'var(--purple-500)' }}
+                >
+                  Responder com Val
+                </button>
+                <button
+                  onClick={getRandomIcebreaker}
+                  className="p-2 rounded-lg border"
+                  style={{ borderColor: 'var(--border-light)' }}
+                >
+                  <RefreshCw className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+                </button>
+              </div>
             </motion.div>
           )}
 
@@ -251,7 +539,7 @@ export function ValSidebar() {
           {showQuickActions && messages.length === 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
-                Ações rápidas para {user?.area || 'você'}:
+                Ações rápidas para {userArea === 'default' ? 'você' : userArea.replace('_', ' ')}:
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {quickActions.map((action) => (
@@ -426,10 +714,11 @@ export function ValSidebar() {
   );
 }
 
-// Botão flutuante para abrir Val
+// ==================== BOTÃO FLUTUANTE VAL ====================
 export function ValFloatingButton() {
   const { setValChatOpen, valChatOpen } = useApp();
   const [isMessagesPage, setIsMessagesPage] = React.useState(false);
+  const [showTooltip, setShowTooltip] = React.useState(false);
 
   React.useEffect(() => {
     // Verificar se está na página de mensagens
@@ -449,29 +738,81 @@ export function ValFloatingButton() {
     };
   }, []);
 
+  // Mostrar tooltip periodicamente
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      if (!valChatOpen && !isMessagesPage) {
+        setShowTooltip(true);
+        setTimeout(() => setShowTooltip(false), 3000);
+      }
+    }, 60000); // A cada 1 minuto
+
+    // Mostrar na primeira vez após 5 segundos
+    const timeout = setTimeout(() => {
+      if (!valChatOpen && !isMessagesPage) {
+        setShowTooltip(true);
+        setTimeout(() => setShowTooltip(false), 3000);
+      }
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [valChatOpen, isMessagesPage]);
+
   // Não mostrar na página de mensagens ou quando Val está aberta
   if (valChatOpen || isMessagesPage) return null;
 
   return (
-    <motion.button
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.9 }}
-      onClick={() => setValChatOpen(true)}
-      className="fixed bottom-20 right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center z-40"
-      style={{ 
-        background: 'linear-gradient(135deg, var(--purple-500) 0%, var(--primary-500) 100%)'
-      }}
-    >
-      <Sparkles className="w-6 h-6 text-white" />
-      
-      {/* Pulse animation */}
-      <span className="absolute inset-0 rounded-full animate-ping opacity-20" 
-        style={{ backgroundColor: 'var(--purple-500)' }} 
-      />
-    </motion.button>
+    <div className="fixed bottom-20 right-6 z-40">
+      {/* Tooltip */}
+      <AnimatePresence>
+        {showTooltip && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+            className="absolute bottom-16 right-0 px-3 py-2 rounded-lg shadow-lg whitespace-nowrap"
+            style={{ 
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-light)'
+            }}
+          >
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              👋 Precisa de ajuda?
+            </p>
+            <div 
+              className="absolute bottom-[-6px] right-6 w-3 h-3 rotate-45"
+              style={{ 
+                backgroundColor: 'var(--bg-primary)',
+                borderRight: '1px solid var(--border-light)',
+                borderBottom: '1px solid var(--border-light)'
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Button */}
+      <motion.button
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setValChatOpen(true)}
+        className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center"
+        style={{ 
+          background: 'linear-gradient(135deg, var(--purple-500) 0%, var(--primary-500) 100%)'
+        }}
+      >
+        <Sparkles className="w-6 h-6 text-white" />
+        
+        {/* Pulse animation */}
+        <span className="absolute inset-0 rounded-full animate-ping opacity-20" 
+          style={{ backgroundColor: 'var(--purple-500)' }} 
+        />
+      </motion.button>
+    </div>
   );
 }
-
-
