@@ -71,11 +71,11 @@ export default function ValIAPage() {
 
       const { data: employee } = await supabase
         .from('employees')
-        .select('employee_areas_of_expertise(area_name)')
+        .select('area_of_expertise')
         .eq('user_id', user.id)
         .single()
 
-      const area = employee?.employee_areas_of_expertise?.[0]?.area_name || 'Marketing'
+      const area = employee?.area_of_expertise || 'Marketing'
       
       setUserName(profile?.full_name?.split(' ')[0] || 'Colaborador')
       setUserArea(area)

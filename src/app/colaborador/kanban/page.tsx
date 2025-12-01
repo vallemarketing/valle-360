@@ -85,11 +85,12 @@ export default function KanbanPipefyPage() {
       if (user) {
         const { data: employee } = await supabase
           .from('employees')
-          .select('*, employee_areas_of_expertise(area_name)')
+          .select('*')
           .eq('user_id', user.id)
           .single()
 
-        const area = employee?.employee_areas_of_expertise?.[0]?.area_name || 'Web Designer'
+        // Usar area_of_expertise diretamente da tabela employees
+        const area = employee?.area_of_expertise || 'Web Designer'
         setUserArea(area)
       }
 

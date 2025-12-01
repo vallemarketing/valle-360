@@ -86,14 +86,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const { data: employee } = await supabase
         .from('employees')
-        .select(`
-          *,
-          employee_areas_of_expertise(area_name)
-        `)
+        .select('*')
         .eq('user_id', authUser.id)
         .single();
 
-      const area = employee?.employee_areas_of_expertise?.[0]?.area_name || 
+      const area = employee?.area_of_expertise || 
                    employee?.department || 
                    profile?.role || 
                    'employee';
@@ -307,5 +304,7 @@ export function usePermissions(permissions: Permission[]): boolean[] {
   const { hasPermission } = useApp();
   return permissions.map(p => hasPermission(p));
 }
+
+
 
 

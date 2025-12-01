@@ -115,16 +115,12 @@ export default function ColaboradorDashboardPage() {
 
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
-        .select(`
-          *,
-          employee_areas_of_expertise(area_name)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .single()
 
-      // Normalizar a área para garantir que o mapeamento funcione
-
-      const rawArea = employee?.employee_areas_of_expertise?.[0]?.area_name || 'Web Designer';
+      // Usar area_of_expertise diretamente da tabela employees
+      const rawArea = employee?.area_of_expertise || 'Web Designer';
       const area = rawArea.toLowerCase().replace(/ /g, '_');
       
       // Buscar nome completo do employee se profile não tiver

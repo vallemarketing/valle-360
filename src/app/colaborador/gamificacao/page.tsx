@@ -56,7 +56,7 @@ export default function GamificacaoPage() {
             full_name,
             avatar,
             department,
-            employee_areas_of_expertise (area_name)
+            area_of_expertise
           )
         `)
         .order('total_points', { ascending: false });
@@ -78,7 +78,7 @@ export default function GamificacaoPage() {
           points: item.total_points || 0,
           position: index + 1,
           previousPosition: item.previous_position,
-          area: item.employees?.employee_areas_of_expertise?.[0]?.area_name,
+          area: item.employees?.area_of_expertise,
           department: item.employees?.department
         }));
 

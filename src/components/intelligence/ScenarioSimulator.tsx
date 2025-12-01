@@ -670,3 +670,5 @@ function getAIRecommendation(scenarioId: string, results: SimulationResult[]): s
 export default ScenarioSimulator;
 
 
+
+
