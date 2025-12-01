@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function ColaboradorHeader() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -12,32 +13,13 @@ export function ColaboradorHeader() {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
-  const [companyLogo, setCompanyLogo] = useState('');
-  const [companyIcon, setCompanyIcon] = useState('');
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClientComponentClient();
 
   useEffect(() => {
     fetchUser();
-    fetchBranding();
   }, []);
-
-  const fetchBranding = async () => {
-    try {
-      const { data: branding } = await supabase
-        .from('company_branding')
-        .select('logo_url, icon_url, company_name')
-        .single();
-      
-      if (branding) {
-        setCompanyLogo(branding.logo_url || '');
-        setCompanyIcon(branding.icon_url || '');
-      }
-    } catch (error) {
-      console.error('Erro ao carregar branding:', error);
-    }
-  };
 
   const fetchUser = async () => {
     try {
@@ -99,29 +81,18 @@ export function ColaboradorHeader() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm h-[73px]">
       <div className="flex items-center justify-between px-6 h-full">
-        {/* Logo da Empresa */}
+        {/* Logo Valle 360 */}
         <div className="flex items-center gap-4 w-64">
-          {companyLogo ? (
-            <img 
-              src={companyLogo} 
-              alt="Logo" 
-              className="h-10 max-w-[160px] object-contain"
+          <Link href="/colaborador/dashboard" className="flex items-center">
+            <Image
+              src="/Logo/valle360-logo.png"
+              alt="Valle 360"
+              width={160}
+              height={45}
+              className="object-contain"
+              priority
             />
-          ) : companyIcon ? (
-            <div className="flex items-center gap-2">
-              <img 
-                src={companyIcon} 
-                alt="Ícone" 
-                className="h-10 w-10 object-contain"
-              />
-              <span className="text-gray-900 font-bold text-xl">Valle 360</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-gray-900 font-bold text-xl">
-              <span className="text-blue-600">Valle</span>
-              <span>360</span>
-            </div>
-          )}
+          </Link>
         </div>
 
         {/* Barra de Busca Central */}

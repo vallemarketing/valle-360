@@ -18,18 +18,25 @@ import {
   Zap,
   Eye,
   Calendar,
-  ChevronLeft,
-  ChevronRight,
   Timer,
   Bell,
   Star,
-  Lightbulb,
-  RefreshCw,
-  ExternalLink,
-  Play,
-  Circle
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Importar dashboards especializados
+import {
+  SocialMediaDashboard,
+  TrafegoDashboard,
+  CopywritingDashboard,
+  VideoMakerDashboard,
+  HeadMarketingDashboard,
+  ComercialDashboard,
+  FinanceiroDashboard,
+  RHDashboard,
+  GestaoDashboard
+} from './SpecializedDashboards';
 
 interface RoleBasedDashboardProps {
   role: string;
@@ -40,12 +47,44 @@ export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ role }) 
   const normalizedRole = role.toLowerCase().replace(/ /g, '_');
 
   // Renderizar dashboard específico por área
-  if (normalizedRole === 'web_designer' || normalizedRole === 'designer') {
-    return <WebDesignerDashboard config={config} />;
+  switch (normalizedRole) {
+    case 'web_designer':
+    case 'web_design':
+    case 'designer':
+      return <WebDesignerDashboard config={config} />;
+    case 'social_media':
+    case 'social':
+      return <SocialMediaDashboard config={config} />;
+    case 'trafego':
+    case 'tráfego':
+    case 'gestor_de_trafego':
+      return <TrafegoDashboard config={config} />;
+    case 'copywriting':
+    case 'copywriter':
+    case 'copy':
+      return <CopywritingDashboard config={config} />;
+    case 'video_maker':
+    case 'videomaker':
+      return <VideoMakerDashboard config={config} />;
+    case 'head_marketing':
+    case 'head_de_marketing':
+      return <HeadMarketingDashboard config={config} />;
+    case 'comercial':
+      return <ComercialDashboard config={config} />;
+    case 'financeiro':
+      return <FinanceiroDashboard config={config} />;
+    case 'rh':
+    case 'recursos_humanos':
+      return <RHDashboard config={config} />;
+    case 'gestao':
+    case 'gestão':
+    case 'ceo':
+    case 'admin':
+    case 'super_admin':
+      return <GestaoDashboard config={config} />;
+    default:
+      return <DefaultDashboard config={config} />;
   }
-
-  // Dashboard padrão para outras áreas
-  return <DefaultDashboard config={config} />;
 };
 
 // ==================== WEB DESIGNER DASHBOARD ====================

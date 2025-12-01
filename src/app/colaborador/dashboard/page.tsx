@@ -224,10 +224,6 @@ export default function ColaboradorDashboardPage() {
 
   return (
     <div className="min-h-[calc(100vh-73px)] p-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-      {/* BUILD MARKER - REMOVER DEPOIS */}
-      <div className="bg-purple-500 text-white text-center py-1 text-xs font-bold mb-4 rounded">
-        🚀 BUILD: 2024-12-01-DASHBOARD-v3 | Área: {userAreaDisplay || userArea}
-      </div>
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Header - COM ANIMAÇÃO GSAP */}

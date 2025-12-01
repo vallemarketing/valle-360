@@ -487,10 +487,6 @@ export default function MensagensPage() {
 
   return (
     <div className="h-[calc(100vh-73px)] flex flex-col" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-      {/* BUILD MARKER - REMOVER DEPOIS */}
-      <div className="bg-blue-500 text-white text-center py-1 text-xs font-bold">
-        🚀 BUILD: 2024-12-01-MENSAGENS-v3 | Tabs + Audio + VV Status
-      </div>
       <div className="flex flex-1">
       {/* Sidebar - Lista de Conversas */}
       <div 

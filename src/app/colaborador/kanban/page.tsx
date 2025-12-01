@@ -343,10 +343,6 @@ export default function KanbanPipefyPage() {
 
   return (
     <div className="h-[calc(100vh-73px)] flex flex-col" style={{ backgroundColor: '#f5f5f5' }}>
-      {/* BUILD MARKER - REMOVER DEPOIS */}
-      <div className="bg-green-500 text-white text-center py-1 text-xs font-bold">
-        🚀 BUILD: 2024-12-01-PIPEFY-v3 | Kanban Estilo Pipefy com Zoom
-      </div>
       {/* Header */}
       <div className="bg-white border-b px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
