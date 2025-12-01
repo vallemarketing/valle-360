@@ -251,14 +251,14 @@ export class WhatsAppClient {
 
   // Upload de mídia
   async uploadMedia(
-    file: Buffer | Uint8Array,
+    file: ArrayBuffer | Uint8Array,
     mimeType: string,
     filename: string
   ): Promise<{ id: string }> {
     const formData = new FormData();
-    // Converter para Uint8Array para compatibilidade com Blob
-    const fileData = file instanceof Uint8Array ? file : new Uint8Array(file);
-    formData.append('file', new Blob([fileData], { type: mimeType }), filename);
+    // Converter para ArrayBuffer para compatibilidade com Blob
+    const arrayBuffer = file instanceof ArrayBuffer ? file : file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength);
+    formData.append('file', new Blob([arrayBuffer], { type: mimeType }), filename);
     formData.append('messaging_product', 'whatsapp');
     formData.append('type', mimeType);
 
