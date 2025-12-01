@@ -152,19 +152,22 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime;
 
     // Registrar log
+    const errorMessage = 'error' in result ? result.error : ('errors' in result ? result.errors.join(', ') : undefined);
+    const isSuccess = typeof result.success === 'boolean' ? result.success : (result as any).failed === 0;
+    
     await supabase.from('integration_logs').insert({
       integration_id: 'sendgrid',
       action: `send_${type}`,
-      status: result.success ? 'success' : 'error',
+      status: isSuccess ? 'success' : 'error',
       request_data: { type, to: Array.isArray(to) ? to.length : 1 },
-      error_message: result.error,
+      error_message: errorMessage,
       duration_ms: duration
     });
 
-    if (!result.success) {
+    if (!isSuccess) {
       return NextResponse.json({ 
         error: 'Erro ao enviar email',
-        details: result.error 
+        details: errorMessage 
       }, { status: 500 });
     }
 
