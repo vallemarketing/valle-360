@@ -29,13 +29,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   SocialMediaDashboard,
   TrafegoDashboard,
-  CopywritingDashboard,
   VideoMakerDashboard,
   HeadMarketingDashboard,
   ComercialDashboard,
   FinanceiroDashboard,
-  RHDashboard,
-  GestaoDashboard
+  RHDashboard
 } from './SpecializedDashboards';
 
 interface RoleBasedDashboardProps {
@@ -59,10 +57,6 @@ export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ role }) 
     case 'tráfego':
     case 'gestor_de_trafego':
       return <TrafegoDashboard config={config} />;
-    case 'copywriting':
-    case 'copywriter':
-    case 'copy':
-      return <CopywritingDashboard config={config} />;
     case 'video_maker':
     case 'videomaker':
       return <VideoMakerDashboard config={config} />;
@@ -76,12 +70,6 @@ export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ role }) 
     case 'rh':
     case 'recursos_humanos':
       return <RHDashboard config={config} />;
-    case 'gestao':
-    case 'gestão':
-    case 'ceo':
-    case 'admin':
-    case 'super_admin':
-      return <GestaoDashboard config={config} />;
     default:
       return <DefaultDashboard config={config} />;
   }
