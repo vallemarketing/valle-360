@@ -87,6 +87,30 @@ export default function LoginPage() {
         return
       }
 
+      // Acesso Jurídico
+      if (email === 'juridico@valleai.com.br' || email.includes('juridico@')) {
+        router.push('/juridico')
+        return
+      }
+
+      // Acesso Financeiro - Contas a Pagar
+      if (email === 'financeiro.pagar@valleai.com.br' || email.includes('financeiro.pagar@')) {
+        router.push('/colaborador/financeiro/contas-pagar')
+        return
+      }
+
+      // Acesso Financeiro - Contas a Receber
+      if (email === 'financeiro.receber@valleai.com.br' || email.includes('financeiro.receber@')) {
+        router.push('/colaborador/financeiro/contas-receber')
+        return
+      }
+
+      // Acesso Financeiro Geral
+      if (email === 'financeiro@valleai.com.br' || email.includes('financeiro@')) {
+        router.push('/colaborador/financeiro/contas-receber')
+        return
+      }
+
       // Buscar dados nas duas tabelas (users é mais confiável para colaboradores)
       const { data: userData } = await supabase
         .from('users')

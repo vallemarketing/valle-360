@@ -5,18 +5,18 @@ import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import {
-  Plus, Search, Filter, X, Clock, User, Building2, Calendar,
-  MoreHorizontal, Paperclip, MessageSquare, CheckCircle2, AlertCircle,
-  Flame, Thermometer, Snowflake, Edit, Trash2, ZoomIn, ZoomOut, Maximize2,
-  History, Zap, ChevronDown
+  Plus, Search, X, Clock, Building2, Calendar as CalendarIcon,
+  Paperclip, MessageSquare, AlertCircle,
+  Flame, Thermometer, Snowflake, ZoomIn, ZoomOut,
+  History, Zap, LayoutGrid, CalendarDays, ListTodo, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { format, differenceInDays } from 'date-fns'
-import { ptBR } from 'date-fns/locale/pt-BR'
+import { format, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, isToday } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import PhaseTransitionModal from '@/components/kanban/PhaseTransitionModal'
 import CardHistory, { HistoryEntry } from '@/components/kanban/CardHistory'
 import KanbanInsights from '@/components/kanban/KanbanInsights'
-import { getPhaseConfig, getPhaseFields, PhaseConfig, KANBAN_PHASES } from '@/lib/kanban/phaseFields'
+import { getPhaseConfig, PhaseConfig } from '@/lib/kanban/phaseFields'
 
 // ==================== TIPOS ====================
 interface KanbanCard {
@@ -24,10 +24,6 @@ interface KanbanCard {
   title: string
   description?: string
   temperature: 'hot' | 'warm' | 'cold'
-  contactName?: string
-  contactEmail?: string
-  contactPhone?: string
-  industry?: string
   company?: string
   clientId?: string
   clientName?: string
@@ -40,6 +36,7 @@ interface KanbanCard {
   comments: number
   phaseData: Record<string, any>
   history: HistoryEntry[]
+  sprint?: string
 }
 
 interface KanbanColumn {
@@ -47,7 +44,6 @@ interface KanbanColumn {
   title: string
   color: string
   cards: KanbanCard[]
-  description?: string
 }
 
 interface Client {
@@ -64,11 +60,12 @@ const TEMPERATURE_CONFIG = {
 }
 
 const ZOOM_LEVELS = [
-  { value: 0.6, label: '60%' },
-  { value: 0.75, label: '75%' },
+  { value: 0.7, label: '70%' },
   { value: 0.85, label: '85%' },
   { value: 1, label: '100%' }
 ]
+
+type ViewMode = 'kanban' | 'calendar' | 'sprint'
 
 // ==================== COMPONENTE PRINCIPAL ====================
 export default function KanbanPage() {
@@ -80,10 +77,12 @@ export default function KanbanPage() {
   const [loading, setLoading] = useState(true)
   const [userArea, setUserArea] = useState('Web Designer')
   const [userName, setUserName] = useState('')
-  const [zoomLevel, setZoomLevel] = useState(0.85)
-  const [showInsights, setShowInsights] = useState(true)
+  const [zoomLevel, setZoomLevel] = useState(1)
+  const [showInsights, setShowInsights] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
   const [employees, setEmployees] = useState<Array<{ id: string; name: string }>>([])
+  const [viewMode, setViewMode] = useState<ViewMode>('kanban')
+  const [currentMonth, setCurrentMonth] = useState(new Date())
   
   // Modal de transição de fase
   const [transitionModal, setTransitionModal] = useState<{
@@ -106,7 +105,6 @@ export default function KanbanPage() {
     destIndex: 0
   })
 
-  // Fases baseadas na área
   const phases = getPhaseConfig(userArea)
 
   useEffect(() => {
@@ -114,7 +112,6 @@ export default function KanbanPage() {
   }, [])
 
   useEffect(() => {
-    // Atualizar colunas quando a área mudar
     if (userArea && phases.length > 0) {
       setColumns(prevColumns => {
         return phases.map(phase => {
@@ -144,7 +141,6 @@ export default function KanbanPage() {
         setUserArea(area)
         setUserName(employee?.full_name || 'Colaborador')
 
-        // Carregar clientes
         const { data: clientsData } = await supabase
           .from('clients')
           .select('id, name, company_name')
@@ -158,7 +154,6 @@ export default function KanbanPage() {
           })))
         }
 
-        // Carregar colaboradores
         const { data: employeesData } = await supabase
           .from('employees')
           .select('id, full_name')
@@ -171,7 +166,6 @@ export default function KanbanPage() {
         }
       }
 
-      // Inicializar colunas com dados mock
       loadMockData()
     } catch (error) {
       console.error('Erro:', error)
@@ -199,9 +193,8 @@ export default function KanbanPage() {
         comments: 5,
         description: 'Criar landing page para lançamento do novo produto',
         phaseData: {},
-        history: [
-          { id: '1', type: 'created', timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), user: { id: '1', name: 'Sistema' }, data: {} }
-        ]
+        history: [{ id: '1', type: 'created', timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), user: { id: '1', name: 'Sistema' }, data: {} }],
+        sprint: 'Sprint 1'
       },
       {
         id: '2',
@@ -219,9 +212,8 @@ export default function KanbanPage() {
         comments: 3,
         description: 'Redesign completo do site institucional',
         phaseData: {},
-        history: [
-          { id: '1', type: 'created', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), user: { id: '1', name: 'Sistema' }, data: {} }
-        ]
+        history: [{ id: '1', type: 'created', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), user: { id: '1', name: 'Sistema' }, data: {} }],
+        sprint: 'Sprint 1'
       },
       {
         id: '3',
@@ -239,9 +231,27 @@ export default function KanbanPage() {
         comments: 1,
         description: 'Implementar seção de blog no site',
         phaseData: {},
-        history: [
-          { id: '1', type: 'created', timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), user: { id: '1', name: 'Sistema' }, data: {} }
-        ]
+        history: [{ id: '1', type: 'created', timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), user: { id: '1', name: 'Sistema' }, data: {} }],
+        sprint: 'Sprint 2'
+      },
+      {
+        id: '4',
+        title: 'E-commerce Fashion',
+        clientId: '4',
+        clientName: 'Fashion Store',
+        company: 'Fashion Store',
+        temperature: 'hot',
+        dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        assignees: ['Você'],
+        tags: ['ECOMMERCE'],
+        attachments: 3,
+        comments: 8,
+        description: 'Loja virtual completa',
+        phaseData: {},
+        history: [{ id: '1', type: 'created', timestamp: new Date(), user: { id: '1', name: 'Sistema' }, data: {} }],
+        sprint: 'Sprint 1'
       }
     ]
 
@@ -251,7 +261,8 @@ export default function KanbanPage() {
       title: phase.title,
       color: phase.color,
       cards: index === 0 ? [mockCards[0], mockCards[1]] : 
-             index === 1 ? [mockCards[2]] : []
+             index === 1 ? [mockCards[2]] : 
+             index === 2 ? [mockCards[3]] : []
     }))
 
     setColumns(newColumns)
@@ -262,7 +273,6 @@ export default function KanbanPage() {
 
     const { source, destination } = result
     
-    // Se moveu para a mesma posição, não fazer nada
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
       return
     }
@@ -271,7 +281,6 @@ export default function KanbanPage() {
     const destColIndex = columns.findIndex(col => col.id === destination.droppableId)
     const card = columns[sourceColIndex].cards[source.index]
 
-    // Se moveu para outra coluna, abrir modal de transição
     if (source.droppableId !== destination.droppableId) {
       const fromPhase = phases.find(p => p.id === source.droppableId)
       const toPhase = phases.find(p => p.id === destination.droppableId)
@@ -291,7 +300,6 @@ export default function KanbanPage() {
       }
     }
 
-    // Mover dentro da mesma coluna
     const newColumns = [...columns]
     const [movedCard] = newColumns[sourceColIndex].cards.splice(source.index, 1)
     newColumns[destColIndex].cards.splice(destination.index, 0, movedCard)
@@ -305,17 +313,14 @@ export default function KanbanPage() {
     const sourceColIndex = newColumns.findIndex(col => col.id === transitionModal.fromColumnId)
     const destColIndex = newColumns.findIndex(col => col.id === transitionModal.toColumnId)
 
-    // Remover card da coluna origem
     const [movedCard] = newColumns[sourceColIndex].cards.splice(transitionModal.sourceIndex, 1)
 
-    // Atualizar dados do card
     movedCard.phaseData = {
       ...movedCard.phaseData,
       [transitionModal.toColumnId]: data
     }
     movedCard.updatedAt = new Date()
 
-    // Adicionar ao histórico
     const historyEntry: HistoryEntry = {
       id: Date.now().toString(),
       type: 'phase_change',
@@ -332,7 +337,6 @@ export default function KanbanPage() {
     }
     movedCard.history = [...movedCard.history, historyEntry]
 
-    // Adicionar na coluna destino
     newColumns[destColIndex].cards.splice(transitionModal.destIndex, 0, movedCard)
 
     setColumns(newColumns)
@@ -372,15 +376,8 @@ export default function KanbanPage() {
       attachments: 0,
       comments: 0,
       phaseData: {},
-      history: [
-        {
-          id: '1',
-          type: 'created',
-          timestamp: new Date(),
-          user: { id: '1', name: userName },
-          data: {}
-        }
-      ]
+      history: [{ id: '1', type: 'created', timestamp: new Date(), user: { id: '1', name: userName }, data: {} }],
+      sprint: 'Sprint 1'
     }
 
     const newColumns = columns.map(col => {
@@ -403,45 +400,64 @@ export default function KanbanPage() {
     )
   }))
 
-  const handleZoomIn = () => {
-    const currentIndex = ZOOM_LEVELS.findIndex(z => z.value === zoomLevel)
-    if (currentIndex < ZOOM_LEVELS.length - 1) {
-      setZoomLevel(ZOOM_LEVELS[currentIndex + 1].value)
-    }
-  }
-
-  const handleZoomOut = () => {
-    const currentIndex = ZOOM_LEVELS.findIndex(z => z.value === zoomLevel)
-    if (currentIndex > 0) {
-      setZoomLevel(ZOOM_LEVELS[currentIndex - 1].value)
-    }
-  }
+  // Obter todos os cards para visualizações alternativas
+  const allCards = columns.flatMap(col => col.cards.map(card => ({ ...card, columnId: col.id, columnTitle: col.title, columnColor: col.color })))
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f5f5f5' }}>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
       </div>
     )
   }
 
-  const columnWidth = Math.round(280 * zoomLevel)
-  const cardPadding = zoomLevel < 0.8 ? 'p-2' : 'p-3'
-  const fontSize = zoomLevel < 0.8 ? 'text-xs' : 'text-sm'
-
   return (
-    <div className="h-[calc(100vh-73px)] flex flex-col" style={{ backgroundColor: '#f5f5f5' }}>
+    <div className="h-[calc(100vh-73px)] flex flex-col bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-gray-800">Kanban - {userArea}</h1>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
               {columns.reduce((sum, col) => sum + col.cards.length, 0)} cards
             </span>
           </div>
 
           <div className="flex items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('kanban')}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                  viewMode === 'kanban' ? "bg-white shadow text-blue-600" : "text-gray-600 hover:text-gray-800"
+                )}
+              >
+                <LayoutGrid className="w-4 h-4" />
+                Kanban
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                  viewMode === 'calendar' ? "bg-white shadow text-blue-600" : "text-gray-600 hover:text-gray-800"
+                )}
+              >
+                <CalendarDays className="w-4 h-4" />
+                Calendário
+              </button>
+              <button
+                onClick={() => setViewMode('sprint')}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                  viewMode === 'sprint' ? "bg-white shadow text-blue-600" : "text-gray-600 hover:text-gray-800"
+                )}
+              >
+                <ListTodo className="w-4 h-4" />
+                Sprint
+              </button>
+            </div>
+
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -450,235 +466,113 @@ export default function KanbanPage() {
                 placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-4 py-2 border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="pl-9 pr-4 py-2 border rounded-lg text-sm w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={handleZoomOut}
-                disabled={zoomLevel === ZOOM_LEVELS[0].value}
-                className="p-1.5 hover:bg-white rounded transition-colors disabled:opacity-50"
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
-              <span className="text-xs font-medium px-2 min-w-[40px] text-center">
-                {Math.round(zoomLevel * 100)}%
-              </span>
-              <button
-                onClick={handleZoomIn}
-                disabled={zoomLevel === ZOOM_LEVELS[ZOOM_LEVELS.length - 1].value}
-                className="p-1.5 hover:bg-white rounded transition-colors disabled:opacity-50"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
-            </div>
+            {/* Zoom Controls - Only for Kanban view */}
+            {viewMode === 'kanban' && (
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => {
+                    const idx = ZOOM_LEVELS.findIndex(z => z.value === zoomLevel)
+                    if (idx > 0) setZoomLevel(ZOOM_LEVELS[idx - 1].value)
+                  }}
+                  disabled={zoomLevel === ZOOM_LEVELS[0].value}
+                  className="p-1.5 hover:bg-white rounded transition-colors disabled:opacity-50"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-medium px-2">{Math.round(zoomLevel * 100)}%</span>
+                <button
+                  onClick={() => {
+                    const idx = ZOOM_LEVELS.findIndex(z => z.value === zoomLevel)
+                    if (idx < ZOOM_LEVELS.length - 1) setZoomLevel(ZOOM_LEVELS[idx + 1].value)
+                  }}
+                  disabled={zoomLevel === ZOOM_LEVELS[ZOOM_LEVELS.length - 1].value}
+                  className="p-1.5 hover:bg-white rounded transition-colors disabled:opacity-50"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+              </div>
+            )}
 
             {/* Toggle Insights */}
             <button
               onClick={() => setShowInsights(!showInsights)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                showInsights ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
-              }`}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                showInsights ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-600"
+              )}
             >
               <Zap className="w-4 h-4" />
               Insights
+            </button>
+
+            {/* New Card Button */}
+            <button
+              onClick={() => setIsNewCardModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Nova Demanda
             </button>
           </div>
         </div>
       </div>
 
-      {/* Insights Panel */}
-      <AnimatePresence>
-        {showInsights && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="px-4 overflow-hidden"
-          >
-            <KanbanInsights columns={filteredColumns} area={userArea} />
-          </motion.div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Insights Panel - Sempre no topo quando ativo */}
+        <AnimatePresence>
+          {showInsights && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="flex-shrink-0 px-4 py-3 bg-white border-b overflow-hidden"
+            >
+              <KanbanInsights columns={filteredColumns} area={userArea} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* View Content */}
+        {viewMode === 'kanban' && (
+          <KanbanView
+            columns={filteredColumns}
+            phases={phases}
+            zoomLevel={zoomLevel}
+            onDragEnd={handleDragEnd}
+            onCardClick={handleOpenCard}
+            onNewCard={() => setIsNewCardModalOpen(true)}
+          />
         )}
-      </AnimatePresence>
 
-      {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div 
-            className="flex gap-4 p-4 h-full"
-            style={{ 
-              minWidth: `${columns.length * (columnWidth + 16)}px`,
-              transform: `scale(${zoomLevel})`,
-              transformOrigin: 'top left'
-            }}
-          >
-            {filteredColumns.map((column, colIndex) => (
-              <div
-                key={column.id}
-                className="flex flex-col bg-gray-100 rounded-xl"
-                style={{ width: columnWidth, minWidth: columnWidth }}
-              >
-                {/* Column Header */}
-                <div 
-                  className="p-3 rounded-t-xl"
-                  style={{ backgroundColor: `${column.color}15` }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: column.color }}
-                      />
-                      <h3 className="font-semibold text-gray-800">{column.title}</h3>
-                      <span className="text-xs bg-white px-2 py-0.5 rounded-full text-gray-600">
-                        {column.cards.length}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+        {viewMode === 'calendar' && (
+          <CalendarView
+            cards={allCards}
+            currentMonth={currentMonth}
+            onMonthChange={setCurrentMonth}
+            onCardClick={handleOpenCard}
+          />
+        )}
 
-                {/* Cards Container */}
-                <Droppable droppableId={column.id}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={cn(
-                        "flex-1 p-2 space-y-2 overflow-y-auto",
-                        snapshot.isDraggingOver && "bg-blue-50"
-                      )}
-                      style={{ maxHeight: 'calc(100vh - 300px)' }}
-                    >
-                      {column.cards.map((card, index) => (
-                        <Draggable key={card.id} draggableId={card.id} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              onClick={() => handleOpenCard(card)}
-                              className={cn(
-                                `bg-white rounded-lg ${cardPadding} shadow-sm border border-gray-200 cursor-pointer transition-all hover:shadow-md`,
-                                snapshot.isDragging && "shadow-lg ring-2 ring-blue-500"
-                              )}
-                            >
-                              {/* Temperature Badge */}
-                              <div className="flex items-center justify-between mb-2">
-                                <div className={cn(
-                                  "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                                  TEMPERATURE_CONFIG[card.temperature].bgLight,
-                                  TEMPERATURE_CONFIG[card.temperature].textColor
-                                )}>
-                                  {(() => {
-                                    const TempIcon = TEMPERATURE_CONFIG[card.temperature].icon
-                                    return <TempIcon className="w-3 h-3" />
-                                  })()}
-                                  {TEMPERATURE_CONFIG[card.temperature].label}
-                                </div>
-                                {card.dueDate && differenceInDays(card.dueDate, new Date()) <= 2 && (
-                                  <AlertCircle className="w-4 h-4 text-red-500" />
-                                )}
-                              </div>
-
-                              {/* Title */}
-                              <h4 className={`font-medium text-gray-800 ${fontSize} line-clamp-2`}>
-                                {card.title}
-                              </h4>
-
-                              {/* Client */}
-                              {card.clientName && (
-                                <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
-                                  <Building2 className="w-3 h-3" />
-                                  <span className="truncate">{card.clientName}</span>
-                                </div>
-                              )}
-
-                              {/* Due Date */}
-                              {card.dueDate && (
-                                <div className={cn(
-                                  "flex items-center gap-1 mt-1 text-xs",
-                                  differenceInDays(card.dueDate, new Date()) < 0 ? "text-red-600" :
-                                  differenceInDays(card.dueDate, new Date()) <= 2 ? "text-orange-600" :
-                                  "text-gray-500"
-                                )}>
-                                  <Calendar className="w-3 h-3" />
-                                  {format(card.dueDate, "dd/MM", { locale: ptBR })}
-                                </div>
-                              )}
-
-                              {/* Footer */}
-                              <div className="flex items-center justify-between mt-3 pt-2 border-t">
-                                <div className="flex items-center gap-2 text-xs text-gray-400">
-                                  {card.attachments > 0 && (
-                                    <span className="flex items-center gap-0.5">
-                                      <Paperclip className="w-3 h-3" />
-                                      {card.attachments}
-                                    </span>
-                                  )}
-                                  {card.comments > 0 && (
-                                    <span className="flex items-center gap-0.5">
-                                      <MessageSquare className="w-3 h-3" />
-                                      {card.comments}
-                                    </span>
-                                  )}
-                                  {card.history.length > 1 && (
-                                    <span className="flex items-center gap-0.5">
-                                      <History className="w-3 h-3" />
-                                      {card.history.length}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex -space-x-1">
-                                  {card.assignees.slice(0, 2).map((assignee, i) => (
-                                    <div
-                                      key={i}
-                                      className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium border-2 border-white"
-                                    >
-                                      {assignee[0]}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-
-                      {/* Add Card Button - Only on first column (Demandas) */}
-                      {colIndex === 0 && (
-                        <button
-                          onClick={() => setIsNewCardModalOpen(true)}
-                          className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span className="text-sm">Criar nova demanda</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </Droppable>
-              </div>
-            ))}
-          </div>
-        </DragDropContext>
+        {viewMode === 'sprint' && (
+          <SprintView
+            cards={allCards}
+            onCardClick={handleOpenCard}
+          />
+        )}
       </div>
 
-      {/* Phase Transition Modal */}
+      {/* Modals */}
       {transitionModal.fromPhase && transitionModal.toPhase && (
         <PhaseTransitionModal
           isOpen={transitionModal.isOpen}
           onClose={() => setTransitionModal({
-            isOpen: false,
-            card: null,
-            fromPhase: null,
-            toPhase: null,
-            fromColumnId: '',
-            toColumnId: '',
-            sourceIndex: 0,
-            destIndex: 0
+            isOpen: false, card: null, fromPhase: null, toPhase: null,
+            fromColumnId: '', toColumnId: '', sourceIndex: 0, destIndex: 0
           })}
           onConfirm={handleTransitionConfirm}
           fromPhase={transitionModal.fromPhase}
@@ -691,7 +585,6 @@ export default function KanbanPage() {
         />
       )}
 
-      {/* New Card Modal */}
       <AnimatePresence>
         {isNewCardModalOpen && (
           <NewCardModal
@@ -704,21 +597,380 @@ export default function KanbanPage() {
         )}
       </AnimatePresence>
 
-      {/* Card Detail Modal */}
       <AnimatePresence>
         {isCardModalOpen && selectedCard && (
           <CardDetailModal
             isOpen={isCardModalOpen}
-            onClose={() => {
-              setIsCardModalOpen(false)
-              setSelectedCard(null)
-            }}
+            onClose={() => { setIsCardModalOpen(false); setSelectedCard(null) }}
             card={selectedCard}
             phases={phases}
           />
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+// ==================== KANBAN VIEW ====================
+function KanbanView({
+  columns,
+  phases,
+  zoomLevel,
+  onDragEnd,
+  onCardClick,
+  onNewCard
+}: {
+  columns: KanbanColumn[]
+  phases: PhaseConfig[]
+  zoomLevel: number
+  onDragEnd: (result: DropResult) => void
+  onCardClick: (card: KanbanCard) => void
+  onNewCard: () => void
+}) {
+  const columnWidth = Math.round(300 * zoomLevel)
+
+  return (
+    <div className="flex-1 overflow-auto">
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div 
+          className="flex gap-4 p-4 min-h-full"
+          style={{ minWidth: `${columns.length * (columnWidth + 16)}px` }}
+        >
+          {columns.map((column, colIndex) => (
+            <div
+              key={column.id}
+              className="flex flex-col bg-gray-100 rounded-xl flex-shrink-0"
+              style={{ width: columnWidth }}
+            >
+              {/* Column Header */}
+              <div 
+                className="p-3 rounded-t-xl flex-shrink-0"
+                style={{ backgroundColor: `${column.color}15` }}
+              >
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: column.color }}
+                  />
+                  <h3 className="font-semibold text-gray-800">{column.title}</h3>
+                  <span className="text-xs bg-white px-2 py-0.5 rounded-full text-gray-600">
+                    {column.cards.length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Cards Container - Scrollable */}
+              <Droppable droppableId={column.id}>
+                {(provided, snapshot) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={cn(
+                      "flex-1 p-2 space-y-2 overflow-y-auto",
+                      snapshot.isDraggingOver && "bg-blue-50"
+                    )}
+                    style={{ maxHeight: 'calc(100vh - 250px)' }}
+                  >
+                    {column.cards.map((card, index) => (
+                      <Draggable key={card.id} draggableId={card.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            onClick={() => onCardClick(card)}
+                            className={cn(
+                              "bg-white rounded-lg p-3 shadow-sm border border-gray-200 cursor-pointer transition-all hover:shadow-md",
+                              snapshot.isDragging && "shadow-lg ring-2 ring-blue-500"
+                            )}
+                          >
+                            <CardContent card={card} compact={zoomLevel < 0.85} />
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+
+                    {colIndex === 0 && (
+                      <button
+                        onClick={onNewCard}
+                        className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span className="text-sm">Criar nova demanda</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </Droppable>
+            </div>
+          ))}
+        </div>
+      </DragDropContext>
+    </div>
+  )
+}
+
+// ==================== CALENDAR VIEW ====================
+function CalendarView({
+  cards,
+  currentMonth,
+  onMonthChange,
+  onCardClick
+}: {
+  cards: (KanbanCard & { columnId: string; columnTitle: string; columnColor: string })[]
+  currentMonth: Date
+  onMonthChange: (date: Date) => void
+  onCardClick: (card: KanbanCard) => void
+}) {
+  const monthStart = startOfMonth(currentMonth)
+  const monthEnd = endOfMonth(currentMonth)
+  const calendarStart = startOfWeek(monthStart, { locale: ptBR })
+  const calendarEnd = endOfWeek(monthEnd, { locale: ptBR })
+  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
+
+  const getCardsForDay = (day: Date) => {
+    return cards.filter(card => card.dueDate && isSameDay(card.dueDate, day))
+  }
+
+  return (
+    <div className="flex-1 overflow-auto p-4">
+      <div className="bg-white rounded-xl border shadow-sm">
+        {/* Calendar Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <button
+            onClick={() => onMonthChange(subMonths(currentMonth, 1))}
+            className="p-2 hover:bg-gray-100 rounded-lg"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <h2 className="text-lg font-bold text-gray-800">
+            {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+          </h2>
+          <button
+            onClick={() => onMonthChange(addMonths(currentMonth, 1))}
+            className="p-2 hover:bg-gray-100 rounded-lg"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Days of Week */}
+        <div className="grid grid-cols-7 border-b">
+          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
+            <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 border-r last:border-r-0">
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar Grid */}
+        <div className="grid grid-cols-7">
+          {days.map((day, idx) => {
+            const dayCards = getCardsForDay(day)
+            const isCurrentMonth = day.getMonth() === currentMonth.getMonth()
+            
+            return (
+              <div
+                key={idx}
+                className={cn(
+                  "min-h-[120px] p-2 border-r border-b last:border-r-0",
+                  !isCurrentMonth && "bg-gray-50",
+                  isToday(day) && "bg-blue-50"
+                )}
+              >
+                <div className={cn(
+                  "text-sm font-medium mb-1",
+                  isToday(day) ? "text-blue-600" : isCurrentMonth ? "text-gray-800" : "text-gray-400"
+                )}>
+                  {format(day, 'd')}
+                </div>
+                <div className="space-y-1">
+                  {dayCards.slice(0, 3).map(card => (
+                    <div
+                      key={card.id}
+                      onClick={() => onCardClick(card)}
+                      className="text-xs p-1.5 rounded cursor-pointer hover:opacity-80 truncate"
+                      style={{ backgroundColor: `${card.columnColor}20`, color: card.columnColor }}
+                    >
+                      {card.title}
+                    </div>
+                  ))}
+                  {dayCards.length > 3 && (
+                    <div className="text-xs text-gray-500 text-center">
+                      +{dayCards.length - 3} mais
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ==================== SPRINT VIEW ====================
+function SprintView({
+  cards,
+  onCardClick
+}: {
+  cards: (KanbanCard & { columnId: string; columnTitle: string; columnColor: string })[]
+  onCardClick: (card: KanbanCard) => void
+}) {
+  const sprints = [...new Set(cards.map(c => c.sprint || 'Sem Sprint'))]
+
+  return (
+    <div className="flex-1 overflow-auto p-4">
+      <div className="space-y-6">
+        {sprints.map(sprint => {
+          const sprintCards = cards.filter(c => (c.sprint || 'Sem Sprint') === sprint)
+          const completed = sprintCards.filter(c => c.columnId === 'concluido').length
+          const total = sprintCards.length
+          const progress = total > 0 ? Math.round((completed / total) * 100) : 0
+
+          return (
+            <div key={sprint} className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              {/* Sprint Header */}
+              <div className="p-4 border-b bg-gradient-to-r from-indigo-50 to-purple-50">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-bold text-gray-800">{sprint}</h3>
+                  <span className="text-sm text-gray-500">
+                    {completed}/{total} concluídos
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Sprint Cards */}
+              <div className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {sprintCards.map(card => (
+                    <div
+                      key={card.id}
+                      onClick={() => onCardClick(card)}
+                      className="p-3 border rounded-lg cursor-pointer hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div 
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: card.columnColor }}
+                        />
+                        <span className="text-xs text-gray-500">{card.columnTitle}</span>
+                      </div>
+                      <h4 className="font-medium text-gray-800 text-sm line-clamp-2">{card.title}</h4>
+                      {card.clientName && (
+                        <p className="text-xs text-gray-500 mt-1">{card.clientName}</p>
+                      )}
+                      {card.dueDate && (
+                        <div className={cn(
+                          "flex items-center gap-1 mt-2 text-xs",
+                          differenceInDays(card.dueDate, new Date()) < 0 ? "text-red-600" : "text-gray-500"
+                        )}>
+                          <CalendarIcon className="w-3 h-3" />
+                          {format(card.dueDate, "dd/MM", { locale: ptBR })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ==================== CARD CONTENT ====================
+function CardContent({ card, compact }: { card: KanbanCard; compact?: boolean }) {
+  return (
+    <>
+      {/* Temperature Badge */}
+      <div className="flex items-center justify-between mb-2">
+        <div className={cn(
+          "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+          TEMPERATURE_CONFIG[card.temperature].bgLight,
+          TEMPERATURE_CONFIG[card.temperature].textColor
+        )}>
+          {(() => {
+            const TempIcon = TEMPERATURE_CONFIG[card.temperature].icon
+            return <TempIcon className="w-3 h-3" />
+          })()}
+          {TEMPERATURE_CONFIG[card.temperature].label}
+        </div>
+        {card.dueDate && differenceInDays(card.dueDate, new Date()) <= 2 && (
+          <AlertCircle className="w-4 h-4 text-red-500" />
+        )}
+      </div>
+
+      {/* Title */}
+      <h4 className={cn("font-medium text-gray-800 line-clamp-2", compact ? "text-xs" : "text-sm")}>
+        {card.title}
+      </h4>
+
+      {/* Client */}
+      {card.clientName && (
+        <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+          <Building2 className="w-3 h-3" />
+          <span className="truncate">{card.clientName}</span>
+        </div>
+      )}
+
+      {/* Due Date */}
+      {card.dueDate && (
+        <div className={cn(
+          "flex items-center gap-1 mt-1 text-xs",
+          differenceInDays(card.dueDate, new Date()) < 0 ? "text-red-600" :
+          differenceInDays(card.dueDate, new Date()) <= 2 ? "text-orange-600" :
+          "text-gray-500"
+        )}>
+          <CalendarIcon className="w-3 h-3" />
+          {format(card.dueDate, "dd/MM", { locale: ptBR })}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center justify-between mt-3 pt-2 border-t">
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          {card.attachments > 0 && (
+            <span className="flex items-center gap-0.5">
+              <Paperclip className="w-3 h-3" />
+              {card.attachments}
+            </span>
+          )}
+          {card.comments > 0 && (
+            <span className="flex items-center gap-0.5">
+              <MessageSquare className="w-3 h-3" />
+              {card.comments}
+            </span>
+          )}
+          {card.history.length > 1 && (
+            <span className="flex items-center gap-0.5">
+              <History className="w-3 h-3" />
+              {card.history.length}
+            </span>
+          )}
+        </div>
+        <div className="flex -space-x-1">
+          {card.assignees.slice(0, 2).map((assignee, i) => (
+            <div
+              key={i}
+              className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium border-2 border-white"
+            >
+              {assignee[0]}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -754,14 +1006,7 @@ function NewCardModal({
       ...formData,
       dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined
     })
-    setFormData({
-      title: '',
-      description: '',
-      clientId: '',
-      temperature: 'warm',
-      dueDate: '',
-      tags: []
-    })
+    setFormData({ title: '', description: '', clientId: '', temperature: 'warm', dueDate: '', tags: [] })
   }
 
   if (!isOpen) return null
@@ -860,16 +1105,10 @@ function NewCardModal({
         </div>
 
         <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg"
-          >
+          <button onClick={onClose} className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg">
             Cancelar
           </button>
-          <button
-            onClick={handleSubmit}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
+          <button onClick={handleSubmit} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             Criar Demanda
           </button>
         </div>
@@ -891,9 +1130,6 @@ function CardDetailModal({
   phases: PhaseConfig[]
 }) {
   const [activeTab, setActiveTab] = useState<'details' | 'history'>('details')
-
-  const phaseColors = phases.reduce((acc, p) => ({ ...acc, [p.id]: p.color }), {} as Record<string, string>)
-  const phaseNames = phases.reduce((acc, p) => ({ ...acc, [p.id]: p.title }), {} as Record<string, string>)
 
   if (!isOpen) return null
 
@@ -928,7 +1164,6 @@ function CardDetailModal({
             </button>
           </div>
 
-          {/* Tabs */}
           <div className="flex gap-4 mt-4">
             <button
               onClick={() => setActiveTab('details')}
@@ -955,7 +1190,6 @@ function CardDetailModal({
         <div className="p-6 overflow-y-auto max-h-[60vh]">
           {activeTab === 'details' ? (
             <div className="space-y-4">
-              {/* Temperature & Due Date */}
               <div className="flex items-center gap-4">
                 <div className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",
@@ -970,13 +1204,12 @@ function CardDetailModal({
                 </div>
                 {card.dueDate && (
                   <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className="w-4 h-4" />
+                    <CalendarIcon className="w-4 h-4" />
                     Entrega: {format(card.dueDate, "dd/MM/yyyy", { locale: ptBR })}
                   </div>
                 )}
               </div>
 
-              {/* Description */}
               {card.description && (
                 <div>
                   <h4 className="font-medium text-gray-800 mb-2">Descrição</h4>
@@ -984,47 +1217,20 @@ function CardDetailModal({
                 </div>
               )}
 
-              {/* Phase Data */}
-              {Object.keys(card.phaseData).length > 0 && (
+              {card.sprint && (
                 <div>
-                  <h4 className="font-medium text-gray-800 mb-2">Dados por Fase</h4>
-                  <div className="space-y-3">
-                    {Object.entries(card.phaseData).map(([phaseId, data]) => (
-                      <div key={phaseId} className="p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div 
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: phaseColors[phaseId] }}
-                          />
-                          <span className="font-medium text-sm">{phaseNames[phaseId]}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          {Object.entries(data as Record<string, any>)
-                            .filter(([key]) => !key.startsWith('_'))
-                            .map(([key, value]) => (
-                              <div key={key}>
-                                <span className="text-gray-500">{key}:</span>{' '}
-                                <span className="text-gray-800">
-                                  {Array.isArray(value) ? value.join(', ') : String(value)}
-                                </span>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <h4 className="font-medium text-gray-800 mb-2">Sprint</h4>
+                  <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm">
+                    {card.sprint}
+                  </span>
                 </div>
               )}
 
-              {/* Assignees */}
               <div>
                 <h4 className="font-medium text-gray-800 mb-2">Responsáveis</h4>
                 <div className="flex gap-2">
                   {card.assignees.map((assignee, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-full"
-                    >
+                    <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-full">
                       <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium">
                         {assignee[0]}
                       </div>
@@ -1034,7 +1240,6 @@ function CardDetailModal({
                 </div>
               </div>
 
-              {/* Timestamps */}
               <div className="text-xs text-gray-400 pt-4 border-t">
                 <p>Criado em: {format(card.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
                 <p>Atualizado em: {format(card.updatedAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
