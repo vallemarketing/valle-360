@@ -7,9 +7,25 @@ module.exports = {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
     extend: {
       colors: {
+        // Valle AI Brand Colors
         valle: {
+          navy: "#001533",
+          "navy-light": "#002855",
+          "navy-dark": "#000a1a",
+          primary: "#1672d6",
+          "primary-light": "#3d8ee8",
+          "primary-dark": "#1260b5",
+          white: "#ffffff",
+          // Extended palette
           blue: {
             50: '#eff6ff',
             100: '#dbeafe',
@@ -23,44 +39,45 @@ module.exports = {
             900: '#1e3a8a',
             950: '#172554',
           },
-          navy: {
-            50: '#f0f4f8',
-            100: '#d9e2ec',
-            200: '#bcccdc',
-            300: '#9fb3c8',
-            400: '#829ab1',
-            500: '#627d98',
-            600: '#486581',
-            700: '#334e68',
-            800: '#243b53',
-            900: '#102a43',
-            950: '#0a1929',
-          },
-          silver: {
-            50: '#fafafa',
-            100: '#f5f5f5',
-            200: '#eeeeee',
-            300: '#e0e0e0',
-            400: '#bdbdbd',
-            500: '#9e9e9e',
-            600: '#757575',
-            700: '#616161',
-            800: '#424242',
-            900: '#212121',
-          },
-          platinum: {
-            50: '#ffffff',
-            100: '#fcfcfc',
-            200: '#f7f7f7',
-            300: '#f0f0f0',
-            400: '#e8e8e8',
-            500: '#d6d6d6',
-            600: '#c0c0c0',
-            700: '#a8a8a8',
-            800: '#8a8a8a',
-            900: '#6b6b6b',
-          },
         },
+        // Status colors
+        success: {
+          50: '#ecfdf5',
+          100: '#d1fae5',
+          200: '#a7f3d0',
+          300: '#6ee7b7',
+          400: '#34d399',
+          500: '#10b981',
+          600: '#059669',
+          700: '#047857',
+          800: '#065f46',
+          900: '#064e3b',
+        },
+        warning: {
+          50: '#fffbeb',
+          100: '#fef3c7',
+          200: '#fde68a',
+          300: '#fcd34d',
+          400: '#fbbf24',
+          500: '#f59e0b',
+          600: '#d97706',
+          700: '#b45309',
+          800: '#92400e',
+          900: '#78350f',
+        },
+        danger: {
+          50: '#fef2f2',
+          100: '#fee2e2',
+          200: '#fecaca',
+          300: '#fca5a5',
+          400: '#f87171',
+          500: '#ef4444',
+          600: '#dc2626',
+          700: '#b91c1c',
+          800: '#991b1b',
+          900: '#7f1d1d',
+        },
+        // Shadcn UI Colors
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
@@ -107,7 +124,110 @@ module.exports = {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      fontFamily: {
+        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "fade-in": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        "fade-in-up": {
+          from: { opacity: "0", transform: "translateY(20px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in-down": {
+          from: { opacity: "0", transform: "translateY(-20px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "scale-in": {
+          from: { opacity: "0", transform: "scale(0.95)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
+        "slide-in-left": {
+          from: { opacity: "0", transform: "translateX(-20px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        "slide-in-right": {
+          from: { opacity: "0", transform: "translateX(20px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        shimmer: {
+          from: { backgroundPosition: "200% 0" },
+          to: { backgroundPosition: "-200% 0" },
+        },
+        pulse: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.5" },
+        },
+        "pulse-glow": {
+          "0%, 100%": { boxShadow: "0 0 5px rgba(22, 114, 214, 0.3)" },
+          "50%": { boxShadow: "0 0 20px rgba(22, 114, 214, 0.6)" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        "spin-slow": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
+        wiggle: {
+          "0%, 100%": { transform: "rotate(-3deg)" },
+          "50%": { transform: "rotate(3deg)" },
+        },
+        bounce: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-25%)" },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.5s ease-out",
+        "fade-in-up": "fade-in-up 0.5s ease-out",
+        "fade-in-down": "fade-in-down 0.5s ease-out",
+        "scale-in": "scale-in 0.3s ease-out",
+        "slide-in-left": "slide-in-left 0.3s ease-out",
+        "slide-in-right": "slide-in-right 0.3s ease-out",
+        shimmer: "shimmer 2s linear infinite",
+        pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        float: "float 3s ease-in-out infinite",
+        "spin-slow": "spin-slow 8s linear infinite",
+        wiggle: "wiggle 0.3s ease-in-out",
+        bounce: "bounce 1s infinite",
+      },
+      boxShadow: {
+        "valle": "0 4px 14px 0 rgba(22, 114, 214, 0.15)",
+        "valle-lg": "0 10px 40px 0 rgba(22, 114, 214, 0.2)",
+        "valle-xl": "0 20px 60px 0 rgba(22, 114, 214, 0.25)",
+        "glow": "0 0 20px rgba(22, 114, 214, 0.3)",
+        "glow-lg": "0 0 40px rgba(22, 114, 214, 0.4)",
+        "inner-glow": "inset 0 0 20px rgba(22, 114, 214, 0.1)",
+      },
+      backgroundImage: {
+        "valle-gradient": "linear-gradient(135deg, #001533 0%, #1672d6 100%)",
+        "valle-gradient-light": "linear-gradient(135deg, #1672d6 0%, #3d8ee8 100%)",
+        "valle-gradient-subtle": "linear-gradient(135deg, rgba(22, 114, 214, 0.1) 0%, rgba(0, 21, 51, 0.05) 100%)",
+        "valle-radial": "radial-gradient(circle at center, rgba(22, 114, 214, 0.15), transparent 70%)",
+      },
+      transitionDuration: {
+        "400": "400ms",
+      },
+      scale: {
+        "102": "1.02",
+        "98": "0.98",
+      },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 }

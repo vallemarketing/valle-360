@@ -229,3 +229,5 @@ function generateBasicInsights(data: any) {
   return insights;
 }
 
+
+

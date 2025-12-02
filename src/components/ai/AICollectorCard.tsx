@@ -317,3 +317,5 @@ export function AICollectorBadge({ alerts }: { alerts: AIAlert[] }) {
   );
 }
 
+
+

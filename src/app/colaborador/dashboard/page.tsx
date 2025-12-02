@@ -3,7 +3,23 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { motion } from 'framer-motion'
-import { Sparkles, Settings, LayoutGrid, Target, Zap, ChevronRight, ArrowRight } from 'lucide-react'
+import { 
+  Sparkles, 
+  Settings, 
+  LayoutGrid, 
+  Target, 
+  Zap, 
+  ChevronRight, 
+  ArrowRight,
+  Calendar,
+  MessageSquare,
+  Bell,
+  Brain,
+  TrendingUp,
+  Award,
+  Users,
+  Clock
+} from 'lucide-react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { NotificationBanner } from '@/components/notifications/NotificationBanner'
@@ -14,29 +30,41 @@ import { DashboardSettings } from '@/components/dashboard/DashboardSettings'
 import AICollectorCard from '@/components/ai/AICollectorCard'
 import SmartInsightsPanel from '@/components/ai/SmartInsightsPanel'
 import GoalsTracker from '@/components/goals/GoalsTracker'
+import NoticiasInternas from '@/components/valle-ui/NoticiasInternas'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 gsap.registerPlugin(ScrollTrigger)
 
 // Mapeamento de área para URL do painel dedicado
-const AREA_PANEL_MAP: Record<string, { url: string; label: string; color: string }> = {
-  'comercial': { url: '/colaborador/comercial', label: 'Painel Comercial', color: 'from-blue-500 to-indigo-500' },
-  'social_media': { url: '/colaborador/social-media', label: 'Painel Social Media', color: 'from-pink-500 to-purple-500' },
-  'social media': { url: '/colaborador/social-media', label: 'Painel Social Media', color: 'from-pink-500 to-purple-500' },
-  'tráfego': { url: '/colaborador/trafego', label: 'Painel de Tráfego', color: 'from-green-500 to-emerald-500' },
-  'trafego': { url: '/colaborador/trafego', label: 'Painel de Tráfego', color: 'from-green-500 to-emerald-500' },
-  'tráfego pago': { url: '/colaborador/trafego', label: 'Painel de Tráfego', color: 'from-green-500 to-emerald-500' },
-  'web_designer': { url: '/colaborador/kanban', label: 'Kanban Web Designer', color: 'from-cyan-500 to-blue-500' },
-  'web designer': { url: '/colaborador/kanban', label: 'Kanban Web Designer', color: 'from-cyan-500 to-blue-500' },
-  'designer': { url: '/colaborador/kanban', label: 'Kanban Designer', color: 'from-orange-500 to-red-500' },
-  'video_maker': { url: '/colaborador/kanban', label: 'Kanban Video Maker', color: 'from-purple-500 to-pink-500' },
-  'video maker': { url: '/colaborador/kanban', label: 'Kanban Video Maker', color: 'from-purple-500 to-pink-500' },
-  'head_marketing': { url: '/colaborador/kanban', label: 'Visão Geral', color: 'from-amber-500 to-orange-500' },
-  'head marketing': { url: '/colaborador/kanban', label: 'Visão Geral', color: 'from-amber-500 to-orange-500' },
-  'rh': { url: '/colaborador/kanban', label: 'Painel RH', color: 'from-teal-500 to-cyan-500' },
-  'financeiro': { url: '/colaborador/financeiro/contas-receber', label: 'Painel Financeiro', color: 'from-emerald-500 to-green-500' },
+const AREA_PANEL_MAP: Record<string, { url: string; label: string; color: string; icon: any }> = {
+  'comercial': { url: '/colaborador/comercial', label: 'Painel Comercial', color: 'from-[#1672d6] to-indigo-500', icon: Target },
+  'social_media': { url: '/colaborador/social-media', label: 'Painel Social Media', color: 'from-pink-500 to-purple-500', icon: Sparkles },
+  'social media': { url: '/colaborador/social-media', label: 'Painel Social Media', color: 'from-pink-500 to-purple-500', icon: Sparkles },
+  'tráfego': { url: '/colaborador/trafego', label: 'Painel de Tráfego', color: 'from-emerald-500 to-green-500', icon: TrendingUp },
+  'trafego': { url: '/colaborador/trafego', label: 'Painel de Tráfego', color: 'from-emerald-500 to-green-500', icon: TrendingUp },
+  'tráfego pago': { url: '/colaborador/trafego', label: 'Painel de Tráfego', color: 'from-emerald-500 to-green-500', icon: TrendingUp },
+  'web_designer': { url: '/colaborador/web-designer', label: 'Painel Web Designer', color: 'from-cyan-500 to-[#1672d6]', icon: LayoutGrid },
+  'web designer': { url: '/colaborador/web-designer', label: 'Painel Web Designer', color: 'from-cyan-500 to-[#1672d6]', icon: LayoutGrid },
+  'designer': { url: '/colaborador/designer', label: 'Painel Designer', color: 'from-orange-500 to-red-500', icon: Sparkles },
+  'video_maker': { url: '/colaborador/video-maker', label: 'Painel Video Maker', color: 'from-purple-500 to-pink-500', icon: Zap },
+  'video maker': { url: '/colaborador/video-maker', label: 'Painel Video Maker', color: 'from-purple-500 to-pink-500', icon: Zap },
+  'head_marketing': { url: '/colaborador/head-marketing', label: 'Visão Geral Marketing', color: 'from-amber-500 to-orange-500', icon: Award },
+  'head marketing': { url: '/colaborador/head-marketing', label: 'Visão Geral Marketing', color: 'from-amber-500 to-orange-500', icon: Award },
+  'rh': { url: '/colaborador/rh', label: 'Painel RH', color: 'from-teal-500 to-cyan-500', icon: Users },
+  'financeiro': { url: '/colaborador/financeiro/contas-receber', label: 'Painel Financeiro', color: 'from-emerald-500 to-green-500', icon: TrendingUp },
 }
+
+const quickActions = [
+  { icon: LayoutGrid, label: "Kanban", href: "/colaborador/kanban", color: "#1672d6", description: "Gerencie suas demandas" },
+  { icon: Calendar, label: "Agenda", href: "/colaborador/agenda", color: "#8b5cf6", description: "Reuniões e compromissos" },
+  { icon: MessageSquare, label: "Mensagens", href: "/colaborador/mensagens", color: "#10b981", description: "Equipe e clientes" },
+  { icon: Target, label: "Metas", href: "/colaborador/metas", color: "#f59e0b", description: "Acompanhe seu progresso" },
+]
 
 export default function ColaboradorDashboardPage() {
   const [loading, setLoading] = useState(true)
@@ -194,59 +222,63 @@ export default function ColaboradorDashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-73px)] flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderColor: 'var(--primary-500)' }}></div>
-          <p className="mt-4" style={{ color: 'var(--text-secondary)' }}>Carregando dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1672d6] mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Carregando dashboard...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-[calc(100vh-73px)] p-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         
         {/* Header */}
-        <div ref={headerRef} className="flex items-center justify-between mb-2">
+        <motion.div 
+          ref={headerRef}
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-2"
+        >
           <div>
-            <h1 className="text-3xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+            <h1 className="text-3xl font-bold text-foreground">
               Olá, {userName}! 👋
             </h1>
-            <p className="text-lg font-semibold" style={{ color: '#4370d1' }}>
-              {userAreaDisplay}
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="outline" className="border-[#1672d6]/30 text-[#1672d6] bg-[#1672d6]/5">
+                {userAreaDisplay}
+              </Badge>
+            </div>
           </div>
           
           {/* Botões de Controle */}
           <div className="flex items-center gap-3">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => setShowSettings(true)}
-              className="p-3 rounded-xl shadow-lg transition-all"
-              style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-light)' }}
-              title="Configurações do Dashboard"
+              className="border-border/60"
             >
-              <Settings className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              <Settings className="w-5 h-5" />
+            </Button>
+            <Button
               onClick={() => setViewMode(viewMode === 'specific' ? 'customizable' : 'specific')}
-              className="px-6 py-3 rounded-xl font-semibold text-white shadow-lg transition-all flex items-center gap-2"
-              style={{ backgroundColor: 'var(--primary-600)' }}
+              className="bg-[#1672d6] hover:bg-[#1672d6]/90"
             >
-              <LayoutGrid className="w-5 h-5" />
+              <LayoutGrid className="w-4 h-4 mr-2" />
               {viewMode === 'specific' ? 'Personalizar' : 'Dashboard Padrão'}
-            </motion.button>
+            </Button>
           </div>
-        </div>
+        </motion.div>
 
         {/* Painel Inteligente da Área - NO TOPO */}
         {panelConfig && (
           <Link href={panelConfig.url}>
             <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               whileHover={{ scale: 1.01, y: -2 }}
               className={cn(
                 "relative overflow-hidden rounded-2xl p-6 cursor-pointer shadow-lg",
@@ -257,7 +289,7 @@ export default function ColaboradorDashboardPage() {
               <div className="relative flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
-                    <Zap className="w-7 h-7 text-white" />
+                    {panelConfig.icon && <panelConfig.icon className="w-7 h-7 text-white" />}
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-white">{panelConfig.label}</h2>
@@ -305,8 +337,123 @@ export default function ColaboradorDashboardPage() {
           </div>
         </div>
 
+        {/* Ações Rápidas */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="border-border/60">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                <Zap className="w-5 h-5 text-[#1672d6]" />
+                Acesso Rápido
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {quickActions.map((action, index) => {
+                  const Icon = action.icon;
+                  return (
+                    <Link key={index} href={action.href}>
+                      <motion.div
+                        whileHover={{ y: -4 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="flex flex-col items-center gap-3 p-4 rounded-xl border border-border/60 bg-card hover:border-[#1672d6]/40 hover:shadow-lg hover:shadow-[#1672d6]/5 transition-all cursor-pointer"
+                      >
+                        <div 
+                          className="p-3 rounded-lg"
+                          style={{ backgroundColor: `${action.color}15` }}
+                        >
+                          <Icon className="w-6 h-6" style={{ color: action.color }} />
+                        </div>
+                        <div className="text-center">
+                          <span className="text-sm font-medium text-foreground block">
+                            {action.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {action.description}
+                          </span>
+                        </div>
+                      </motion.div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
         {/* Insights Inteligentes */}
         <SmartInsightsPanel area={userArea} maxInsights={4} />
+
+        {/* Insights da IA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="border-2 border-[#1672d6]/20 bg-gradient-to-br from-[#1672d6]/5 to-transparent">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-[#001533] to-[#1672d6] shadow-lg shadow-[#1672d6]/20">
+                  <Brain className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-bold text-foreground">
+                      💡 Dicas da Val (IA)
+                    </h3>
+                    <Badge variant="outline" className="border-[#1672d6]/30 text-[#1672d6] text-xs">
+                      Personalizado
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Baseado na sua performance e área de atuação:
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <motion.div 
+                      whileHover={{ y: -2 }}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/60 cursor-pointer"
+                    >
+                      <div className="p-2 rounded-lg bg-emerald-500/10">
+                        <Award className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Produtividade</p>
+                        <p className="text-xs text-muted-foreground">+15% esta semana</p>
+                      </div>
+                    </motion.div>
+                    <motion.div 
+                      whileHover={{ y: -2 }}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/60 cursor-pointer"
+                    >
+                      <div className="p-2 rounded-lg bg-[#1672d6]/10">
+                        <Target className="w-4 h-4 text-[#1672d6]" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Metas</p>
+                        <p className="text-xs text-muted-foreground">78% concluído</p>
+                      </div>
+                    </motion.div>
+                    <motion.div 
+                      whileHover={{ y: -2 }}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/60 cursor-pointer"
+                    >
+                      <div className="p-2 rounded-lg bg-amber-500/10">
+                        <Clock className="w-4 h-4 text-amber-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Tempo médio</p>
+                        <p className="text-xs text-muted-foreground">2.5h por tarefa</p>
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Dashboards - Personalizável ou Específico da Área */}
         <div ref={dashboardRef}>
@@ -319,62 +466,14 @@ export default function ColaboradorDashboardPage() {
           )}
         </div>
 
-        {/* Card de Ação Rápida para Kanban */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link href="/colaborador/kanban">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="p-4 bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <LayoutGrid className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-800">Kanban</h4>
-                  <p className="text-xs text-gray-500">Gerencie suas demandas</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </div>
-            </motion.div>
-          </Link>
-
-          <Link href="/colaborador/agenda">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="p-4 bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-800">Agenda</h4>
-                  <p className="text-xs text-gray-500">Reuniões e compromissos</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </div>
-            </motion.div>
-          </Link>
-
-          <Link href="/colaborador/mensagens">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="p-4 bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <Target className="w-5 h-5 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-800">Mensagens</h4>
-                  <p className="text-xs text-gray-500">Equipe e clientes</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </div>
-            </motion.div>
-          </Link>
-        </div>
+        {/* Notícias Internas */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <NoticiasInternas showEventos={true} />
+        </motion.div>
 
       </div>
 

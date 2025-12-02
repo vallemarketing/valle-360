@@ -1074,3 +1074,5 @@ function CandidateDetailModal({
   )
 }
 
+
+
