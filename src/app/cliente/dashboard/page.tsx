@@ -1,5 +1,10 @@
 "use client";
 
+// #region agent log
+// DEBUG: Versão do dashboard v2.0 - UI Kit Valle AI - 02/12/2024
+console.log("[DEBUG] Dashboard Cliente v2.0 - UI Kit Valle AI carregado");
+// #endregion
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
@@ -264,6 +269,9 @@ export default function ClienteDashboard() {
               <span className="text-white font-bold text-sm">V</span>
             </div>
             <span className="font-semibold text-foreground">Valle AI</span>
+            {/* #region agent log */}
+            <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">v2.0 DEBUG</span>
+            {/* #endregion */}
           </div>
 
           {/* Actions */}
