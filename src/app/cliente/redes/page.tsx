@@ -22,7 +22,7 @@ export default function RedesSociaisClientePage() {
   };
 
   return (
-    <div className="min-h-screen p-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+    <div className="p-4 lg:p-6 max-w-7xl mx-auto">
       <div className="max-w-4xl mx-auto space-y-6">
         
         {/* Header */}

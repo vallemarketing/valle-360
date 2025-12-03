@@ -201,7 +201,7 @@ export default function EvolucaoPage() {
   };
 
   return (
-    <div className="pb-20 space-y-6">
+    <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

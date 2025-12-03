@@ -16,10 +16,10 @@ export default function CreditosPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Créditos</h1>
-        <p className="text-foreground/70">Gerencie seu saldo e adicione créditos</p>
+        <h1 className="text-2xl font-bold text-[#001533] dark:text-white mb-2">Créditos</h1>
+        <p className="text-[#001533]/60 dark:text-white/60">Gerencie seu saldo e adicione créditos</p>
       </div>
 
       {lowBalance && (

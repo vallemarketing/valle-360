@@ -9,9 +9,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
-  Calendar, 
-  Bell, 
-  Settings,
   Eye,
   MousePointerClick,
   Target,
@@ -21,8 +18,6 @@ import {
   BarChart3,
   Sparkles
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -133,53 +128,7 @@ export default function ClienteDashboard() {
   const firstName = clienteData.nome.split(" ")[0];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#001533]/95">
-      {/* ========== HEADER ========== */}
-      <header className="sticky top-0 z-50 w-full border-b border-[#001533]/10 dark:border-white/10 bg-white/95 dark:bg-[#001533]/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-        <div className="container flex h-16 items-center justify-between px-4 max-w-7xl mx-auto">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#001533] to-[#1672d6] flex items-center justify-center shadow-lg shadow-[#1672d6]/20">
-              <span className="text-white font-bold text-sm">V</span>
-            </div>
-            <div className="hidden sm:block">
-              <span className="font-semibold text-[#001533] dark:text-white">Valle AI</span>
-              <span className="text-[#001533]/40 dark:text-white/40 text-xs ml-2">Portal do Cliente</span>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="relative hover:bg-[#1672d6]/10"
-            >
-              <Bell className="w-5 h-5 text-[#001533] dark:text-white" />
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#1672d6] text-white text-[10px] rounded-full flex items-center justify-center font-medium">
-                3
-              </span>
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="hover:bg-[#1672d6]/10"
-            >
-              <Settings className="w-5 h-5 text-[#001533] dark:text-white" />
-            </Button>
-            <div className="w-px h-6 bg-[#001533]/10 dark:bg-white/10 mx-1" />
-            <Avatar className="h-9 w-9 border-2 border-[#1672d6]/30">
-              <AvatarImage src={clienteData.avatar} />
-              <AvatarFallback className="bg-[#1672d6]/10 text-[#1672d6] font-semibold text-sm">
-                {clienteData.nome.split(" ").map(n => n[0]).join("").slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
-          </div>
-        </div>
-      </header>
-
-      {/* ========== MAIN CONTENT ========== */}
-      <main className="container px-4 py-6 md:py-8 max-w-7xl mx-auto space-y-6 md:space-y-8">
+    <div className="p-4 lg:p-6 space-y-6 md:space-y-8 max-w-7xl mx-auto">
         
         {/* Welcome Header */}
         <motion.div
@@ -334,7 +283,6 @@ export default function ClienteDashboard() {
             </motion.div>
           </div>
         </div>
-      </main>
     </div>
   );
 }

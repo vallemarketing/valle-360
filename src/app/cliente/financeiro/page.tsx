@@ -19,10 +19,10 @@ export default function ClienteFinanceiroPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Financeiro</h1>
-        <p className="text-foreground/70">Faturas e pagamentos</p>
+        <h1 className="text-2xl font-bold text-[#001533] dark:text-white mb-2">Financeiro</h1>
+        <p className="text-[#001533]/60 dark:text-white/60">Faturas e pagamentos</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">

@@ -156,14 +156,14 @@ export default function InsightsPage() {
     : insights.filter(i => i.type === filter);
 
   return (
-    <div className="pb-20 space-y-6">
+    <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-          <Sparkles className="w-7 h-7" style={{ color: 'var(--purple-500)' }} />
+        <h1 className="text-2xl font-bold flex items-center gap-2 text-[#001533] dark:text-white">
+          <Sparkles className="w-7 h-7 text-[#1672d6]" />
           Central de Insights
         </h1>
-        <p style={{ color: 'var(--text-secondary)' }}>
+        <p className="text-[#001533]/60 dark:text-white/60">
           Análises e recomendações personalizadas pela Val IA
         </p>
       </div>

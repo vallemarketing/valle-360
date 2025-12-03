@@ -1,12 +1,63 @@
-'use client';
+"use client";
 
-import { BottomNavigation } from '@/components/layout/BottomNavigation';
-import { EditProfileModal } from '@/components/profile/EditProfileModal';
-import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { User, Settings, LogOut } from 'lucide-react';
-import { useState } from 'react';
-import { signOut } from '@/lib/auth';
-import { useRouter } from 'next/navigation';
+// ============================================
+// CLIENTE LAYOUT - VALLE AI
+// Layout principal da área do cliente
+// Cores: #001533 (navy), #1672d6 (primary), #ffffff (white)
+// ============================================
+
+import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { 
+  Bell, 
+  Settings, 
+  LogOut, 
+  User,
+  Menu,
+  X,
+  ChevronRight,
+  Moon,
+  Sun,
+  Home
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { ClientSidebar } from "@/components/layout/ClientSidebar";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { signOut } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
+
+// Mapa de breadcrumbs
+const breadcrumbMap: Record<string, string> = {
+  "/cliente/dashboard": "Dashboard",
+  "/cliente/producao": "Produção",
+  "/cliente/aprovacoes": "Aprovações",
+  "/cliente/insights": "Insights",
+  "/cliente/evolucao": "Evolução",
+  "/cliente/concorrentes": "Concorrentes",
+  "/cliente/redes": "Redes Sociais",
+  "/cliente/financeiro": "Financeiro",
+  "/cliente/creditos": "Créditos",
+  "/cliente/servicos": "Serviços",
+  "/cliente/mensagens": "Mensagens",
+  "/cliente/noticias": "Notícias",
+  "/cliente/solicitacao": "Solicitações",
+  "/cliente/perfil": "Meu Perfil",
+  "/cliente/beneficios": "Benefícios",
+  "/cliente/agenda": "Agenda",
+  "/cliente/arquivos": "Arquivos",
+  "/cliente/ia": "Assistente IA",
+};
 
 export default function ClienteLayout({
   children,
@@ -14,76 +65,214 @@ export default function ClienteLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showEditProfile, setShowEditProfile] = useState(false);
+  const pathname = usePathname();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+  const [userData, setUserData] = useState({
+    name: "Cliente",
+    email: "",
+    avatar: "",
+  });
+
+  // Carregar dados do usuário
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("user_profiles")
+            .select("full_name, avatar, email")
+            .eq("user_id", user.id)
+            .single();
+
+          if (profile) {
+            setUserData({
+              name: profile.full_name || "Cliente",
+              email: profile.email || user.email || "",
+              avatar: profile.avatar || "",
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+      }
+    };
+    loadUserData();
+  }, []);
+
+  // Detectar preferência de tema
+  useEffect(() => {
+    const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setIsDark(isDarkMode);
+    document.documentElement.classList.toggle("dark", isDarkMode);
+  }, []);
+
+  const toggleTheme = () => {
+    setIsDark(!isDark);
+    document.documentElement.classList.toggle("dark");
+  };
 
   const handleLogout = async () => {
     try {
       await signOut();
-      router.push('/login');
+      router.push("/login");
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     }
   };
 
+  // Gerar breadcrumb
+  const currentPage = breadcrumbMap[pathname] || "Página";
+  const isHome = pathname === "/cliente/dashboard";
+
   return (
-    <ProtectedRoute allowedRoles={['cliente']}>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-16">
-      <header className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm">
-        <div className="flex items-center justify-between h-16 px-4 max-w-screen-xl mx-auto">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-valle-blue-600 to-valle-blue-700 rounded-lg flex items-center justify-center shadow-md border-2 border-valle-blue-200">
-              <span className="text-white font-bold text-sm">V</span>
-            </div>
-            <h1 className="text-xl font-bold text-valle-navy-900 dark:text-white">
-              Valle 360
-            </h1>
-          </div>
-
-          <div className="relative">
-            <button
-              onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="flex items-center gap-2 p-1 rounded-lg hover:bg-valle-blue-50 dark:hover:bg-valle-navy-800 transition-colors"
-            >
-              <div className="w-10 h-10 bg-gradient-to-br from-valle-blue-500 to-valle-blue-600 rounded-full flex items-center justify-center border-2 border-white dark:border-valle-navy-900 shadow-md hover:shadow-lg transition-all">
-                <User className="w-5 h-5 text-white" />
-              </div>
-            </button>
-
-            {showProfileMenu && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
-                <button
-                  onClick={() => {
-                    router.push('/cliente/perfil');
-                    setShowProfileMenu(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-                >
-                  <Settings className="w-4 h-4 text-valle-steel" />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    Meu Perfil
-                  </span>
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-                >
-                  <LogOut className="w-4 h-4 text-red-600" />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">Sair</span>
-                </button>
-              </div>
-            )}
-          </div>
+    <ProtectedRoute allowedRoles={["client"]}>
+      <div className="min-h-screen bg-white dark:bg-[#0a0f1a]">
+        {/* Sidebar - Desktop */}
+        <div className="hidden lg:block">
+          <ClientSidebar
+            collapsed={sidebarCollapsed}
+            onCollapsedChange={setSidebarCollapsed}
+          />
         </div>
-      </header>
 
-      <main className="max-w-screen-xl mx-auto px-4 py-6">
-        {children}
-      </main>
+        {/* Mobile Menu */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetContent side="left" className="p-0 w-[280px] bg-[#001533] border-r border-white/10">
+            <ClientSidebar collapsed={false} />
+          </SheetContent>
+        </Sheet>
 
-      <BottomNavigation />
-      <EditProfileModal open={showEditProfile} onOpenChange={setShowEditProfile} />
-    </div>
+        {/* Main Content Area */}
+        <div
+          className={cn(
+            "transition-all duration-300",
+            sidebarCollapsed ? "lg:ml-[70px]" : "lg:ml-[260px]"
+          )}
+        >
+          {/* Header */}
+          <header className="sticky top-0 z-30 h-16 border-b border-[#001533]/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0f1a]/95 backdrop-blur">
+            <div className="flex items-center justify-between h-full px-4 lg:px-6">
+              {/* Left side */}
+              <div className="flex items-center gap-4">
+                {/* Mobile menu button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="lg:hidden"
+                  onClick={() => setMobileMenuOpen(true)}
+                >
+                  <Menu className="size-5" />
+                </Button>
+
+                {/* Breadcrumb */}
+                <nav className="hidden sm:flex items-center gap-2 text-sm">
+                  <Link
+                    href="/cliente/dashboard"
+                    className="text-[#001533]/60 dark:text-white/60 hover:text-[#1672d6] transition-colors"
+                  >
+                    <Home className="size-4" />
+                  </Link>
+                  {!isHome && (
+                    <>
+                      <ChevronRight className="size-3 text-[#001533]/40 dark:text-white/40" />
+                      <span className="font-medium text-[#001533] dark:text-white">
+                        {currentPage}
+                      </span>
+                    </>
+                  )}
+                </nav>
+
+                {/* Mobile title */}
+                <span className="sm:hidden font-semibold text-[#001533] dark:text-white">
+                  {currentPage}
+                </span>
+              </div>
+
+              {/* Right side */}
+              <div className="flex items-center gap-2">
+                {/* Theme toggle */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleTheme}
+                  className="text-[#001533]/70 dark:text-white/70 hover:bg-[#001533]/5 dark:hover:bg-white/10"
+                >
+                  {isDark ? <Sun className="size-5" /> : <Moon className="size-5" />}
+                </Button>
+
+                {/* Notifications */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative text-[#001533]/70 dark:text-white/70 hover:bg-[#001533]/5 dark:hover:bg-white/10"
+                >
+                  <Bell className="size-5" />
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-[#1672d6] text-white text-[10px] rounded-full flex items-center justify-center font-medium">
+                    3
+                  </span>
+                </Button>
+
+                {/* Divider */}
+                <div className="w-px h-6 bg-[#001533]/10 dark:bg-white/10 mx-1" />
+
+                {/* User menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="flex items-center gap-2 px-2 hover:bg-[#001533]/5 dark:hover:bg-white/10">
+                      <Avatar className="h-8 w-8 border-2 border-[#1672d6]/30">
+                        <AvatarImage src={userData.avatar} />
+                        <AvatarFallback className="bg-[#1672d6]/10 text-[#1672d6] text-sm font-semibold">
+                          {userData.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="hidden md:block text-left">
+                        <p className="text-sm font-medium text-[#001533] dark:text-white leading-none">
+                          {userData.name.split(" ")[0]}
+                        </p>
+                        <p className="text-xs text-[#001533]/50 dark:text-white/50">
+                          Cliente
+                        </p>
+                      </div>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="px-2 py-1.5">
+                      <p className="text-sm font-medium">{userData.name}</p>
+                      <p className="text-xs text-muted-foreground">{userData.email}</p>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/cliente/perfil" className="cursor-pointer">
+                        <User className="size-4 mr-2" />
+                        Meu Perfil
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/cliente/perfil" className="cursor-pointer">
+                        <Settings className="size-4 mr-2" />
+                        Configurações
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
+                      <LogOut className="size-4 mr-2" />
+                      Sair
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </header>
+
+          {/* Page Content */}
+          <main className="min-h-[calc(100vh-4rem)]">
+            {children}
+          </main>
+        </div>
+      </div>
     </ProtectedRoute>
   );
 }
