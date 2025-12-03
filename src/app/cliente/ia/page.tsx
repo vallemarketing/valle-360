@@ -80,16 +80,16 @@ export default function IAPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-valle-blue-400 to-valle-blue-600 rounded-full blur-2xl opacity-50 animate-pulse" />
 
               <div
-                className="relative w-32 h-32 rounded-full flex items-center justify-center shadow-2xl border-4 border-white"
+                className="relative w-20 h-20 rounded-full flex items-center justify-center shadow-2xl border-4 border-white"
                 style={{
-                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #9e9e9e 100%)',
+                  background: 'linear-gradient(135deg, #1672d6 0%, #001533 100%)',
                   transform: `rotate(${rotation}deg)`,
                   transition: 'transform 0.02s linear',
                 }}
               >
-                <div className="absolute inset-2 rounded-full border-2 border-dashed border-white/40" />
+                <div className="absolute inset-1.5 rounded-full border-2 border-dashed border-white/40" />
 
-                <Sparkles className="w-16 h-16 text-white drop-shadow-lg" style={{ transform: `rotate(-${rotation}deg)` }} />
+                <Sparkles className="w-10 h-10 text-white drop-shadow-lg" style={{ transform: `rotate(-${rotation}deg)` }} />
               </div>
             </div>
 
