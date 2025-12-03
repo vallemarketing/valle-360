@@ -543,3 +543,4 @@ Solicita-se início de procedimento de cobrança extrajudicial/judicial.`
 export const billingAutomation = new BillingAutomationService();
 export default billingAutomation;
 
+

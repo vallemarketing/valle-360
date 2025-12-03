@@ -1,81 +1,74 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Sparkles, TrendingUp, AlertCircle, Bell } from "lucide-react";
-import { motion } from "framer-motion";
+import { Sparkles, TrendingUp, Users, FileText, BarChart3 } from "lucide-react";
+import { ReactNode } from "react";
+
+// ============================================
+// DISPLAY CARDS - VALLE AI
+// Cores: #001533 (navy), #1672d6 (primary), #ffffff (white)
+// Baseado em: https://21st.dev/r/Codehagen/display-cards
+// ============================================
 
 interface DisplayCardProps {
   className?: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   title?: string;
   description?: string;
   date?: string;
-  category?: "destaque" | "mercado" | "urgente" | "info";
+  iconClassName?: string;
+  titleClassName?: string;
 }
-
-const categoryStyles = {
-  destaque: {
-    icon: <Sparkles className="size-4 text-[#1672d6]" />,
-    bg: "bg-[#1672d6]/20",
-    text: "text-[#1672d6]",
-  },
-  mercado: {
-    icon: <TrendingUp className="size-4 text-emerald-400" />,
-    bg: "bg-emerald-500/20",
-    text: "text-emerald-500",
-  },
-  urgente: {
-    icon: <AlertCircle className="size-4 text-amber-400" />,
-    bg: "bg-amber-500/20",
-    text: "text-amber-500",
-  },
-  info: {
-    icon: <Bell className="size-4 text-cyan-400" />,
-    bg: "bg-cyan-500/20",
-    text: "text-cyan-500",
-  },
-};
 
 function DisplayCard({
   className,
-  icon,
-  title = "Novidade",
-  description = "Confira as últimas atualizações",
-  date = "Agora",
-  category = "destaque",
+  icon = <Sparkles className="size-4 text-white" />,
+  title = "Destaque",
+  description = "Descubra conteúdos incríveis",
+  date = "Agora mesmo",
+  iconClassName = "bg-[#1672d6]",
+  titleClassName = "text-[#1672d6]",
 }: DisplayCardProps) {
-  const styles = categoryStyles[category];
-
   return (
-    <motion.div
-      whileHover={{ y: -8, transition: { duration: 0.3 } }}
+    <div
       className={cn(
-        "relative flex h-40 w-[22rem] -skew-y-[8deg] select-none flex-col justify-between",
-        "rounded-xl border-2 border-border/60 bg-card/80 backdrop-blur-sm",
-        "px-5 py-4 transition-all duration-500",
-        "hover:border-[#1672d6]/40 hover:bg-card hover:shadow-xl hover:shadow-[#1672d6]/10",
+        // Layout base
+        "relative flex h-36 w-[22rem] -skew-y-[8deg] select-none flex-col justify-between",
+        // Estilo do card - usando cores Valle AI
+        "rounded-xl border-2 border-[#001533]/10 bg-white/90 dark:bg-[#001533]/90",
+        "backdrop-blur-sm px-4 py-3",
+        // Transições
+        "transition-all duration-500",
+        // Efeito de fade à direita
         "after:absolute after:-right-1 after:top-[-5%] after:h-[110%] after:w-[20rem]",
-        "after:bg-gradient-to-l after:from-background after:to-transparent after:content-['']",
+        "after:bg-gradient-to-l after:from-white dark:after:from-[#001533] after:to-transparent after:content-['']",
+        // Hover states
+        "hover:border-[#1672d6]/30 hover:bg-white dark:hover:bg-[#001533]",
+        "hover:shadow-lg hover:shadow-[#1672d6]/10",
+        // Flex children
         "[&>*]:flex [&>*]:items-center [&>*]:gap-2",
         className
       )}
     >
-      {/* Header */}
+      {/* Header com ícone e título */}
       <div>
-        <span className={cn("relative inline-flex rounded-full p-1.5", styles.bg)}>
-          {icon || styles.icon}
+        <span className={cn(
+          "relative inline-block rounded-full p-1.5",
+          iconClassName
+        )}>
+          {icon}
         </span>
-        <p className={cn("text-base font-semibold", styles.text)}>{title}</p>
+        <p className={cn("text-lg font-semibold", titleClassName)}>{title}</p>
       </div>
-
-      {/* Content */}
-      <p className="whitespace-nowrap text-base font-medium text-foreground line-clamp-2">
+      
+      {/* Descrição */}
+      <p className="whitespace-nowrap text-base text-[#001533] dark:text-white/90">
         {description}
       </p>
-
-      {/* Footer */}
-      <p className="text-sm text-muted-foreground">{date}</p>
-    </motion.div>
+      
+      {/* Data */}
+      <p className="text-sm text-[#001533]/60 dark:text-white/60">{date}</p>
+    </div>
   );
 }
 
@@ -83,39 +76,50 @@ interface DisplayCardsProps {
   cards?: DisplayCardProps[];
 }
 
-export default function DisplayCards({ cards }: DisplayCardsProps) {
+export function DisplayCards({ cards }: DisplayCardsProps) {
+  // Cards padrão com visual Valle AI
   const defaultCards: DisplayCardProps[] = [
     {
-      title: "Atualização de Campanha",
-      description: "Sua campanha de Meta Ads atingiu 10k impressões",
-      date: "Há 5 minutos",
-      category: "destaque",
+      icon: <TrendingUp className="size-4 text-white" />,
+      title: "Crescimento",
+      description: "Suas métricas subiram 23% este mês",
+      date: "Atualizado há 2h",
+      iconClassName: "bg-[#1672d6]",
+      titleClassName: "text-[#1672d6]",
       className: cn(
         "[grid-area:stack] hover:-translate-y-10",
-        "before:absolute before:w-full before:h-full before:content-['']",
-        "before:bg-background/50 before:rounded-xl before:left-0 before:top-0",
-        "before:transition-opacity before:duration-700",
-        "grayscale-[100%] hover:grayscale-0 hover:before:opacity-0"
+        // Overlay escuro quando não está em hover
+        "before:absolute before:w-full before:h-full before:rounded-xl",
+        "before:bg-[#001533]/5 before:content-[''] before:left-0 before:top-0",
+        "before:transition-opacity before:duration-500",
+        "hover:before:opacity-0",
+        // Grayscale removido no hover
+        "grayscale-[30%] hover:grayscale-0"
       ),
     },
     {
-      title: "Análise de Mercado",
-      description: "Novo relatório do seu setor disponível",
-      date: "Há 2 horas",
-      category: "mercado",
+      icon: <Users className="size-4 text-white" />,
+      title: "Engajamento",
+      description: "1.2k novas interações com seu conteúdo",
+      date: "Atualizado há 5h",
+      iconClassName: "bg-[#001533]",
+      titleClassName: "text-[#001533] dark:text-white",
       className: cn(
         "[grid-area:stack] translate-x-16 translate-y-10 hover:-translate-y-1",
-        "before:absolute before:w-full before:h-full before:content-['']",
-        "before:bg-background/50 before:rounded-xl before:left-0 before:top-0",
-        "before:transition-opacity before:duration-700",
-        "grayscale-[100%] hover:grayscale-0 hover:before:opacity-0"
+        "before:absolute before:w-full before:h-full before:rounded-xl",
+        "before:bg-[#001533]/5 before:content-[''] before:left-0 before:top-0",
+        "before:transition-opacity before:duration-500",
+        "hover:before:opacity-0",
+        "grayscale-[30%] hover:grayscale-0"
       ),
     },
     {
-      title: "Performance Semanal",
-      description: "Crescimento de 23% em engajamento",
-      date: "Hoje",
-      category: "info",
+      icon: <BarChart3 className="size-4 text-white" />,
+      title: "Resultados",
+      description: "ROI de 320% nas campanhas ativas",
+      date: "Atualizado agora",
+      iconClassName: "bg-[#1672d6]",
+      titleClassName: "text-[#1672d6]",
       className: "[grid-area:stack] translate-x-32 translate-y-20 hover:translate-y-10",
     },
   ];
@@ -131,7 +135,6 @@ export default function DisplayCards({ cards }: DisplayCardsProps) {
   );
 }
 
-// Exportar também o card individual
+// Exportar também o card individual para uso customizado
 export { DisplayCard };
-export type { DisplayCardProps };
-
+export type { DisplayCardProps, DisplayCardsProps };
