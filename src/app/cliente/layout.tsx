@@ -128,7 +128,7 @@ export default function ClienteLayout({
   const isHome = pathname === "/cliente/dashboard";
 
   return (
-    <ProtectedRoute allowedRoles={["client"]}>
+    <ProtectedRoute allowedRoles={["cliente"]}>
       <div className="min-h-screen bg-white dark:bg-[#0a0f1a]">
         {/* Sidebar - Desktop */}
         <div className="hidden lg:block">
