@@ -17,7 +17,7 @@ import {
   CreditCard,
   Settings
 } from "lucide-react";
-// Removido import Button não utilizado
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // ============================================
