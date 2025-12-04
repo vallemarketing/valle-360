@@ -26,7 +26,7 @@ export default function NovoClientePage() {
     telefone: '',
     whatsapp: '',
     
-    // Endereço
+    // Endereço da Empresa
     cep: '',
     logradouro: '',
     numero: '',
@@ -34,6 +34,24 @@ export default function NovoClientePage() {
     bairro: '',
     cidade: '',
     estado: '',
+
+    // ========== DADOS DO SÓCIO (PJ) ==========
+    socio_nome: '',
+    socio_cpf: '',
+    socio_email: '',
+    socio_telefone: '',
+    socio_estado_civil: '', // solteiro, casado, divorciado, viuvo
+    socio_conjuge_nome: '',
+    socio_filiacao_mae: '',
+    socio_filiacao_pai: '',
+    // Endereço do Sócio
+    socio_cep: '',
+    socio_logradouro: '',
+    socio_numero: '',
+    socio_complemento: '',
+    socio_bairro: '',
+    socio_cidade: '',
+    socio_estado: '',
     
     // Profissional
     profissao: '',
@@ -449,11 +467,177 @@ export default function NovoClientePage() {
                 </div>
               </div>
 
-              <div className="flex justify-end">
+              {/* ========== DADOS DO SÓCIO (apenas PJ) ========== */}
+              {formData.tipo_pessoa === 'juridica' && (
+                <div className="pt-6 border-t space-y-4">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <UsersIcon className="w-5 h-5 text-[#1672d6]" />
+                    Dados do Sócio Responsável
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Informações necessárias para geração do contrato
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Nome Completo do Sócio *</label>
+                      <input
+                        type="text"
+                        value={formData.socio_nome}
+                        onChange={(e) => handleInputChange('socio_nome', e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">CPF do Sócio *</label>
+                      <input
+                        type="text"
+                        value={formData.socio_cpf}
+                        onChange={(e) => handleInputChange('socio_cpf', e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="000.000.000-00"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Email do Sócio</label>
+                      <input
+                        type="email"
+                        value={formData.socio_email}
+                        onChange={(e) => handleInputChange('socio_email', e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Telefone do Sócio</label>
+                      <input
+                        type="tel"
+                        value={formData.socio_telefone}
+                        onChange={(e) => handleInputChange('socio_telefone', e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="(00) 00000-0000"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Estado Civil *</label>
+                      <select
+                        value={formData.socio_estado_civil}
+                        onChange={(e) => handleInputChange('socio_estado_civil', e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="solteiro">Solteiro(a)</option>
+                        <option value="casado">Casado(a)</option>
+                        <option value="divorciado">Divorciado(a)</option>
+                        <option value="viuvo">Viúvo(a)</option>
+                        <option value="uniao_estavel">União Estável</option>
+                      </select>
+                    </div>
+
+                    {(formData.socio_estado_civil === 'casado' || formData.socio_estado_civil === 'uniao_estavel') && (
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Nome do Cônjuge</label>
+                        <input
+                          type="text"
+                          value={formData.socio_conjuge_nome}
+                          onChange={(e) => handleInputChange('socio_conjuge_nome', e.target.value)}
+                          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Filiação - Nome da Mãe</label>
+                      <input
+                        type="text"
+                        value={formData.socio_filiacao_mae}
+                        onChange={(e) => handleInputChange('socio_filiacao_mae', e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Filiação - Nome do Pai</label>
+                      <input
+                        type="text"
+                        value={formData.socio_filiacao_pai}
+                        onChange={(e) => handleInputChange('socio_filiacao_pai', e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Endereço do Sócio */}
+                  <div className="pt-4">
+                    <h4 className="font-medium mb-3">Endereço do Sócio</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">CEP</label>
+                        <input
+                          type="text"
+                          value={formData.socio_cep}
+                          onChange={(e) => handleInputChange('socio_cep', e.target.value)}
+                          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="00000-000"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium mb-2">Logradouro</label>
+                        <input
+                          type="text"
+                          value={formData.socio_logradouro}
+                          onChange={(e) => handleInputChange('socio_logradouro', e.target.value)}
+                          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Número</label>
+                        <input
+                          type="text"
+                          value={formData.socio_numero}
+                          onChange={(e) => handleInputChange('socio_numero', e.target.value)}
+                          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Bairro</label>
+                        <input
+                          type="text"
+                          value={formData.socio_bairro}
+                          onChange={(e) => handleInputChange('socio_bairro', e.target.value)}
+                          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Cidade/Estado</label>
+                        <input
+                          type="text"
+                          value={formData.socio_cidade}
+                          onChange={(e) => handleInputChange('socio_cidade', e.target.value)}
+                          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="São Paulo - SP"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-6">
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-6 py-3 bg-[#1672d6] text-white rounded-lg hover:bg-[#1260b5] transition-colors"
                 >
                   Próximo →
                 </button>
