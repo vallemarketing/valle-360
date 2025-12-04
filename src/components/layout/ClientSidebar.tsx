@@ -189,48 +189,6 @@ export function ClientSidebar({ collapsed = false, onCollapsedChange }: ClientSi
           </div>
         )}
 
-        {/* Botão Assistente IA - Central */}
-        {!isCollapsed && (
-          <div className="px-3 py-3 border-b border-white/10">
-            <Link
-              href="/cliente/ia"
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl",
-                "bg-gradient-to-r from-[#1672d6] to-[#1672d6]/80",
-                "text-white font-medium",
-                "hover:shadow-lg hover:shadow-[#1672d6]/30 transition-all",
-                "group"
-              )}
-            >
-              <div className="p-1.5 rounded-lg bg-white/20">
-                <Sparkles className="size-4" />
-              </div>
-              <span>Assistente Val</span>
-              <div className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-xs">
-                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                Online
-              </div>
-            </Link>
-          </div>
-        )}
-
-        {isCollapsed && (
-          <div className="px-2 py-3 border-b border-white/10">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href="/cliente/ia"
-                  className="flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-r from-[#1672d6] to-[#1672d6]/80 text-white"
-                >
-                  <Sparkles className="size-5" />
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="bg-[#001533] border-white/20 text-white">
-                Assistente Val
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        )}
 
         {/* Navigation com Accordion */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-2 scrollbar-thin scrollbar-thumb-white/10">

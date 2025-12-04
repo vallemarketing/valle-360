@@ -191,7 +191,6 @@ export default function ClienteDashboard() {
               change={-5}
               changeLabel="economia vs mês anterior"
               icon={<DollarSign className="size-5 text-[#1672d6]" />}
-              variant="primary"
             />
           </StatsGrid>
         </motion.div>

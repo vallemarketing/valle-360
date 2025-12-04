@@ -274,90 +274,100 @@ export default function ClientApprovals() {
         </div>
       )}
 
-      {/* Modal de Visualização Completa */}
+      {/* Modal de Visualização - Layout limpo focado no conteúdo */}
       <AnimatePresence>
         {selectedItem && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setSelectedItem(null)}
-            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black flex"
           >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative max-w-4xl w-full bg-white dark:bg-[#0a0f1a] rounded-2xl overflow-hidden"
-            >
+            {/* Área da Imagem/Vídeo - Ocupa toda a tela */}
+            <div className="flex-1 relative flex items-center justify-center bg-black">
               {/* Close button */}
               <button 
                 onClick={() => setSelectedItem(null)}
-                className="absolute top-4 right-4 z-10 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
+                className="absolute top-4 left-4 z-10 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors backdrop-blur-sm"
               >
-                <X className="w-5 h-5" />
+                <X className="w-6 h-6" />
               </button>
 
-              {/* Content */}
-              <div className="aspect-video relative">
-                <img 
-                  src={selectedItem.image} 
-                  alt={selectedItem.title}
-                  className="w-full h-full object-contain bg-black"
-                />
-                {selectedItem.isVideo && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center cursor-pointer hover:bg-white/30 transition-colors">
-                      <Play className="w-10 h-10 text-white ml-1" />
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Imagem Principal */}
+              <img 
+                src={selectedItem.image} 
+                alt={selectedItem.title}
+                className="max-w-full max-h-full object-contain"
+              />
 
-              {/* Info & Actions */}
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-[#001533] dark:text-white">{selectedItem.title}</h2>
-                    <p className="text-[#001533]/60 dark:text-white/60 mt-1">{selectedItem.description}</p>
-                    <div className="flex items-center gap-3 mt-2 text-sm text-[#001533]/50 dark:text-white/50">
-                      <span>{selectedItem.type}</span>
-                      <span>•</span>
-                      <span>{selectedItem.designer}</span>
-                      <span>•</span>
-                      <span>{new Date(selectedItem.date).toLocaleDateString('pt-BR')}</span>
-                    </div>
+              {/* Play button para vídeo */}
+              {selectedItem.isVideo && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <Play className="w-12 h-12 text-white ml-1" />
                   </div>
                 </div>
+              )}
+            </div>
 
+            {/* Sidebar de Ações - Painel lateral */}
+            <motion.div
+              initial={{ x: 100, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 100, opacity: 0 }}
+              className="w-[380px] bg-white dark:bg-[#0a0f1a] flex flex-col h-full"
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-[#001533]/10 dark:border-white/10">
+                <Badge className="bg-[#1672d6]/10 text-[#1672d6] mb-3">
+                  {selectedItem.type}
+                </Badge>
+                <h2 className="text-xl font-bold text-[#001533] dark:text-white mb-2">
+                  {selectedItem.title}
+                </h2>
+                <p className="text-sm text-[#001533]/60 dark:text-white/60">
+                  {selectedItem.description}
+                </p>
+                <div className="flex items-center gap-2 mt-3 text-xs text-[#001533]/50 dark:text-white/50">
+                  <span>Por {selectedItem.designer}</span>
+                  <span>•</span>
+                  <span>{new Date(selectedItem.date).toLocaleDateString('pt-BR')}</span>
+                </div>
+              </div>
+
+              {/* Área de Comentário */}
+              <div className="flex-1 p-6 overflow-y-auto">
+                <label className="block text-sm font-medium text-[#001533] dark:text-white mb-2">
+                  Comentários ou Ajustes
+                </label>
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  rows={2}
-                  className="w-full p-3 text-sm border-2 border-[#001533]/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#1672d6] focus:border-transparent resize-none bg-[#001533]/5 dark:bg-white/5 text-[#001533] dark:text-white placeholder:text-[#001533]/40 mb-4"
-                  placeholder="Comentários ou ajustes necessários..."
+                  rows={6}
+                  className="w-full p-4 text-sm border-2 border-[#001533]/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#1672d6] focus:border-transparent resize-none bg-[#001533]/5 dark:bg-white/5 text-[#001533] dark:text-white placeholder:text-[#001533]/40"
+                  placeholder="Descreva aqui os ajustes necessários ou deixe em branco para aprovar..."
                 />
+              </div>
 
-                <div className="flex gap-3">
-                  <Button
-                    onClick={() => handleAction(selectedItem.id, 'reject')}
-                    variant="outline"
-                    size="lg"
-                    className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
-                  >
-                    <X className="w-5 h-5 mr-2" />
-                    Solicitar Ajustes
-                  </Button>
-                  <Button
-                    onClick={() => handleAction(selectedItem.id, 'approve')}
-                    size="lg"
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                  >
-                    <Check className="w-5 h-5 mr-2" />
-                    Aprovar
-                  </Button>
-                </div>
+              {/* Botões de Ação */}
+              <div className="p-6 border-t border-[#001533]/10 dark:border-white/10 space-y-3">
+                <Button
+                  onClick={() => handleAction(selectedItem.id, 'approve')}
+                  size="lg"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12"
+                >
+                  <Check className="w-5 h-5 mr-2" />
+                  Aprovar Material
+                </Button>
+                <Button
+                  onClick={() => handleAction(selectedItem.id, 'reject')}
+                  variant="outline"
+                  size="lg"
+                  className="w-full border-red-200 text-red-600 hover:bg-red-50 h-12"
+                >
+                  <X className="w-5 h-5 mr-2" />
+                  Solicitar Ajustes
+                </Button>
               </div>
             </motion.div>
           </motion.div>

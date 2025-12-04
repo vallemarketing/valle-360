@@ -127,35 +127,29 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
 
   return (
     <>
-      {/* Floating Button - Apenas imagem da Val */}
+      {/* Floating Button - SOMENTE imagem do rosto da Val */}
       <motion.button
         onClick={() => setIsOpen(true)}
         className={cn(
           "fixed bottom-6 right-6 z-50",
           "w-16 h-16 rounded-full shadow-xl",
-          "bg-gradient-to-br from-[#1672d6] to-[#001533]",
-          "flex items-center justify-center",
+          "overflow-hidden",
           "hover:shadow-2xl hover:scale-105 transition-all",
-          "border-2 border-white/30",
+          "border-3 border-white shadow-lg",
           "group",
           isOpen && "hidden"
         )}
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.95 }}
       >
-        <div className="relative w-14 h-14 rounded-full overflow-hidden">
-          <Image
-            src="/images/Val.png"
-            alt="Val - Assistente IA"
-            width={56}
-            height={56}
-            className="rounded-full object-cover"
-            priority
-          />
-        </div>
-        
-        {/* Pulse animation */}
-        <span className="absolute inset-0 rounded-full bg-[#1672d6] animate-ping opacity-20" />
+        <Image
+          src="/images/Val.png"
+          alt="Val - Assistente IA"
+          width={64}
+          height={64}
+          className="w-full h-full object-cover"
+          priority
+        />
         
         {/* Tooltip on hover */}
         <div className="absolute bottom-full right-0 mb-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
