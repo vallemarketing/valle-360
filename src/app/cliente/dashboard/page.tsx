@@ -231,10 +231,10 @@ export default function ClienteDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.25 }}
         >
-          <div className="rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg">
+          <div className="rounded-2xl bg-[#001533] p-4 text-white shadow-lg border-2 border-[#1672d6]/30">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="p-2.5 rounded-xl bg-white/20">
+                <div className="p-2.5 rounded-xl bg-[#1672d6]">
                   <AlertTriangle className="size-5" />
                 </div>
                 <div>
@@ -246,7 +246,7 @@ export default function ClienteDashboard() {
               </div>
               <div className="flex items-center gap-2">
                 <Link href="/cliente/financeiro">
-                  <button className="px-4 py-2 bg-white text-orange-600 rounded-lg font-medium text-sm hover:bg-white/90 transition-colors">
+                  <button className="px-4 py-2 bg-[#1672d6] text-white rounded-lg font-medium text-sm hover:bg-[#1260b5] transition-colors">
                     Pagar Agora
                   </button>
                 </Link>
