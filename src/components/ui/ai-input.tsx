@@ -208,29 +208,22 @@ export const AIInputModelSelectTrigger = ({
   />
 );
 
-export type AIInputModelSelectContentProps = ComponentProps<typeof SelectContent>;
-
 export const AIInputModelSelectContent = ({
-  className,
-  ...props
-}: AIInputModelSelectContentProps) => (
-  <SelectContent className={cn(className)} {...props} />
-);
-
-export type AIInputModelSelectItemProps = ComponentProps<typeof SelectItem>;
+  children,
+}: {
+  children: React.ReactNode;
+}) => <SelectContent>{children}</SelectContent>;
 
 export const AIInputModelSelectItem = ({
-  className,
-  ...props
-}: AIInputModelSelectItemProps) => (
-  <SelectItem className={cn(className)} {...props} />
-);
-
-export type AIInputModelSelectValueProps = ComponentProps<typeof SelectValue>;
+  value,
+  children,
+}: {
+  value: string;
+  children: React.ReactNode;
+}) => <SelectItem value={value}>{children}</SelectItem>;
 
 export const AIInputModelSelectValue = ({
-  className,
-  ...props
-}: AIInputModelSelectValueProps) => (
-  <SelectValue className={cn(className)} {...props} />
-);
+  placeholder,
+}: {
+  placeholder?: string;
+}) => <SelectValue placeholder={placeholder} />;
