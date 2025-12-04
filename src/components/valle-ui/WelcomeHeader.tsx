@@ -16,6 +16,7 @@ interface WelcomeHeaderProps {
   planName?: string;
   ctaText?: string;
   ctaHref?: string;
+  lastVisit?: string | null;
   className?: string;
 }
 
@@ -25,6 +26,7 @@ export function WelcomeHeader({
   planName = "Premium",
   ctaText = "Agendar Reunião",
   ctaHref = "/cliente/agenda",
+  lastVisit,
   className,
 }: WelcomeHeaderProps) {
   // Saudação baseada na hora
@@ -71,6 +73,11 @@ export function WelcomeHeader({
             )}>
               Plano {planName}
             </span>
+            {lastVisit && (
+              <span className="text-white/50 text-sm">
+                • Última visita: {lastVisit}
+              </span>
+            )}
           </div>
         </div>
 

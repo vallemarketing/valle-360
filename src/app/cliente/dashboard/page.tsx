@@ -9,7 +9,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { 
+import {
   Eye,
   MousePointerClick,
   Target,
@@ -32,7 +32,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 // Componentes Valle UI
-import { 
+import {
   StatsCard, 
   StatsGrid,
   DisplayCards,
@@ -88,14 +88,30 @@ export default function ClienteDashboard() {
     avatar: "",
     plano: "Premium",
   });
+  const [lastVisit, setLastVisit] = useState<string | null>(null);
 
   useEffect(() => {
     loadClienteData();
+    // Carregar e atualizar última visita
+    const storedLastVisit = localStorage.getItem('valle_last_visit');
+    if (storedLastVisit) {
+      const diff = Date.now() - parseInt(storedLastVisit);
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const days = Math.floor(hours / 24);
+      if (days > 0) {
+        setLastVisit(`há ${days} dia${days > 1 ? 's' : ''}`);
+      } else if (hours > 0) {
+        setLastVisit(`há ${hours} hora${hours > 1 ? 's' : ''}`);
+      } else {
+        setLastVisit('agora');
+      }
+    }
+    localStorage.setItem('valle_last_visit', Date.now().toString());
   }, []);
 
   const loadClienteData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         router.push("/login");
@@ -159,6 +175,7 @@ export default function ClienteDashboard() {
             planName={clienteData.plano}
             ctaText="Agendar Reunião"
             ctaHref="/cliente/agenda"
+            lastVisit={lastVisit}
           />
         </motion.div>
 
@@ -209,14 +226,14 @@ export default function ClienteDashboard() {
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-xl bg-white/20">
                     <Zap className="size-6" />
-                  </div>
-                  <div>
+              </div>
+              <div>
                     <h3 className="text-xl font-bold">Painel de Inteligência</h3>
                     <p className="text-white/70 mt-1">
                       Acesse todas as informações organizadas: desempenho, setor, concorrentes e insights IA
                     </p>
-                  </div>
-                </div>
+              </div>
+            </div>
                 <div className="p-3 rounded-full bg-white/10 group-hover:bg-white/20 transition-colors">
                   <ChevronRight className="size-6 group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -255,7 +272,7 @@ export default function ClienteDashboard() {
                 </button>
               </div>
             </div>
-          </div>
+                    </div>
         </motion.div>
 
         {/* Main Grid */}
@@ -318,7 +335,7 @@ export default function ClienteDashboard() {
                       : "[grid-area:stack] translate-x-32 translate-y-20 hover:translate-y-10"
                   }))}
                 />
-              </div>
+                  </div>
             </motion.div>
 
             {/* Insights Panel */}
@@ -347,7 +364,7 @@ export default function ClienteDashboard() {
             >
               <QuickAccess />
             </motion.div>
-          </div>
+        </div>
 
           {/* Right Column - 1/3 Sidebar */}
           <div className="space-y-6">
@@ -374,7 +391,7 @@ export default function ClienteDashboard() {
                   <div className="flex items-center gap-2 text-emerald-600 font-medium text-sm group-hover:gap-3 transition-all">
                     Ver recomendações <ChevronRight className="size-4" />
                   </div>
-                </div>
+        </div>
               </Link>
             </motion.div>
 

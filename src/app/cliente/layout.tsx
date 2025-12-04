@@ -40,6 +40,9 @@ import { supabase } from "@/lib/supabase";
 import { ValFloatingChat } from "@/components/val/ValFloatingChat";
 import { AlertsPanel } from "@/components/alerts/AlertsPanel";
 import { NPSModal } from "@/components/nps/NPSModal";
+import { PushNotificationManager } from "@/components/notifications/PushNotifications";
+import { GuidedTour } from "@/components/tour/GuidedTour";
+import { AccessibilityMenu } from "@/components/accessibility/AccessibilityMenu";
 
 // Mapa de breadcrumbs
 const breadcrumbMap: Record<string, string> = {
@@ -142,7 +145,7 @@ export default function ClienteLayout({
             collapsed={sidebarCollapsed}
             onCollapsedChange={setSidebarCollapsed}
           />
-        </div>
+          </div>
 
         {/* Mobile Menu */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -199,6 +202,9 @@ export default function ClienteLayout({
 
               {/* Right side */}
               <div className="flex items-center gap-2">
+                {/* Accessibility Menu */}
+                <AccessibilityMenu />
+
                 {/* Theme toggle */}
                 <Button
                   variant="ghost"
@@ -209,18 +215,8 @@ export default function ClienteLayout({
                   {isDark ? <Sun className="size-5" /> : <Moon className="size-5" />}
                 </Button>
 
-                {/* Notifications */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowAlerts(true)}
-                  className="relative text-[#001533]/70 dark:text-white/70 hover:bg-[#001533]/5 dark:hover:bg-white/10"
-                >
-                  <Bell className="size-5" />
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-medium animate-pulse">
-                    3
-                  </span>
-                </Button>
+                {/* Push Notifications */}
+                <PushNotificationManager />
 
                 {/* Divider */}
                 <div className="w-px h-6 bg-[#001533]/10 dark:bg-white/10 mx-1" />
@@ -270,14 +266,14 @@ export default function ClienteLayout({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
-            </div>
-          </header>
+          </div>
+        </div>
+      </header>
 
           {/* Page Content */}
           <main className="min-h-[calc(100vh-4rem)]">
-            {children}
-          </main>
+        {children}
+      </main>
         </div>
 
         {/* Val Floating Chat */}
@@ -295,6 +291,9 @@ export default function ClienteLayout({
             // Aqui enviaria para o backend
           }}
         />
+
+        {/* Tour Guiado - Primeira Visita */}
+        <GuidedTour />
       </div>
     </ProtectedRoute>
   );

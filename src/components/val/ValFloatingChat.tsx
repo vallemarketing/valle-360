@@ -179,22 +179,18 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
             {/* Header */}
             <div className="bg-gradient-to-r from-[#001533] to-[#1672d6] p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="relative">
+                <div className="relative w-11 h-11 flex-shrink-0">
                   <Image
                     src="/images/Val.png"
                     alt="Val"
-                    width={44}
-                    height={44}
+                    fill
                     className="rounded-full border-2 border-white/30 object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = '';
-                    }}
                   />
                   <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white" />
                 </div>
                 <div>
                   <h3 className="text-white font-semibold">Val</h3>
-                  <p className="text-white/70 text-xs">Assistente IA Valle 360</p>
+                  <p className="text-white/70 text-xs">Sua assistente Valle 360</p>
                 </div>
               </div>
               <button
@@ -203,6 +199,13 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
               >
                 <X className="w-5 h-5 text-white" />
               </button>
+            </div>
+
+            {/* Mensagem Fixa - Saudação personalizada */}
+            <div className="px-4 py-3 bg-[#1672d6]/10 border-b border-[#001533]/10 dark:border-white/10">
+              <p className="text-sm text-[#001533] dark:text-white">
+                Olá, <span className="font-semibold">{userName}</span>! Como posso te ajudar hoje?
+              </p>
             </div>
 
             {/* Messages Area */}

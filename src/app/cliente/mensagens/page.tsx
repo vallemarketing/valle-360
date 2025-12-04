@@ -63,6 +63,11 @@ export default function MensagensPage() {
     { id: 5, nome: 'Maria Santos', ultimaMensagem: 'Até logo', naoLidas: 0, tipo: 'direto', lastTime: '02/12' },
   ];
 
+  // Contagem de não lidas por tipo
+  const totalNaoLidas = conversas.reduce((sum, c) => sum + (c.naoLidas || 0), 0);
+  const grupoNaoLidas = conversas.filter(c => c.tipo === 'grupo').reduce((sum, c) => sum + (c.naoLidas || 0), 0);
+  const diretaNaoLidas = conversas.filter(c => c.tipo === 'direto').reduce((sum, c) => sum + (c.naoLidas || 0), 0);
+
   const mensagens: Mensagem[] = [
     {
       id: 1,
@@ -126,24 +131,37 @@ export default function MensagensPage() {
           <h2 className="font-semibold text-lg text-[#001533] dark:text-white">Mensagens</h2>
 
           <div className="flex gap-2">
-            {['todos', 'grupo', 'direto'].map((filtro) => (
-              <Button
-                key={filtro}
-                size="sm"
-                variant={filtroAtivo === filtro ? 'default' : 'outline'}
-                onClick={() => setFiltroAtivo(filtro as any)}
-                className={cn(
-                  "flex-1",
-                  filtroAtivo === filtro 
-                    ? "bg-[#1672d6] hover:bg-[#1260b5]" 
-                    : "border-[#001533]/20"
-                )}
-              >
-                {filtro === 'grupo' && <Users className="w-3 h-3 mr-1" />}
-                {filtro === 'direto' && <User className="w-3 h-3 mr-1" />}
-                {filtro === 'todos' ? 'Todas' : filtro === 'grupo' ? 'Grupos' : 'Diretas'}
-              </Button>
-            ))}
+            {['todos', 'grupo', 'direto'].map((filtro) => {
+              const count = filtro === 'todos' ? totalNaoLidas : filtro === 'grupo' ? grupoNaoLidas : diretaNaoLidas;
+              return (
+                <Button
+                  key={filtro}
+                  size="sm"
+                  variant={filtroAtivo === filtro ? 'default' : 'outline'}
+                  onClick={() => setFiltroAtivo(filtro as any)}
+                  className={cn(
+                    "flex-1 relative",
+                    filtroAtivo === filtro 
+                      ? "bg-[#1672d6] hover:bg-[#1260b5]" 
+                      : "border-[#001533]/20"
+                  )}
+                >
+                  {filtro === 'grupo' && <Users className="w-3 h-3 mr-1" />}
+                  {filtro === 'direto' && <User className="w-3 h-3 mr-1" />}
+                  {filtro === 'todos' ? 'Todas' : filtro === 'grupo' ? 'Grupos' : 'Diretas'}
+                  {count > 0 && (
+                    <Badge className={cn(
+                      "ml-1.5 px-1.5 py-0 text-[10px] h-4 min-w-4",
+                      filtroAtivo === filtro 
+                        ? "bg-white text-[#1672d6]" 
+                        : "bg-[#1672d6] text-white"
+                    )}>
+                      {count}
+                    </Badge>
+                  )}
+                </Button>
+              );
+            })}
           </div>
         </div>
         <div className="overflow-y-auto">
