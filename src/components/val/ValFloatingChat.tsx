@@ -71,6 +71,7 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
   const [isTyping, setIsTyping] = useState(false);
   const [selectedModel, setSelectedModel] = useState("val-pro");
   const [webSearch, setWebSearch] = useState(false);
+  const [showGreeting, setShowGreeting] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -127,38 +128,72 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
 
   return (
     <>
-      {/* Floating Button - SOMENTE imagem do rosto da Val */}
-      <motion.button
-        onClick={() => setIsOpen(true)}
-        className={cn(
-          "fixed bottom-6 right-6 z-50",
-          "w-16 h-16 rounded-full shadow-xl",
-          "overflow-hidden",
-          "hover:shadow-2xl hover:scale-105 transition-all",
-          "border-3 border-white shadow-lg",
-          "group",
-          isOpen && "hidden"
-        )}
-        whileHover={{ scale: 1.08 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        <Image
-          src="/images/Val.png"
-          alt="Val - Assistente IA"
-          width={64}
-          height={64}
-          className="w-full h-full object-cover"
-          priority
-        />
-        
-        {/* Tooltip on hover */}
-        <div className="absolute bottom-full right-0 mb-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-          <div className="bg-[#001533] text-white text-sm px-4 py-2 rounded-xl shadow-lg whitespace-nowrap">
-            Precisa de ajuda?
-            <div className="absolute bottom-0 right-6 translate-y-1/2 rotate-45 w-2 h-2 bg-[#001533]" />
-          </div>
-        </div>
-      </motion.button>
+      {/* Container do botão flutuante + balão de mensagem */}
+      <div className={cn(
+        "fixed bottom-6 right-6 z-50 flex items-end gap-3",
+        isOpen && "hidden"
+      )}>
+        {/* Balão de mensagem - sempre visível */}
+        <AnimatePresence>
+          {showGreeting && (
+            <motion.div
+              initial={{ opacity: 0, x: 20, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 20, scale: 0.9 }}
+              transition={{ duration: 0.3, delay: 0.5 }}
+              className="relative"
+            >
+              <div className="bg-white dark:bg-[#0a0f1a] rounded-2xl shadow-2xl p-4 pr-8 max-w-[220px] border border-[#001533]/10 dark:border-white/10">
+                <p className="text-sm text-[#001533] dark:text-white">
+                  Olá, <span className="font-semibold">{userName}</span>! 👋
+                </p>
+                <p className="text-sm text-[#001533]/70 dark:text-white/70 mt-1">
+                  Como posso te ajudar hoje?
+                </p>
+                <p className="text-xs text-[#1672d6] font-medium mt-2">
+                  Clique aqui! 🚀
+                </p>
+                
+                {/* Botão X para fechar */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowGreeting(false);
+                  }}
+                  className="absolute top-2 right-2 p-1 rounded-full hover:bg-[#001533]/5 dark:hover:bg-white/10 transition-colors"
+                >
+                  <X className="size-3 text-[#001533]/40 dark:text-white/40" />
+                </button>
+                
+                {/* Seta apontando para a Val */}
+                <div className="absolute top-1/2 -right-2 -translate-y-1/2 w-3 h-3 bg-white dark:bg-[#0a0f1a] border-r border-t border-[#001533]/10 dark:border-white/10 rotate-45" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Botão da Val */}
+        <motion.button
+          onClick={() => setIsOpen(true)}
+          className={cn(
+            "w-16 h-16 rounded-full shadow-xl",
+            "overflow-hidden flex-shrink-0",
+            "hover:shadow-2xl hover:scale-105 transition-all",
+            "border-3 border-white shadow-lg"
+          )}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <Image
+            src="/images/Val.png"
+            alt="Val - Assistente IA"
+            width={64}
+            height={64}
+            className="w-full h-full object-cover"
+            priority
+          />
+        </motion.button>
+      </div>
 
       {/* Chat Window */}
       <AnimatePresence>
