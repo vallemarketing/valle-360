@@ -42,7 +42,6 @@ import { AlertsPanel } from "@/components/alerts/AlertsPanel";
 import { NPSModal } from "@/components/nps/NPSModal";
 import { PushNotificationManager } from "@/components/notifications/PushNotifications";
 import { GuidedTour } from "@/components/tour/GuidedTour";
-import { AccessibilityMenu } from "@/components/accessibility/AccessibilityMenu";
 
 // Mapa de breadcrumbs
 const breadcrumbMap: Record<string, string> = {
@@ -202,9 +201,6 @@ export default function ClienteLayout({
 
               {/* Right side */}
               <div className="flex items-center gap-2">
-                {/* Accessibility Menu */}
-                <AccessibilityMenu />
-
                 {/* Theme toggle */}
                 <Button
                   variant="ghost"

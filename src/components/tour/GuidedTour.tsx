@@ -17,7 +17,7 @@ import {
   CreditCard,
   Settings
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+// Removido import Button não utilizado
 import { cn } from "@/lib/utils";
 
 // ============================================
@@ -342,51 +342,63 @@ export function GuidedTour() {
                 </p>
               </div>
 
-              {/* Footer com botões de navegação */}
-              <div className="px-6 pb-6 flex items-center justify-between gap-3">
-                {/* Botão Pular */}
-                <button
-                  onClick={skipTour}
-                  className="text-sm text-[#001533]/50 dark:text-white/50 hover:text-[#001533] dark:hover:text-white transition-colors px-3 py-2"
-                >
-                  Pular tour
-                </button>
-
-                {/* Botões de navegação */}
-                <div className="flex items-center gap-2">
-                  {/* Voltar */}
-                  <Button
-                    variant="outline"
-                    size="default"
+              {/* Footer com botões de navegação grandes */}
+              <div className="px-6 pb-6 space-y-4">
+                {/* Botões de setas grandes */}
+                <div className="flex items-center justify-center gap-4">
+                  {/* Seta Voltar */}
+                  <button
                     onClick={handlePrev}
                     disabled={isFirstStep}
                     className={cn(
-                      "border-[#001533]/20 min-w-[100px]",
-                      isFirstStep && "opacity-50 cursor-not-allowed"
+                      "w-14 h-14 rounded-full flex items-center justify-center transition-all",
+                      "border-2 border-[#001533]/20 dark:border-white/20",
+                      isFirstStep 
+                        ? "opacity-30 cursor-not-allowed" 
+                        : "hover:border-[#1672d6] hover:bg-[#1672d6]/10 hover:scale-110"
                     )}
                   >
-                    <ChevronLeft className="size-4 mr-1" />
-                    Voltar
-                  </Button>
+                    <ChevronLeft className="size-7 text-[#001533] dark:text-white" />
+                  </button>
                   
-                  {/* Próximo / Começar */}
-                  <Button
-                    size="default"
+                  {/* Contador central */}
+                  <div className="text-center px-4">
+                    <p className="text-lg font-bold text-[#001533] dark:text-white">
+                      {currentStep + 1} / {tourSteps.length}
+                    </p>
+                  </div>
+                  
+                  {/* Seta Próximo */}
+                  <button
                     onClick={handleNext}
-                    className="bg-[#1672d6] hover:bg-[#1260b5] text-white min-w-[100px]"
+                    className={cn(
+                      "w-14 h-14 rounded-full flex items-center justify-center transition-all",
+                      isLastStep
+                        ? "bg-emerald-500 hover:bg-emerald-600"
+                        : "bg-[#1672d6] hover:bg-[#1260b5]",
+                      "hover:scale-110"
+                    )}
                   >
                     {isLastStep ? (
-                      <>
-                        <Check className="size-4 mr-1" />
-                        Começar
-                      </>
+                      <Check className="size-7 text-white" />
                     ) : (
-                      <>
-                        Próximo
-                        <ChevronRight className="size-4 ml-1" />
-                      </>
+                      <ChevronRight className="size-7 text-white" />
                     )}
-                  </Button>
+                  </button>
+                </div>
+
+                {/* Botões de texto */}
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={skipTour}
+                    className="text-sm text-[#001533]/50 dark:text-white/50 hover:text-[#001533] dark:hover:text-white transition-colors"
+                  >
+                    Pular tour
+                  </button>
+                  
+                  <p className="text-sm text-[#001533]/50 dark:text-white/50">
+                    {isLastStep ? "Clique ✓ para começar" : "Use as setas para navegar"}
+                  </p>
                 </div>
               </div>
             </div>

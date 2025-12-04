@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { User, Camera, FileText, Shield, CreditCard, Gift, Settings } from 'lucide-react';
+import { User, Camera, FileText, Shield, CreditCard, Gift, Settings, Eye } from 'lucide-react';
 import ClientInformationTab from './ClientInformationTab';
 import ProfilePhotoTab from './ProfilePhotoTab';
 import ContractTab from './ContractTab';
@@ -10,8 +10,9 @@ import RulesTab from './RulesTab';
 import CreditsTab from './CreditsTab';
 import BenefitsTab from './BenefitsTab';
 import ThemeTab from './ThemeTab';
+import AccessibilityTab from './AccessibilityTab';
 
-type TabId = 'info' | 'photo' | 'contract' | 'rules' | 'credits' | 'benefits' | 'theme';
+type TabId = 'info' | 'photo' | 'contract' | 'rules' | 'credits' | 'benefits' | 'theme' | 'accessibility';
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<TabId>('info');
@@ -42,7 +43,8 @@ export default function ProfilePage() {
     { id: 'rules' as TabId, label: 'Regras', icon: Shield },
     { id: 'credits' as TabId, label: 'Créditos', icon: CreditCard },
     { id: 'benefits' as TabId, label: 'Benefícios', icon: Gift },
-    { id: 'theme' as TabId, label: 'Tema', icon: Settings }
+    { id: 'theme' as TabId, label: 'Tema', icon: Settings },
+    { id: 'accessibility' as TabId, label: 'Acessibilidade', icon: Eye }
   ];
 
   if (loading) {
@@ -102,6 +104,7 @@ export default function ProfilePage() {
         {activeTab === 'credits' && <CreditsTab userId={userId} />}
         {activeTab === 'benefits' && <BenefitsTab userId={userId} />}
         {activeTab === 'theme' && <ThemeTab userId={userId} />}
+        {activeTab === 'accessibility' && <AccessibilityTab userId={userId} />}
       </div>
     </div>
   );

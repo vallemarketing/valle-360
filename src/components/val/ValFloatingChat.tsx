@@ -210,48 +210,26 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* Welcome Message */}
+              {/* Quick Actions - Sem saudação duplicada */}
               {messages.length === 0 && (
-                <div className="space-y-4">
-                  {/* Greeting */}
-                  <div className="flex items-start gap-3">
-                    <Image
-                      src="/images/Val.png"
-                      alt="Val"
-                      width={36}
-                      height={36}
-                      className="rounded-full object-cover flex-shrink-0"
-                    />
-                    <div className="bg-[#001533]/5 dark:bg-white/5 rounded-2xl rounded-tl-none p-4 max-w-[85%]">
-                      <p className="text-[#001533] dark:text-white">
-                        Olá, <span className="font-semibold">{userName}</span>! 👋
-                      </p>
-                      <p className="text-[#001533]/70 dark:text-white/70 text-sm mt-1">
-                        Seja bem vindo. Como posso te ajudar hoje?
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Quick Actions */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-[#001533]/50 dark:text-white/50 uppercase tracking-wider px-1">
-                      Ações Rápidas
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {QUICK_ACTIONS.map((action, index) => {
-                        const Icon = action.icon;
-                        return (
-                          <PromptSuggestion
-                            key={index}
-                            onClick={() => handleQuickAction(action.text)}
-                            className="flex items-center gap-2 text-xs"
-                          >
-                            <Icon className={cn("w-4 h-4", action.color)} />
-                            <span className="truncate">{action.text}</span>
-                          </PromptSuggestion>
-                        );
-                      })}
-                    </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-[#001533]/50 dark:text-white/50 uppercase tracking-wider px-1">
+                    Ações Rápidas
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {QUICK_ACTIONS.map((action, index) => {
+                      const Icon = action.icon;
+                      return (
+                        <PromptSuggestion
+                          key={index}
+                          onClick={() => handleQuickAction(action.text)}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          <Icon className={cn("w-4 h-4", action.color)} />
+                          <span className="truncate">{action.text}</span>
+                        </PromptSuggestion>
+                      );
+                    })}
                   </div>
                 </div>
               )}
