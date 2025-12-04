@@ -4,11 +4,14 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   DollarSign, TrendingUp, Download, Filter, Calendar,
-  PieChart, BarChart3, FileText, AlertTriangle
+  PieChart, BarChart3, FileText, AlertTriangle, Brain, Sparkles, 
+  Zap, ThumbsUp, Mail, ArrowRight, CheckCircle
 } from 'lucide-react';
 import { CashFlowKPIs } from '@/components/financial/FinancialKPICards';
 import { WaterfallChart } from '@/components/financial/WaterfallChart';
 import { DRETable } from '@/components/financial/DRETable';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 export default function FinanceiroPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('2024');
@@ -182,6 +185,145 @@ export default function FinanceiroPage() {
               description="Taxa atual de inadimplência"
               type="success"
             />
+          </div>
+        </motion.div>
+
+        {/* ========== INSIGHTS DA IA ========== */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl p-6"
+          style={{
+            background: 'linear-gradient(135deg, rgba(22, 114, 214, 0.15) 0%, rgba(0, 21, 51, 0.3) 100%)',
+            border: '1px solid rgba(22, 114, 214, 0.3)'
+          }}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-[#1672d6] to-[#001533]">
+                <Brain className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  Insights da Val (IA)
+                  <Badge className="bg-[#1672d6]/20 text-[#1672d6] border-[#1672d6]/30">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    Atualizado
+                  </Badge>
+                </h3>
+                <p className="text-gray-400 text-sm">Análise inteligente dos dados financeiros</p>
+              </div>
+            </div>
+            <Button className="bg-[#1672d6] hover:bg-[#1260b5]">
+              <Zap className="w-4 h-4 mr-2" />
+              Gerar Nova Análise
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Insight 1 - Previsão de Receita */}
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/10">
+                  <TrendingUp className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-white mb-1">Previsão de Receita</h4>
+                  <p className="text-sm text-gray-400 mb-3">
+                    Com base nos contratos ativos e histórico, a previsão para o próximo trimestre é de{' '}
+                    <strong className="text-emerald-400">R$ 892.500</strong> (+15% vs trimestre atual).
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Alta confiança</Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Insight 2 - Inadimplência */}
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/10">
+                  <AlertTriangle className="w-5 h-5 text-amber-400" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-white mb-1">Alerta de Inadimplência</h4>
+                  <p className="text-sm text-gray-400 mb-3">
+                    <strong className="text-amber-400">3 clientes</strong> estão com pagamento atrasado há mais de 15 dias. 
+                    Recomendo ação de cobrança imediata.
+                  </p>
+                  <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
+                    <Mail className="w-3 h-3 mr-1" />
+                    Enviar Cobrança
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Insight 3 - Otimização */}
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/10">
+                  <Sparkles className="w-5 h-5 text-purple-400" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-white mb-1">Oportunidade de Upsell</h4>
+                  <p className="text-sm text-gray-400 mb-3">
+                    <strong className="text-purple-400">5 clientes</strong> têm potencial para upgrade de plano, 
+                    o que pode aumentar a receita em até <strong className="text-purple-400">R$ 18.500/mês</strong>.
+                  </p>
+                  <Button size="sm" variant="outline" className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10">
+                    Ver Clientes
+                    <ArrowRight className="w-3 h-3 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Insight 4 - Redução de Custos */}
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <DollarSign className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-white mb-1">Economia Identificada</h4>
+                  <p className="text-sm text-gray-400 mb-3">
+                    Identifiquei <strong className="text-blue-400">R$ 3.200</strong> em assinaturas de ferramentas 
+                    que podem ser canceladas ou renegociadas.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/30">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Ação Recomendada
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Ações Rápidas */}
+          <div className="mt-6 pt-6 border-t border-white/10">
+            <h4 className="text-sm font-medium text-gray-400 mb-3">Ações Rápidas com IA</h4>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" className="border-white/10 text-white hover:bg-white/5">
+                <FileText className="w-3 h-3 mr-1" />
+                Gerar Relatório Mensal
+              </Button>
+              <Button size="sm" variant="outline" className="border-white/10 text-white hover:bg-white/5">
+                <Mail className="w-3 h-3 mr-1" />
+                Cobrar Inadimplentes
+              </Button>
+              <Button size="sm" variant="outline" className="border-white/10 text-white hover:bg-white/5">
+                <BarChart3 className="w-3 h-3 mr-1" />
+                Análise de Tendências
+              </Button>
+              <Button size="sm" variant="outline" className="border-white/10 text-white hover:bg-white/5">
+                <PieChart className="w-3 h-3 mr-1" />
+                Projeção de Fluxo de Caixa
+              </Button>
+            </div>
           </div>
         </motion.div>
       </div>

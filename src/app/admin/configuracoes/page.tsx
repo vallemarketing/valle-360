@@ -61,10 +61,27 @@ export default function ConfiguracoesPage() {
 
     // Empresa
     companyName: 'Valle 360 Marketing Digital',
+    companyTradeName: 'Valle 360',
     companyCNPJ: '12.345.678/0001-90',
     companyEmail: 'contato@valle360.com.br',
     companyPhone: '(11) 99999-9999',
-    companyAddress: 'Rua Example, 123 - São Paulo/SP',
+    // Endereço Completo
+    companyCep: '01310-100',
+    companyStreet: 'Av. Paulista',
+    companyNumber: '1000',
+    companyComplement: 'Sala 1001',
+    companyNeighborhood: 'Bela Vista',
+    companyCity: 'São Paulo',
+    companyState: 'SP',
+    // Dados do Sócio (para contratos)
+    ownerName: 'Guilherme Valle',
+    ownerCPF: '000.000.000-00',
+    ownerEmail: 'guilherme@valle360.com.br',
+    ownerPhone: '(11) 99999-9999',
+    ownerMaritalStatus: 'solteiro',
+    ownerSpouseName: '',
+    // Template de Contrato
+    contractTemplate: '',
 
     // Notificações
     emailNotifications: true,
@@ -199,68 +216,274 @@ export default function ConfiguracoesPage() {
 
       case 'company':
         return (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                Razão Social
-              </label>
-              <input
-                type="text"
-                value={settings.companyName}
-                onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl"
-                style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                CNPJ
-              </label>
-              <input
-                type="text"
-                value={settings.companyCNPJ}
-                onChange={(e) => setSettings({ ...settings, companyCNPJ: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl"
-                style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={settings.companyEmail}
-                  onChange={(e) => setSettings({ ...settings, companyEmail: e.target.value })}
-                  className="w-full px-4 py-2 rounded-xl"
-                  style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
-                />
+          <div className="space-y-8">
+            {/* Dados Básicos */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <Building className="w-5 h-5" style={{ color: 'var(--primary-500)' }} />
+                Dados da Empresa
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                    Razão Social *
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.companyName}
+                    onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                    Nome Fantasia
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.companyTradeName}
+                    onChange={(e) => setSettings({ ...settings, companyTradeName: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                  Telefone
-                </label>
-                <input
-                  type="tel"
-                  value={settings.companyPhone}
-                  onChange={(e) => setSettings({ ...settings, companyPhone: e.target.value })}
-                  className="w-full px-4 py-2 rounded-xl"
-                  style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
-                />
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                    CNPJ *
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.companyCNPJ}
+                    onChange={(e) => setSettings({ ...settings, companyCNPJ: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={settings.companyEmail}
+                    onChange={(e) => setSettings({ ...settings, companyEmail: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                    Telefone
+                  </label>
+                  <input
+                    type="tel"
+                    value={settings.companyPhone}
+                    onChange={(e) => setSettings({ ...settings, companyPhone: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                Endereço
-              </label>
-              <textarea
-                value={settings.companyAddress}
-                onChange={(e) => setSettings({ ...settings, companyAddress: e.target.value })}
-                rows={2}
-                className="w-full px-4 py-2 rounded-xl resize-none"
-                style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
-              />
+
+            {/* Endereço Completo */}
+            <div className="space-y-4 pt-4 border-t" style={{ borderColor: 'var(--border-light)' }}>
+              <h3 className="font-semibold text-lg flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <Globe className="w-5 h-5" style={{ color: 'var(--primary-500)' }} />
+                Endereço Completo
+              </h3>
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>CEP</label>
+                  <input
+                    type="text"
+                    value={settings.companyCep}
+                    onChange={(e) => setSettings({ ...settings, companyCep: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Logradouro</label>
+                  <input
+                    type="text"
+                    value={settings.companyStreet}
+                    onChange={(e) => setSettings({ ...settings, companyStreet: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Número</label>
+                  <input
+                    type="text"
+                    value={settings.companyNumber}
+                    onChange={(e) => setSettings({ ...settings, companyNumber: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Complemento</label>
+                  <input
+                    type="text"
+                    value={settings.companyComplement}
+                    onChange={(e) => setSettings({ ...settings, companyComplement: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Bairro</label>
+                  <input
+                    type="text"
+                    value={settings.companyNeighborhood}
+                    onChange={(e) => setSettings({ ...settings, companyNeighborhood: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Cidade</label>
+                  <input
+                    type="text"
+                    value={settings.companyCity}
+                    onChange={(e) => setSettings({ ...settings, companyCity: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Estado</label>
+                  <input
+                    type="text"
+                    value={settings.companyState}
+                    onChange={(e) => setSettings({ ...settings, companyState: e.target.value })}
+                    maxLength={2}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dados do Sócio */}
+            <div className="space-y-4 pt-4 border-t" style={{ borderColor: 'var(--border-light)' }}>
+              <h3 className="font-semibold text-lg flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <Users className="w-5 h-5" style={{ color: 'var(--primary-500)' }} />
+                Dados do Sócio (Para Contratos)
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Nome Completo *</label>
+                  <input
+                    type="text"
+                    value={settings.ownerName}
+                    onChange={(e) => setSettings({ ...settings, ownerName: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>CPF *</label>
+                  <input
+                    type="text"
+                    value={settings.ownerCPF}
+                    onChange={(e) => setSettings({ ...settings, ownerCPF: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Email</label>
+                  <input
+                    type="email"
+                    value={settings.ownerEmail}
+                    onChange={(e) => setSettings({ ...settings, ownerEmail: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Telefone</label>
+                  <input
+                    type="tel"
+                    value={settings.ownerPhone}
+                    onChange={(e) => setSettings({ ...settings, ownerPhone: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Estado Civil</label>
+                  <select
+                    value={settings.ownerMaritalStatus}
+                    onChange={(e) => setSettings({ ...settings, ownerMaritalStatus: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  >
+                    <option value="solteiro">Solteiro(a)</option>
+                    <option value="casado">Casado(a)</option>
+                    <option value="divorciado">Divorciado(a)</option>
+                    <option value="viuvo">Viúvo(a)</option>
+                  </select>
+                </div>
+              </div>
+              {settings.ownerMaritalStatus === 'casado' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Nome do Cônjuge</label>
+                  <input
+                    type="text"
+                    value={settings.ownerSpouseName}
+                    onChange={(e) => setSettings({ ...settings, ownerSpouseName: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Template de Contrato */}
+            <div className="space-y-4 pt-4 border-t" style={{ borderColor: 'var(--border-light)' }}>
+              <h3 className="font-semibold text-lg flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <Key className="w-5 h-5" style={{ color: 'var(--primary-500)' }} />
+                Template de Contrato Padrão
+              </h3>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                Faça upload do modelo de contrato que será usado para preenchimento automático com dados dos clientes.
+              </p>
+              <div 
+                className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover:border-primary-500 transition-colors"
+                style={{ borderColor: 'var(--border-light)' }}
+              >
+                <Database className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
+                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Arraste o arquivo ou clique para selecionar
+                </p>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                  Suporta: .docx, .pdf (máx. 10MB)
+                </p>
+                <input type="file" accept=".docx,.pdf" className="hidden" />
+                <button 
+                  className="mt-4 px-4 py-2 rounded-xl text-sm font-medium"
+                  style={{ backgroundColor: 'var(--primary-500)', color: 'white' }}
+                >
+                  Selecionar Arquivo
+                </button>
+              </div>
+              <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-primary)' }}>
+                <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Variáveis disponíveis:</p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  {'{{cliente_nome}}'}, {'{{cliente_cpf}}'}, {'{{cliente_endereco}}'}, {'{{empresa_nome}}'}, {'{{empresa_cnpj}}'}, {'{{valor_mensal}}'}, {'{{data_inicio}}'}, {'{{servicos}}'}
+                </p>
+              </div>
             </div>
           </div>
         );
