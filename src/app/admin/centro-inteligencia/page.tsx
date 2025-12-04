@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +23,16 @@ import {
   Zap,
   Brain,
   Sparkles,
+  X,
+  Send,
+  Mail,
+  Phone,
+  ThumbsUp,
+  ThumbsDown,
+  ChevronRight,
+  MessageSquare,
+  Calendar,
+  FileText
 } from 'lucide-react';
 import ScopeCreepWidget from './widgets/ScopeCreepWidget';
 import {
@@ -38,6 +50,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { cn } from '@/lib/utils';
 
 interface KPI {
   label: string;
@@ -67,6 +80,26 @@ interface AIRecommendation {
 
 export default function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
+  const [showExecuteModal, setShowExecuteModal] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<AIRecommendation | null>(null);
+  const [executingAction, setExecutingAction] = useState(false);
+  const [actionExecuted, setActionExecuted] = useState<string[]>([]);
+
+  const handleExecuteClick = (rec: AIRecommendation) => {
+    setSelectedAction(rec);
+    setShowExecuteModal(true);
+  };
+
+  const confirmExecution = async () => {
+    if (!selectedAction) return;
+    setExecutingAction(true);
+    // Simular execução
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setActionExecuted(prev => [...prev, selectedAction.id]);
+    setExecutingAction(false);
+    setShowExecuteModal(false);
+    setSelectedAction(null);
+  };
 
   const kpis: KPI[] = [
     {
@@ -252,25 +285,36 @@ export default function SuperAdminDashboard() {
         </div>
       </div>
 
+      {/* KPIs Clicáveis */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi, index) => (
-          <Card key={index}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className={kpi.color}>{kpi.icon}</div>
-                <Badge
-                  className={kpi.trend === 'up' ? 'bg-green-600' : kpi.trend === 'down' ? 'bg-red-600' : 'bg-gray-600'}
-                >
-                  {kpi.trend === 'up' ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                  {kpi.change > 0 ? '+' : ''}
-                  {kpi.change}%
-                </Badge>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpi.value}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{kpi.label}</p>
-            </CardContent>
-          </Card>
-        ))}
+        {kpis.map((kpi, index) => {
+          const links = ['/admin/financeiro', '/admin/clientes', '/admin/performance', '/admin/nps'];
+          return (
+            <Link key={index} href={links[index]}>
+              <motion.div whileHover={{ y: -4, scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Card className="cursor-pointer border-2 border-transparent hover:border-[#1672d6]/30 hover:shadow-lg transition-all">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className={kpi.color}>{kpi.icon}</div>
+                      <Badge
+                        className={kpi.trend === 'up' ? 'bg-emerald-600' : kpi.trend === 'down' ? 'bg-red-600' : 'bg-gray-600'}
+                      >
+                        {kpi.trend === 'up' ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+                        {kpi.change > 0 ? '+' : ''}
+                        {kpi.change}%
+                      </Badge>
+                    </div>
+                    <p className="text-2xl font-bold text-[#001533] dark:text-white">{kpi.value}</p>
+                    <p className="text-sm text-[#001533]/60 dark:text-white/60">{kpi.label}</p>
+                    <div className="mt-2 flex items-center text-[#1672d6] text-xs font-medium">
+                      Ver detalhes <ChevronRight className="w-3 h-3 ml-1" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </Link>
+          );
+        })}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -306,10 +350,21 @@ export default function SuperAdminDashboard() {
                       </span>
                     </div>
                   </div>
-                  <Button size="sm" className="ml-4 bg-orange-600 hover:bg-orange-700">
-                    <Zap className="w-4 h-4 mr-1" />
-                    Executar
-                  </Button>
+                  {actionExecuted.includes(rec.id) ? (
+                    <Badge className="ml-4 bg-emerald-600">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Executado
+                    </Badge>
+                  ) : (
+                    <Button 
+                      size="sm" 
+                      className="ml-4 bg-[#1672d6] hover:bg-[#1260b5]"
+                      onClick={() => handleExecuteClick(rec)}
+                    >
+                      <Zap className="w-4 h-4 mr-1" />
+                      Executar
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -405,7 +460,7 @@ export default function SuperAdminDashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <PieChart className="w-5 h-5 text-orange-600" />
+            <PieChart className="w-5 h-5 text-[#1672d6]" />
             Distribuição de Receita por Departamento
           </CardTitle>
         </CardHeader>
@@ -433,6 +488,134 @@ export default function SuperAdminDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Ações Rápidas com IA */}
+      <Card className="border-2 border-[#1672d6]/20 bg-gradient-to-br from-[#1672d6]/5 to-transparent">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-[#1672d6]" />
+            Ações Rápidas com IA
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-[#1672d6]/30 transition-all text-left"
+            >
+              <Mail className="w-6 h-6 text-[#1672d6] mb-2" />
+              <p className="font-semibold text-sm">Cobrar Clientes</p>
+              <p className="text-xs text-muted-foreground">Em atraso</p>
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-[#1672d6]/30 transition-all text-left"
+            >
+              <ThumbsUp className="w-6 h-6 text-emerald-500 mb-2" />
+              <p className="font-semibold text-sm">Elogiar Equipe</p>
+              <p className="text-xs text-muted-foreground">Performance alta</p>
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-[#1672d6]/30 transition-all text-left"
+            >
+              <Calendar className="w-6 h-6 text-purple-500 mb-2" />
+              <p className="font-semibold text-sm">Agendar Reuniões</p>
+              <p className="text-xs text-muted-foreground">Pendentes</p>
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-[#1672d6]/30 transition-all text-left"
+            >
+              <FileText className="w-6 h-6 text-orange-500 mb-2" />
+              <p className="font-semibold text-sm">Gerar Relatório</p>
+              <p className="text-xs text-muted-foreground">Mensal</p>
+            </motion.button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Modal de Confirmação de Execução */}
+      <AnimatePresence>
+        {showExecuteModal && selectedAction && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => !executingAction && setShowExecuteModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#0a0f1a] rounded-2xl w-full max-w-md shadow-2xl"
+            >
+              <div className="p-6 border-b border-border">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-3 rounded-xl bg-[#1672d6]/10">
+                    <Zap className="w-6 h-6 text-[#1672d6]" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground">Confirmar Execução</h2>
+                    <p className="text-sm text-muted-foreground">Esta ação será executada automaticamente</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="p-4 rounded-xl bg-muted/50 mb-4">
+                  <h3 className="font-semibold text-foreground mb-1">{selectedAction.title}</h3>
+                  <p className="text-sm text-muted-foreground mb-3">{selectedAction.description}</p>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">
+                      Impacto: {selectedAction.impact}
+                    </Badge>
+                    <Badge variant="outline">{selectedAction.category}</Badge>
+                  </div>
+                </div>
+
+                <p className="text-sm text-muted-foreground mb-4">
+                  Ao confirmar, a IA irá executar as ações necessárias automaticamente.
+                </p>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowExecuteModal(false)}
+                    disabled={executingAction}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    className="flex-1 bg-[#1672d6] hover:bg-[#1260b5]"
+                    onClick={confirmExecution}
+                    disabled={executingAction}
+                  >
+                    {executingAction ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                        Executando...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Confirmar Execução
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
