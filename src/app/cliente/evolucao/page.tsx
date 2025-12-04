@@ -185,6 +185,8 @@ const MILESTONE_ICONS: Record<string, React.ElementType> = {
   feature: Zap
 };
 
+const CLIENT_JOIN_DATE = new Date('2024-06-15'); // Data de entrada no time Valle 360
+
 export default function EvolucaoPage() {
   const [milestones] = useState<Milestone[]>(mockMilestones);
   const [metrics] = useState<EvolutionMetric[]>(mockMetrics);
@@ -205,12 +207,12 @@ export default function EvolucaoPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <TrendingUp className="w-7 h-7" style={{ color: 'var(--success-500)' }} />
+          <h1 className="text-2xl font-bold flex items-center gap-2 text-[#001533] dark:text-white">
+            <TrendingUp className="w-7 h-7 text-emerald-500" />
             Minha Evolução
           </h1>
-          <p style={{ color: 'var(--text-secondary)' }}>
-            Acompanhe seu crescimento desde o início
+          <p className="text-[#001533]/60 dark:text-white/60">
+            Evolução desde que entrou no time Valle 360
           </p>
         </div>
         <button

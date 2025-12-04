@@ -202,16 +202,25 @@ export default function ClienteProducaoPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Minhas Demandas</h1>
-            <p className="text-gray-500">Acompanhe o status de produção dos seus projetos</p>
+            <h1 className="text-2xl font-bold text-[#001533] dark:text-white">Minhas Demandas</h1>
+            <p className="text-[#001533]/60 dark:text-white/60">Acompanhe o status de produção dos seus projetos</p>
           </div>
-          <button
-            onClick={loadDemands}
-            className="flex items-center gap-2 px-4 py-2 bg-white border rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Atualizar
-          </button>
+          <div className="flex gap-2">
+            <a
+              href="/cliente/solicitacao"
+              className="flex items-center gap-2 px-4 py-2 bg-[#1672d6] text-white rounded-lg hover:bg-[#1260b5] transition-colors font-medium"
+            >
+              <FileText className="w-4 h-4" />
+              Solicitar
+            </a>
+            <button
+              onClick={loadDemands}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-[#001533]/20 rounded-lg hover:bg-[#001533]/5 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Atualizar
+            </button>
+          </div>
         </div>
 
         {/* Stats */}

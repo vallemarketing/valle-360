@@ -2,14 +2,15 @@
 
 // ============================================
 // CLIENT SIDEBAR - VALLE AI
-// Sidebar colapsável para área do cliente
+// Sidebar colapsável com accordion para área do cliente
 // Cores: #001533 (navy), #1672d6 (primary), #ffffff (white)
 // ============================================
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   FileCheck,
@@ -28,10 +29,13 @@ import {
   Share2,
   Bot,
   Send,
-  ChevronLeft,
-  ChevronRight,
+  ChevronDown,
   PanelLeftClose,
   PanelLeft,
+  LogOut,
+  Sparkles,
+  Trophy,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,8 +44,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { signOut } from "@/lib/auth";
 
-// Grupos de navegação
+// Grupos de navegação - Reorganizados
 const navGroups = [
   {
     label: "Principal",
@@ -49,6 +54,7 @@ const navGroups = [
       { href: "/cliente/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/cliente/producao", label: "Produção", icon: FileCheck, badge: 3 },
       { href: "/cliente/aprovacoes", label: "Aprovações", icon: FileCheck },
+      { href: "/cliente/agenda", label: "Agenda", icon: Calendar }, // Movido para Principal
     ],
   },
   {
@@ -80,10 +86,10 @@ const navGroups = [
     label: "Conta",
     items: [
       { href: "/cliente/perfil", label: "Meu Perfil", icon: UserCircle },
+      { href: "/cliente/valle-club", label: "Valle Club", icon: Trophy }, // Gamificação
       { href: "/cliente/beneficios", label: "Benefícios", icon: Gift },
-      { href: "/cliente/agenda", label: "Agenda", icon: Calendar },
       { href: "/cliente/arquivos", label: "Arquivos", icon: FolderOpen },
-      { href: "/cliente/ia", label: "Assistente IA", icon: Bot },
+      { href: "/cliente/suporte", label: "Falar com Suporte", icon: HelpCircle }, // Movido para Conta
     ],
   },
 ];
@@ -95,12 +101,31 @@ interface ClientSidebarProps {
 
 export function ClientSidebar({ collapsed = false, onCollapsedChange }: ClientSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(collapsed);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(["Principal", "Métricas", "Financeiro", "Comunicação", "Conta"]);
 
   const handleToggle = () => {
     const newValue = !isCollapsed;
     setIsCollapsed(newValue);
     onCollapsedChange?.(newValue);
+  };
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(label) 
+        ? prev.filter(g => g !== label)
+        : [...prev, label]
+    );
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (
@@ -157,109 +182,188 @@ export function ClientSidebar({ collapsed = false, onCollapsedChange }: ClientSi
           </div>
         )}
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin scrollbar-thumb-white/10">
-          {navGroups.map((group) => (
-            <div key={group.label}>
-              {/* Group Label */}
-              {!isCollapsed && (
-                <h3 className="px-3 mb-2 text-xs font-semibold text-white/40 uppercase tracking-wider">
-                  {group.label}
-                </h3>
+        {/* Botão Assistente IA - Central */}
+        {!isCollapsed && (
+          <div className="px-3 py-3 border-b border-white/10">
+            <Link
+              href="/cliente/ia"
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded-xl",
+                "bg-gradient-to-r from-[#1672d6] to-[#1672d6]/80",
+                "text-white font-medium",
+                "hover:shadow-lg hover:shadow-[#1672d6]/30 transition-all",
+                "group"
               )}
-              
-              {/* Group Items */}
-              <div className="space-y-1">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-
-                  const linkContent = (
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg",
-                        "transition-all duration-200",
-                        "group relative",
-                        isActive
-                          ? "bg-[#1672d6] text-white shadow-lg shadow-[#1672d6]/30"
-                          : "text-white/70 hover:text-white hover:bg-white/10",
-                        isCollapsed && "justify-center px-0"
-                      )}
-                    >
-                      <Icon className={cn(
-                        "size-5 flex-shrink-0",
-                        isActive ? "text-white" : "text-white/70 group-hover:text-white"
-                      )} />
-                      
-                      {!isCollapsed && (
-                        <>
-                          <span className="font-medium text-sm">{item.label}</span>
-                          {item.badge && (
-                            <span className="ml-auto flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
-                              {item.badge}
-                            </span>
-                          )}
-                        </>
-                      )}
-                      
-                      {isCollapsed && item.badge && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center">
-                          {item.badge}
-                        </span>
-                      )}
-                    </Link>
-                  );
-
-                  // Com tooltip quando colapsado
-                  if (isCollapsed) {
-                    return (
-                      <Tooltip key={item.href}>
-                        <TooltipTrigger asChild>
-                          {linkContent}
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="bg-[#001533] border-white/20 text-white">
-                          {item.label}
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  }
-
-                  return <div key={item.href}>{linkContent}</div>;
-                })}
+            >
+              <div className="p-1.5 rounded-lg bg-white/20">
+                <Sparkles className="size-4" />
               </div>
-            </div>
-          ))}
+              <span>Assistente Val</span>
+              <div className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-xs">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                Online
+              </div>
+            </Link>
+          </div>
+        )}
+
+        {isCollapsed && (
+          <div className="px-2 py-3 border-b border-white/10">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/cliente/ia"
+                  className="flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-r from-[#1672d6] to-[#1672d6]/80 text-white"
+                >
+                  <Sparkles className="size-5" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-[#001533] border-white/20 text-white">
+                Assistente Val
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+
+        {/* Navigation com Accordion */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-2 scrollbar-thin scrollbar-thumb-white/10">
+          {navGroups.map((group) => {
+            const isExpanded = expandedGroups.includes(group.label);
+            const hasActiveItem = group.items.some(
+              item => pathname === item.href || pathname.startsWith(item.href + "/")
+            );
+
+            return (
+              <div key={group.label}>
+                {/* Group Header - Accordion Trigger */}
+                {!isCollapsed ? (
+                  <button
+                    onClick={() => toggleGroup(group.label)}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2 rounded-lg",
+                      "text-xs font-semibold uppercase tracking-wider",
+                      "transition-colors",
+                      hasActiveItem 
+                        ? "text-[#1672d6] bg-[#1672d6]/10" 
+                        : "text-white/40 hover:text-white/60 hover:bg-white/5"
+                    )}
+                  >
+                    <span>{group.label}</span>
+                    <motion.div
+                      animate={{ rotate: isExpanded ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronDown className="size-4" />
+                    </motion.div>
+                  </button>
+                ) : (
+                  <div className="h-px bg-white/10 my-2" />
+                )}
+                
+                {/* Group Items - Animated */}
+                <AnimatePresence>
+                  {(isExpanded || isCollapsed) && (
+                    <motion.div
+                      initial={isCollapsed ? false : { height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className={cn("space-y-1", !isCollapsed && "mt-1")}>
+                        {group.items.map((item) => {
+                          const Icon = item.icon;
+                          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+
+                          const linkContent = (
+                            <Link
+                              href={item.href}
+                              className={cn(
+                                "flex items-center gap-3 px-3 py-2.5 rounded-lg",
+                                "transition-all duration-200",
+                                "group relative",
+                                isActive
+                                  ? "bg-[#1672d6] text-white shadow-lg shadow-[#1672d6]/30"
+                                  : "text-white/70 hover:text-white hover:bg-white/10",
+                                isCollapsed && "justify-center px-0"
+                              )}
+                            >
+                              <Icon className={cn(
+                                "size-5 flex-shrink-0",
+                                isActive ? "text-white" : "text-white/70 group-hover:text-white"
+                              )} />
+                              
+                              {!isCollapsed && (
+                                <>
+                                  <span className="font-medium text-sm">{item.label}</span>
+                                  {item.badge && (
+                                    <span className="ml-auto flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+                                      {item.badge}
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                              
+                              {isCollapsed && item.badge && (
+                                <span className="absolute -top-1 -right-1 w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center">
+                                  {item.badge}
+                                </span>
+                              )}
+                            </Link>
+                          );
+
+                          if (isCollapsed) {
+                            return (
+                              <Tooltip key={item.href}>
+                                <TooltipTrigger asChild>
+                                  {linkContent}
+                                </TooltipTrigger>
+                                <TooltipContent side="right" className="bg-[#001533] border-white/20 text-white">
+                                  {item.label}
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          }
+
+                          return <div key={item.href}>{linkContent}</div>;
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
         </nav>
 
-        {/* Footer */}
+        {/* Footer - Botão Sair */}
         <div className={cn(
           "p-4 border-t border-white/10",
           isCollapsed && "px-2"
         )}>
           {!isCollapsed ? (
-            <div className="p-3 rounded-lg bg-[#1672d6]/10 border border-[#1672d6]/20">
-              <p className="text-white/90 text-sm font-medium mb-1">Precisa de ajuda?</p>
-              <p className="text-white/50 text-xs mb-3">Nossa equipe está online</p>
-              <Link
-                href="/cliente/mensagens"
-                className="block w-full text-center py-2 rounded-lg bg-[#1672d6] text-white text-sm font-medium hover:bg-[#1672d6]/90 transition-colors"
-              >
-                Falar com Suporte
-              </Link>
-            </div>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+            >
+              <LogOut className="size-5" />
+              <span className="font-medium">Sair</span>
+            </Button>
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Link
-                  href="/cliente/mensagens"
-                  className="flex items-center justify-center p-2 rounded-lg bg-[#1672d6] text-white hover:bg-[#1672d6]/90 transition-colors"
+                <Button
+                  onClick={handleLogout}
+                  variant="ghost"
+                  size="icon"
+                  className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"
                 >
-                  <MessageSquare className="size-5" />
-                </Link>
+                  <LogOut className="size-5" />
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="right" className="bg-[#001533] border-white/20 text-white">
-                Falar com Suporte
+                Sair
               </TooltipContent>
             </Tooltip>
           )}

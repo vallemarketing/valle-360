@@ -36,6 +36,9 @@ import { ClientSidebar } from "@/components/layout/ClientSidebar";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { ValFloatingChat } from "@/components/val/ValFloatingChat";
+import { AlertsPanel } from "@/components/alerts/AlertsPanel";
+import { NPSModal } from "@/components/nps/NPSModal";
 
 // Mapa de breadcrumbs
 const breadcrumbMap: Record<string, string> = {
@@ -74,6 +77,8 @@ export default function ClienteLayout({
     email: "",
     avatar: "",
   });
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [showNPS, setShowNPS] = useState(false);
 
   // Carregar dados do usuário
   useEffect(() => {
@@ -207,10 +212,11 @@ export default function ClienteLayout({
                 <Button
                   variant="ghost"
                   size="icon"
+                  onClick={() => setShowAlerts(true)}
                   className="relative text-[#001533]/70 dark:text-white/70 hover:bg-[#001533]/5 dark:hover:bg-white/10"
                 >
                   <Bell className="size-5" />
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-[#1672d6] text-white text-[10px] rounded-full flex items-center justify-center font-medium">
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-medium animate-pulse">
                     3
                   </span>
                 </Button>
@@ -272,6 +278,22 @@ export default function ClienteLayout({
             {children}
           </main>
         </div>
+
+        {/* Val Floating Chat */}
+        <ValFloatingChat userName={userData.name.split(" ")[0]} />
+
+        {/* Alerts Panel */}
+        <AlertsPanel isOpen={showAlerts} onClose={() => setShowAlerts(false)} />
+
+        {/* NPS Modal */}
+        <NPSModal
+          isOpen={showNPS}
+          onClose={() => setShowNPS(false)}
+          onSubmit={(score, comment) => {
+            console.log("NPS:", score, comment);
+            // Aqui enviaria para o backend
+          }}
+        />
       </div>
     </ProtectedRoute>
   );

@@ -208,7 +208,7 @@ export default function ServicosPage() {
                       <p className="text-sm text-gray-600 dark:text-gray-400">A partir de</p>
                       <p className="text-xl font-bold text-gray-900 dark:text-white">{service.price}</p>
                     </div>
-                    <Button className="bg-valle-charcoal hover:bg-valle-steel">
+                    <Button className="bg-[#1672d6] hover:bg-[#1260b5] text-white">
                       Contratar
                       <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
@@ -263,7 +263,7 @@ export default function ServicosPage() {
                       <p className="text-sm text-gray-600 dark:text-gray-400">A partir de</p>
                       <p className="text-xl font-bold text-gray-900 dark:text-white">{service.price}</p>
                     </div>
-                    <Button variant="outline">
+                    <Button className="bg-[#1672d6] hover:bg-[#1260b5] text-white">
                       Saiba Mais
                       <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>

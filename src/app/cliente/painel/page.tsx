@@ -131,11 +131,11 @@ export default function PainelPage() {
               <ArrowLeft className="size-5 text-[#001533] dark:text-white" />
             </Link>
             <h1 className="text-3xl font-bold text-[#001533] dark:text-white">
-              Painel de Inteligência
+              Central de Inteligência do Cliente
             </h1>
           </div>
           <p className="text-[#001533]/60 dark:text-white/60 ml-12">
-            Todas as informações do seu negócio organizadas em um só lugar
+            Todas as informações inteligentes do seu negócio organizadas em um só lugar
           </p>
         </div>
         <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-[#1672d6]/10 text-[#1672d6]">
