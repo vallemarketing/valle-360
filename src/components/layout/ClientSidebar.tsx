@@ -140,26 +140,28 @@ export function ClientSidebar({ collapsed = false, onCollapsedChange }: ClientSi
           isCollapsed ? "w-[70px]" : "w-[260px]"
         )}
       >
-        {/* Header */}
+        {/* Header - Logo Valle 360 */}
         <div className={cn(
           "flex items-center h-16 px-4 border-b border-white/10",
           isCollapsed ? "justify-center" : "justify-between"
         )}>
-          <Link href="/cliente/dashboard" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-lg flex-shrink-0 overflow-hidden">
+          <Link href="/cliente/dashboard" className="flex items-center">
+            {isCollapsed ? (
               <Image 
                 src="/icons/valle360-icon.png" 
                 alt="Valle 360" 
-                width={32} 
-                height={32}
+                width={36} 
+                height={36}
                 className="object-contain"
               />
-            </div>
-            {!isCollapsed && (
-              <div className="overflow-hidden">
-                <span className="font-semibold text-white block">Valle 360</span>
-                <span className="text-white/40 text-xs">Portal do Cliente</span>
-              </div>
+            ) : (
+              <Image 
+                src="/Logo/valle360-logo.png" 
+                alt="Valle 360" 
+                width={140} 
+                height={40}
+                className="object-contain"
+              />
             )}
           </Link>
           

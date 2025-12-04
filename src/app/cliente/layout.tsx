@@ -199,20 +199,6 @@ export default function ClienteLayout({
 
               {/* Right side */}
               <div className="flex items-center gap-2">
-                {/* Logo Valle 360 */}
-                <Link href="/cliente/dashboard" className="hidden sm:flex items-center gap-2 mr-2">
-                  <Image 
-                    src="/Logo/valle360-logo.png" 
-                    alt="Valle 360" 
-                    width={120} 
-                    height={32}
-                    className="h-8 w-auto object-contain"
-                  />
-                </Link>
-
-                {/* Divider */}
-                <div className="hidden sm:block w-px h-6 bg-[#001533]/10 dark:bg-white/10" />
-
                 {/* Theme toggle */}
                 <Button
                   variant="ghost"

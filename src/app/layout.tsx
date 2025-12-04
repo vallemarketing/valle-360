@@ -2,7 +2,6 @@ import './globals.css';
 import '@/styles/colors.css';
 import type { Metadata, Viewport } from 'next';
 import { AppProvider } from '@/contexts/AppContext';
-import { ValSidebar, ValFloatingButton } from '@/components/val/ValSidebar';
 
 export const metadata: Metadata = {
   title: 'Valle 360 - Portal Integrado',
@@ -28,8 +27,6 @@ export default function RootLayout({
       <body>
         <AppProvider>
           {children}
-          <ValSidebar />
-          <ValFloatingButton />
         </AppProvider>
       </body>
     </html>
