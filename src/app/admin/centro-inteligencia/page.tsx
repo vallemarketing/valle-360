@@ -51,7 +51,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { cn } from '@/lib/utils';
-import { ThreeDPhotoCarousel } from '@/components/ui/carousel-3d';
+import ThreeDPhotoCarousel from '@/components/ui/carousel-3d';
 
 interface KPI {
   label: string;
