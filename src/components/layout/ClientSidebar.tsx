@@ -54,8 +54,8 @@ const navGroups = [
     items: [
       { href: "/cliente/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/cliente/producao", label: "Produção", icon: FileCheck, badge: 3 },
-      { href: "/cliente/aprovacoes", label: "Aprovações", icon: FileCheck },
-      { href: "/cliente/agenda", label: "Agenda", icon: Calendar }, // Movido para Principal
+      { href: "/cliente/aprovacoes", label: "Aprovações", icon: FileCheck, badge: 5 },
+      { href: "/cliente/agenda", label: "Agenda", icon: Calendar },
     ],
   },
   {

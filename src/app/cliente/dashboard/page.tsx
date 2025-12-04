@@ -23,7 +23,9 @@ import {
   Calendar,
   ArrowRight,
   Zap,
-  Lightbulb
+  Lightbulb,
+  AlertTriangle,
+  X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -221,6 +223,39 @@ export default function ClienteDashboard() {
               </div>
             </div>
           </Link>
+        </motion.div>
+
+        {/* ========== ALERTA DE COBRANÇA ========== */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25 }}
+        >
+          <div className="rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-2.5 rounded-xl bg-white/20">
+                  <AlertTriangle className="size-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Fatura em aberto</h3>
+                  <p className="text-white/80 text-sm">
+                    Você tem uma fatura de <span className="font-bold">R$ 2.500,00</span> com vencimento em <span className="font-bold">10/12/2025</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link href="/cliente/financeiro">
+                  <button className="px-4 py-2 bg-white text-orange-600 rounded-lg font-medium text-sm hover:bg-white/90 transition-colors">
+                    Pagar Agora
+                  </button>
+                </Link>
+                <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                  <X className="size-4" />
+                </button>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
         {/* Main Grid */}
