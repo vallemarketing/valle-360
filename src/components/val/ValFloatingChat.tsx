@@ -145,7 +145,7 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
       >
         <div className="relative w-14 h-14 rounded-full overflow-hidden">
           <Image
-            src="/images/val-avatar.png"
+            src="/images/Val.png"
             alt="Val - Assistente IA"
             width={56}
             height={56}
@@ -187,7 +187,7 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <Image
-                    src="/images/val-avatar.png"
+                    src="/images/Val.png"
                     alt="Val"
                     width={44}
                     height={44}
@@ -219,7 +219,7 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
                   {/* Greeting */}
                   <div className="flex items-start gap-3">
                     <Image
-                      src="/images/val-avatar.png"
+                      src="/images/Val.png"
                       alt="Val"
                       width={36}
                       height={36}
@@ -270,7 +270,7 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
                 >
                   {!message.isUser && (
                     <Image
-                      src="/images/val-avatar.png"
+                      src="/images/Val.png"
                       alt="Val"
                       width={36}
                       height={36}
@@ -300,7 +300,7 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
               {isTyping && (
                 <div className="flex items-start gap-3">
                   <Image
-                    src="/images/val-avatar.png"
+                    src="/images/Val.png"
                     alt="Val"
                     width={36}
                     height={36}
