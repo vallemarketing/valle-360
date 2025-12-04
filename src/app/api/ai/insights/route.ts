@@ -232,3 +232,5 @@ function generateBasicInsights(data: any) {
 
 
 
+
+

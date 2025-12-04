@@ -2,10 +2,11 @@
 
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 
 // ============================================
 // STATS CARD - VALLE AI
+// Hover dinâmico individual - destaque azul aparece só onde o mouse está
 // Cores: #001533 (navy), #1672d6 (primary), #ffffff (white)
 // ============================================
 
@@ -28,6 +29,7 @@ export function StatsCard({
   className,
   variant = "default",
 }: StatsCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const isPositive = change && change > 0;
   const isNegative = change && change < 0;
   const isNeutral = change === 0;
@@ -42,19 +44,26 @@ export function StatsCard({
 
   return (
     <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className={cn(
         // Base
         "relative overflow-hidden rounded-xl border-2 p-5",
-        "transition-all duration-300",
-        // Hover
-        "hover:shadow-lg hover:shadow-[#1672d6]/10 hover:-translate-y-0.5",
+        "transition-all duration-300 cursor-pointer",
+        // Hover dinâmico - destaque azul aparece só onde o mouse está
+        isHovered && variant === "default" && "border-[#1672d6] shadow-lg shadow-[#1672d6]/20 -translate-y-1 bg-[#1672d6]/5",
+        isHovered && variant !== "default" && "shadow-xl -translate-y-1",
+        !isHovered && "hover:border-[#1672d6]/30",
         // Variant
         variantStyles[variant],
         className
       )}
     >
-      {/* Background decoration */}
-      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-[#1672d6]/5" />
+      {/* Background decoration - intensifica no hover */}
+      <div className={cn(
+        "absolute -right-4 -top-4 h-24 w-24 rounded-full transition-all duration-300",
+        isHovered ? "bg-[#1672d6]/20 scale-110" : "bg-[#1672d6]/5"
+      )} />
       
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
@@ -124,4 +133,6 @@ export function StatsGrid({ children, className }: StatsGridProps) {
 }
 
 export type { StatsCardProps, StatsGridProps };
+
+
 

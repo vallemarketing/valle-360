@@ -7,13 +7,11 @@ import {
   X, 
   Send, 
   Mic, 
-  Globe, 
-  ChevronDown,
+  Globe,
   TrendingUp,
   Calendar,
   Target,
-  FileText,
-  Sparkles
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -129,36 +127,43 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - Apenas imagem da Val */}
       <motion.button
         onClick={() => setIsOpen(true)}
         className={cn(
           "fixed bottom-6 right-6 z-50",
-          "w-14 h-14 rounded-full shadow-lg",
+          "w-16 h-16 rounded-full shadow-xl",
           "bg-gradient-to-br from-[#1672d6] to-[#001533]",
           "flex items-center justify-center",
-          "hover:shadow-xl hover:scale-105 transition-all",
-          "border-2 border-white/20",
+          "hover:shadow-2xl hover:scale-105 transition-all",
+          "border-2 border-white/30",
+          "group",
           isOpen && "hidden"
         )}
-        whileHover={{ scale: 1.05 }}
+        whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.95 }}
       >
-        <Image
-          src="/images/val-avatar.png"
-          alt="Val"
-          width={48}
-          height={48}
-          className="rounded-full object-cover"
-          onError={(e) => {
-            // Fallback to icon if image not found
-            e.currentTarget.style.display = 'none';
-          }}
-        />
-        <Sparkles className="w-6 h-6 text-white absolute" style={{ display: 'none' }} />
+        <div className="relative w-14 h-14 rounded-full overflow-hidden">
+          <Image
+            src="/images/val-avatar.png"
+            alt="Val - Assistente IA"
+            width={56}
+            height={56}
+            className="rounded-full object-cover"
+            priority
+          />
+        </div>
         
         {/* Pulse animation */}
         <span className="absolute inset-0 rounded-full bg-[#1672d6] animate-ping opacity-20" />
+        
+        {/* Tooltip on hover */}
+        <div className="absolute bottom-full right-0 mb-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          <div className="bg-[#001533] text-white text-sm px-4 py-2 rounded-xl shadow-lg whitespace-nowrap">
+            Precisa de ajuda?
+            <div className="absolute bottom-0 right-6 translate-y-1/2 rotate-45 w-2 h-2 bg-[#001533]" />
+          </div>
+        </div>
       </motion.button>
 
       {/* Chat Window */}

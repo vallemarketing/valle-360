@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { X } from "lucide-react";
 import { 
   Link2, 
   LinkIcon, 
@@ -143,6 +144,9 @@ const socialAccounts: SocialAccount[] = [
 export default function RedesSociaisPage() {
   const [accounts, setAccounts] = useState(socialAccounts);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [showMetricsModal, setShowMetricsModal] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<SocialAccount | null>(null);
+  const [metricsPeriod, setMetricsPeriod] = useState("7d");
 
   const connectedAccounts = accounts.filter(a => a.connected);
   const disconnectedAccounts = accounts.filter(a => !a.connected);
@@ -153,7 +157,16 @@ export default function RedesSociaisPage() {
 
   const handleConnect = async (accountId: string) => {
     setConnecting(accountId);
-    // Simular OAuth
+    // Simular OAuth - Em produção, redirecionar para OAuth da rede
+    const account = accounts.find(a => a.id === accountId);
+    if (account) {
+      // Abrir popup OAuth (simulado)
+      window.open(
+        `https://api.${account.platform}.com/oauth/authorize?client_id=valle360&redirect_uri=${encodeURIComponent(window.location.origin)}/api/oauth/callback`,
+        'oauth',
+        'width=600,height=700'
+      );
+    }
     await new Promise(resolve => setTimeout(resolve, 2000));
     setAccounts(prev => prev.map(a => 
       a.id === accountId 
@@ -164,11 +177,18 @@ export default function RedesSociaisPage() {
   };
 
   const handleDisconnect = (accountId: string) => {
-    setAccounts(prev => prev.map(a => 
-      a.id === accountId 
-        ? { ...a, connected: false, connectedAt: undefined, followers: undefined, engagement: undefined, lastPost: undefined }
-        : a
-    ));
+    if (confirm('Tem certeza que deseja desconectar esta rede social?')) {
+      setAccounts(prev => prev.map(a => 
+        a.id === accountId 
+          ? { ...a, connected: false, connectedAt: undefined, followers: undefined, engagement: undefined, lastPost: undefined }
+          : a
+      ));
+    }
+  };
+
+  const openMetrics = (account: SocialAccount) => {
+    setSelectedAccount(account);
+    setShowMetricsModal(true);
   };
 
   return (
@@ -309,6 +329,7 @@ export default function RedesSociaisPage() {
                   variant="outline"
                   size="sm"
                   className="flex-1 border-[#001533]/20"
+                  onClick={() => openMetrics(account)}
                 >
                   <BarChart3 className="w-4 h-4 mr-1" />
                   Métricas
@@ -398,6 +419,111 @@ export default function RedesSociaisPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Modal de Métricas */}
+      <AnimatePresence>
+        {showMetricsModal && selectedAccount && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => setShowMetricsModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#0a0f1a] rounded-2xl p-6 max-w-lg w-full"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className={cn("p-3 rounded-xl text-white", selectedAccount.color)}>
+                    {SocialIcons[selectedAccount.platform]}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-[#001533] dark:text-white">{selectedAccount.name}</h2>
+                    <p className="text-sm text-[#001533]/60 dark:text-white/60">{selectedAccount.username}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowMetricsModal(false)}
+                  className="p-2 hover:bg-[#001533]/5 rounded-lg"
+                >
+                  <ExternalLink className="w-5 h-5 rotate-45" />
+                </button>
+              </div>
+
+              {/* Período */}
+              <div className="flex gap-2 mb-6">
+                {[
+                  { value: "7d", label: "7 dias" },
+                  { value: "30d", label: "30 dias" },
+                  { value: "90d", label: "90 dias" },
+                ].map((period) => (
+                  <button
+                    key={period.value}
+                    onClick={() => setMetricsPeriod(period.value)}
+                    className={cn(
+                      "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                      metricsPeriod === period.value
+                        ? "bg-[#1672d6] text-white"
+                        : "bg-[#001533]/5 dark:bg-white/5 text-[#001533] dark:text-white hover:bg-[#1672d6]/10"
+                    )}
+                  >
+                    {period.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Métricas */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="p-4 rounded-xl bg-[#001533]/5 dark:bg-white/5">
+                  <p className="text-2xl font-bold text-[#001533] dark:text-white">
+                    {selectedAccount.followers?.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-[#001533]/60 dark:text-white/60">Seguidores</p>
+                  <p className="text-xs text-emerald-600 mt-1">+2.3% este período</p>
+                </div>
+                <div className="p-4 rounded-xl bg-[#001533]/5 dark:bg-white/5">
+                  <p className="text-2xl font-bold text-[#001533] dark:text-white">
+                    {selectedAccount.engagement?.toFixed(1)}%
+                  </p>
+                  <p className="text-sm text-[#001533]/60 dark:text-white/60">Engajamento</p>
+                  <p className="text-xs text-emerald-600 mt-1">+0.5% este período</p>
+                </div>
+                <div className="p-4 rounded-xl bg-[#001533]/5 dark:bg-white/5">
+                  <p className="text-2xl font-bold text-[#001533] dark:text-white">12.4K</p>
+                  <p className="text-sm text-[#001533]/60 dark:text-white/60">Impressões</p>
+                  <p className="text-xs text-emerald-600 mt-1">+15% este período</p>
+                </div>
+                <div className="p-4 rounded-xl bg-[#001533]/5 dark:bg-white/5">
+                  <p className="text-2xl font-bold text-[#001533] dark:text-white">847</p>
+                  <p className="text-sm text-[#001533]/60 dark:text-white/60">Cliques no perfil</p>
+                  <p className="text-xs text-emerald-600 mt-1">+8% este período</p>
+                </div>
+              </div>
+
+              {/* Exportar */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 border-[#001533]/20"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Ver Relatório Completo
+                </Button>
+                <Button className="flex-1 bg-[#1672d6] hover:bg-[#1260b5] text-white">
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Exportar PDF
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
