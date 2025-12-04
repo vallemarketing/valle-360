@@ -510,7 +510,17 @@ export default function SuperAdminDashboard() {
         </CardHeader>
         <CardContent>
           <div className="h-[400px] w-full">
-            <ThreeDPhotoCarousel />
+            <ThreeDPhotoCarousel 
+              items={[
+                { id: 1, title: "Crescimento de Receita +22%", description: "Projeção baseada em contratos ativos", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400", category: "Financeiro" },
+                { id: 2, title: "3 Clientes com Risco de Churn", description: "Análise comportamental detectou alertas", image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400", category: "Retenção" },
+                { id: 3, title: "5 Oportunidades de Upsell", description: "Clientes com alto engajamento", image: "https://images.unsplash.com/photo-1553729459-efe14ef6055d?w=400", category: "Vendas" },
+                { id: 4, title: "8 Leads Qualificados", description: "Prontos para conversão este mês", image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=400", category: "Comercial" },
+                { id: 5, title: "Performance da Equipe +15%", description: "Melhoria contínua nos indicadores", image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400", category: "RH" },
+                { id: 6, title: "ROI Médio das Campanhas", description: "Retorno de 340% nos últimos 3 meses", image: "https://images.unsplash.com/photo-1533750349088-cd871a92f312?w=400", category: "Marketing" },
+              ]}
+              onItemClick={(item) => console.log('Clicked:', item)}
+            />
           </div>
           <p className="text-center text-sm text-muted-foreground mt-4">
             Arraste para explorar os insights • Clique para ver detalhes
