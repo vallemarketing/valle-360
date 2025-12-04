@@ -4,8 +4,11 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   TrendingUp, Clock, AlertTriangle, CheckCircle2, 
-  BarChart3, Users, Zap, Target, ArrowUp, ArrowDown
+  BarChart3, Users, Zap, Target, ArrowUp, ArrowDown,
+  Brain, Sparkles, Calendar, ChevronRight, Play
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface KanbanInsightsProps {
   columns: {
@@ -228,6 +231,113 @@ export default function KanbanInsights({ columns, area }: KanbanInsightsProps) {
               <span className="text-gray-400">({col.cards.length})</span>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* ===== SEÇÃO DE IA AVANÇADA ===== */}
+      <div className="mt-4 pt-4 border-t">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+            <Brain className="w-4 h-4 text-[#1672d6]" />
+            Sugestões da Val (IA)
+            <Badge className="bg-[#1672d6]/10 text-[#1672d6] border-[#1672d6]/30 text-[10px]">
+              <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+              AI
+            </Badge>
+          </h4>
+        </div>
+
+        <div className="space-y-2">
+          {/* Sugestão de Priorização */}
+          <motion.div 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="p-3 rounded-lg bg-gradient-to-r from-[#1672d6]/5 to-transparent border border-[#1672d6]/20 cursor-pointer hover:border-[#1672d6]/40 transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#1672d6]/10 flex items-center justify-center">
+                  <Target className="w-4 h-4 text-[#1672d6]" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">Repriorizar Tarefas</p>
+                  <p className="text-xs text-gray-500">2 cards podem ser antecipados baseado em dependências</p>
+                </div>
+              </div>
+              <Button size="sm" variant="ghost" className="text-[#1672d6]">
+                <Play className="w-3 h-3 mr-1" />
+                Executar
+              </Button>
+            </div>
+          </motion.div>
+
+          {/* Previsão de Conclusão */}
+          <motion.div 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="p-3 rounded-lg bg-gradient-to-r from-emerald-500/5 to-transparent border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40 transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">Previsão de Conclusão</p>
+                  <p className="text-xs text-gray-500">
+                    Estimativa: <strong className="text-emerald-600">85%</strong> das tarefas até sexta-feira
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            </div>
+          </motion.div>
+
+          {/* Alerta de Sobrecarga */}
+          {inProgressCards > 5 && (
+            <motion.div 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="p-3 rounded-lg bg-gradient-to-r from-amber-500/5 to-transparent border border-amber-500/20"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                  <Users className="w-4 h-4 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">Equipe Sobrecarregada</p>
+                  <p className="text-xs text-gray-500">
+                    Considere redistribuir {inProgressCards - 3} cards para outros colaboradores
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Otimização de Fluxo */}
+          <motion.div 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="p-3 rounded-lg bg-gradient-to-r from-purple-500/5 to-transparent border border-purple-500/20 cursor-pointer hover:border-purple-500/40 transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">Otimizar Fluxo</p>
+                  <p className="text-xs text-gray-500">Analisar e sugerir melhorias no processo</p>
+                </div>
+              </div>
+              <Button size="sm" variant="ghost" className="text-purple-600">
+                Analisar
+              </Button>
+            </div>
+          </motion.div>
         </div>
       </div>
     </div>

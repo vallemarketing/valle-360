@@ -394,10 +394,10 @@ export default function AdminKanbanPage() {
                       ref={provided.innerRef}
                       {...provided.droppableProps}
                       className={cn(
-                        "flex-1 p-2 space-y-2 overflow-y-auto",
+                        "flex-1 p-2 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400",
                         snapshot.isDraggingOver && "bg-blue-50"
                       )}
-                      style={{ maxHeight: 'calc(100vh - 350px)' }}
+                      style={{ maxHeight: 'calc(100vh - 280px)', scrollBehavior: 'smooth' }}
                     >
                       {column.cards.map((card, index) => (
                         <Draggable key={card.id} draggableId={card.id} index={index}>

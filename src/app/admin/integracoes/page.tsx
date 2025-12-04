@@ -9,6 +9,7 @@ import {
   Eye, EyeOff, Activity, Clock, CheckCircle2, XCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { IntegrationIcon } from '@/components/icons/IntegrationIcons';
 
 interface Integration {
   id: string;
@@ -119,9 +120,9 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
   // IA
   {
     id: 'openai',
-    name: 'OpenAI',
+    name: 'OpenAI / ChatGPT',
     description: 'Val IA, análise de sentimentos e geração de textos',
-    icon: <Zap className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="openai" className="w-6 h-6" fallback={<Zap className="w-6 h-6" />} />,
     color: '#10A37F',
     category: 'ai',
     fields: INTEGRATION_CONFIGS.openai.fields
@@ -131,7 +132,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'stripe',
     name: 'Stripe',
     description: 'Pagamentos, assinaturas e faturas',
-    icon: <CreditCard className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="stripe" className="w-6 h-6" fallback={<CreditCard className="w-6 h-6" />} />,
     color: '#635BFF',
     category: 'payment',
     fields: INTEGRATION_CONFIGS.stripe.fields
@@ -140,7 +141,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'paypal',
     name: 'PayPal',
     description: 'Pagamentos alternativos',
-    icon: <CreditCard className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="paypal" className="w-6 h-6" fallback={<CreditCard className="w-6 h-6" />} />,
     color: '#003087',
     category: 'payment',
     fields: INTEGRATION_CONFIGS.paypal.fields
@@ -150,7 +151,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'whatsapp',
     name: 'WhatsApp Business',
     description: 'Mensagens automáticas para clientes',
-    icon: <MessageSquare className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="whatsapp" className="w-6 h-6" fallback={<MessageSquare className="w-6 h-6" />} />,
     color: '#25D366',
     category: 'communication',
     fields: INTEGRATION_CONFIGS.whatsapp.fields
@@ -159,7 +160,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'sendgrid',
     name: 'SendGrid',
     description: 'Envio de emails transacionais',
-    icon: <Mail className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="sendgrid" className="w-6 h-6" fallback={<Mail className="w-6 h-6" />} />,
     color: '#1A82E2',
     category: 'communication',
     fields: INTEGRATION_CONFIGS.sendgrid.fields
@@ -168,7 +169,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'slack',
     name: 'Slack',
     description: 'Notificações para equipe',
-    icon: <MessageSquare className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="slack" className="w-6 h-6" fallback={<MessageSquare className="w-6 h-6" />} />,
     color: '#4A154B',
     category: 'communication',
     fields: INTEGRATION_CONFIGS.slack.fields
@@ -178,7 +179,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'google_ads',
     name: 'Google Ads',
     description: 'Importar métricas de campanhas',
-    icon: <BarChart3 className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="google_ads" className="w-6 h-6" fallback={<BarChart3 className="w-6 h-6" />} />,
     color: '#4285F4',
     category: 'marketing',
     fields: INTEGRATION_CONFIGS.google_ads.fields
@@ -187,7 +188,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'meta_ads',
     name: 'Meta Ads',
     description: 'Facebook e Instagram Ads',
-    icon: <Globe className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="meta_ads" className="w-6 h-6" fallback={<Globe className="w-6 h-6" />} />,
     color: '#1877F2',
     category: 'marketing',
     fields: INTEGRATION_CONFIGS.meta_ads.fields
@@ -196,7 +197,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'instagram',
     name: 'Instagram',
     description: 'Agendar posts de clientes',
-    icon: <Globe className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="instagram" className="w-6 h-6" fallback={<Globe className="w-6 h-6" />} />,
     color: '#E4405F',
     category: 'marketing',
     fields: INTEGRATION_CONFIGS.instagram.fields
@@ -205,7 +206,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'linkedin',
     name: 'LinkedIn',
     description: 'Publicar vagas e posts',
-    icon: <Globe className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="linkedin" className="w-6 h-6" fallback={<Globe className="w-6 h-6" />} />,
     color: '#0A66C2',
     category: 'marketing',
     fields: INTEGRATION_CONFIGS.linkedin.fields
@@ -215,7 +216,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'google_calendar',
     name: 'Google Calendar',
     description: 'Sincronizar reuniões',
-    icon: <Calendar className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="google_calendar" className="w-6 h-6" fallback={<Calendar className="w-6 h-6" />} />,
     color: '#4285F4',
     category: 'productivity',
     fields: INTEGRATION_CONFIGS.google_calendar.fields
@@ -224,7 +225,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'google_meet',
     name: 'Google Meet',
     description: 'Criar reuniões automaticamente',
-    icon: <Calendar className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="google_meet" className="w-6 h-6" fallback={<Calendar className="w-6 h-6" />} />,
     color: '#00897B',
     category: 'productivity',
     fields: INTEGRATION_CONFIGS.google_meet.fields
@@ -233,7 +234,7 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     id: 'zapier',
     name: 'Zapier',
     description: 'Automações customizadas',
-    icon: <Zap className="w-6 h-6" />,
+    icon: <IntegrationIcon integrationId="zapier" className="w-6 h-6" fallback={<Zap className="w-6 h-6" />} />,
     color: '#FF4A00',
     category: 'productivity',
     fields: INTEGRATION_CONFIGS.zapier.fields

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -171,21 +170,19 @@ export function SuperAdminSidebar({
         <div className="flex items-center justify-between">
           <Link href="/admin/dashboard" className="flex items-center gap-3">
             {collapsed ? (
-              <Image
-                src="/images/valle360-icon.png"
-                alt="Valle 360"
-                width={40}
-                height={40}
-                className="rounded-lg"
-              />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-lg">V</span>
+              </div>
             ) : (
-              <Image
-                src="/images/valle360-logo.png"
-                alt="Valle 360"
-                width={160}
-                height={40}
-                className="h-10 w-auto"
-              />
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center shadow-lg">
+                  <span className="text-white font-bold text-lg">V</span>
+                </div>
+                <div>
+                  <h1 className="text-white font-bold text-lg leading-none">Valle 360</h1>
+                  <p className="text-white/50 text-[10px]">Marketing Digital</p>
+                </div>
+              </div>
             )}
           </Link>
           

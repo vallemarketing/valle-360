@@ -51,6 +51,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { cn } from '@/lib/utils';
+import { ThreeDPhotoCarousel } from '@/components/ui/carousel-3d';
 
 interface KPI {
   label: string;
@@ -488,6 +489,117 @@ export default function SuperAdminDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ===== CARROSSEL 3D DE INSIGHTS ===== */}
+      <Card className="border-2 border-[#1672d6]/20 overflow-hidden">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-[#1672d6]" />
+              Insights Estratégicos em 3D
+              <Badge className="bg-[#1672d6]/10 text-[#1672d6] border-[#1672d6]/30 text-[10px]">
+                <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                Preditivo
+              </Badge>
+            </CardTitle>
+            <Button variant="outline" size="sm">
+              Ver Todos
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[400px] w-full">
+            <ThreeDPhotoCarousel />
+          </div>
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            Arraste para explorar os insights • Clique para ver detalhes
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* ===== CARDS DE INTELIGÊNCIA PREDITIVA ===== */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <motion.div whileHover={{ y: -4 }}>
+          <Card className="cursor-pointer border-2 border-transparent hover:border-emerald-500/30 hover:shadow-lg transition-all h-full">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10">
+                  <TrendingUp className="w-5 h-5 text-emerald-500" />
+                </div>
+                <span className="text-xs text-emerald-500 font-medium">Previsão</span>
+              </div>
+              <h4 className="font-bold text-lg mb-1">+22% Receita</h4>
+              <p className="text-sm text-muted-foreground">
+                Projeção para próximo trimestre baseada em contratos ativos
+              </p>
+              <div className="mt-3 flex items-center text-emerald-500 text-xs font-medium">
+                Ver análise <ChevronRight className="w-3 h-3 ml-1" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div whileHover={{ y: -4 }}>
+          <Card className="cursor-pointer border-2 border-transparent hover:border-amber-500/30 hover:shadow-lg transition-all h-full">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                </div>
+                <span className="text-xs text-amber-500 font-medium">Alerta IA</span>
+              </div>
+              <h4 className="font-bold text-lg mb-1">3 Clientes Risco</h4>
+              <p className="text-sm text-muted-foreground">
+                Probabilidade de churn detectada pela análise comportamental
+              </p>
+              <div className="mt-3 flex items-center text-amber-500 text-xs font-medium">
+                Ver clientes <ChevronRight className="w-3 h-3 ml-1" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div whileHover={{ y: -4 }}>
+          <Card className="cursor-pointer border-2 border-transparent hover:border-purple-500/30 hover:shadow-lg transition-all h-full">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2.5 rounded-xl bg-purple-500/10">
+                  <Users className="w-5 h-5 text-purple-500" />
+                </div>
+                <span className="text-xs text-purple-500 font-medium">Oportunidade</span>
+              </div>
+              <h4 className="font-bold text-lg mb-1">5 Upsells</h4>
+              <p className="text-sm text-muted-foreground">
+                Clientes com alto engajamento prontos para upgrade
+              </p>
+              <div className="mt-3 flex items-center text-purple-500 text-xs font-medium">
+                Ver oportunidades <ChevronRight className="w-3 h-3 ml-1" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div whileHover={{ y: -4 }}>
+          <Card className="cursor-pointer border-2 border-transparent hover:border-[#1672d6]/30 hover:shadow-lg transition-all h-full">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2.5 rounded-xl bg-[#1672d6]/10">
+                  <Target className="w-5 h-5 text-[#1672d6]" />
+                </div>
+                <span className="text-xs text-[#1672d6] font-medium">SQL</span>
+              </div>
+              <h4 className="font-bold text-lg mb-1">8 Leads Quentes</h4>
+              <p className="text-sm text-muted-foreground">
+                Leads qualificados prontos para conversão este mês
+              </p>
+              <div className="mt-3 flex items-center text-[#1672d6] text-xs font-medium">
+                Ver leads <ChevronRight className="w-3 h-3 ml-1" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
 
       {/* Ações Rápidas com IA */}
       <Card className="border-2 border-[#1672d6]/20 bg-gradient-to-br from-[#1672d6]/5 to-transparent">

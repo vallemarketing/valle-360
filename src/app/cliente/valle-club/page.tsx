@@ -67,13 +67,70 @@ const POINTS_HISTORY = [
   { id: 5, action: "Reunião mensal", points: 40, date: "2025-11-20", icon: Calendar },
 ];
 
-// Recompensas
+// Recompensas gerais
 const REWARDS = [
   { id: 1, name: "Desconto 10% na mensalidade", points: 500, available: true },
   { id: 2, name: "Créditos extras (R$ 500)", points: 800, available: true },
   { id: 3, name: "Consultoria estratégica grátis", points: 1500, available: true },
   { id: 4, name: "Mês de serviço grátis", points: 3000, available: false },
   { id: 5, name: "Acesso VIP a features beta", points: 2000, available: false },
+];
+
+// ===== BENEFÍCIOS POR SEGMENTO =====
+// Benefícios exclusivos baseados no setor do cliente
+interface SegmentBenefit {
+  segment: string;
+  benefit: string;
+  description: string;
+  requirement: string;
+  icon: string;
+}
+
+const SEGMENT_BENEFITS: SegmentBenefit[] = [
+  {
+    segment: "Médicos/Saúde",
+    benefit: "Ingresso para Congressos Médicos",
+    description: "Ingresso VIP para os principais congressos de medicina e saúde do Brasil",
+    requirement: "NPS acima de 9 por 6 meses consecutivos",
+    icon: "🏥"
+  },
+  {
+    segment: "E-commerce",
+    benefit: "Serviços Valle 360 de IA",
+    description: "Acesso gratuito por 3 meses às ferramentas de IA da Valle 360 para otimização",
+    requirement: "Indicar 2 novos clientes",
+    icon: "🛒"
+  },
+  {
+    segment: "Restaurantes",
+    benefit: "IAs Premium + Consultoria Chef",
+    description: "IAs premium da Valle 360 + Consultoria com Chef renomado in loco",
+    requirement: "Pagar em dia por 12 meses",
+    icon: "🍽️"
+  },
+  {
+    segment: "Moda/Beleza",
+    benefit: "Sessão Fotográfica Profissional",
+    description: "Sessão completa de fotos profissionais para seu catálogo",
+    requirement: "Aprovar conteúdos em até 24h por 3 meses",
+    icon: "💄"
+  },
+  {
+    segment: "Advocacia",
+    benefit: "Acesso a Cursos Jurídicos",
+    description: "Acesso a cursos de marketing jurídico e plataformas especializadas",
+    requirement: "Participar de todas as reuniões mensais",
+    icon: "⚖️"
+  },
+];
+
+// Metas para desbloquear benefícios
+const BENEFIT_GOALS = [
+  { id: 1, name: "Aprovador Ágil", description: "Aprovar conteúdos em até 24h por 3 meses", progress: 2, total: 3, icon: Zap },
+  { id: 2, name: "NPS Exemplar", description: "NPS acima de 9 por 6 meses", progress: 4, total: 6, icon: Star },
+  { id: 3, name: "Embaixador Valle", description: "Indicar 2 novos clientes", progress: 1, total: 2, icon: Users },
+  { id: 4, name: "Pagador Pontual", description: "Pagar em dia por 12 meses", progress: 8, total: 12, icon: CreditCard },
+  { id: 5, name: "Parceiro Presente", description: "Participar de todas as reuniões mensais", progress: 5, total: 6, icon: Calendar },
 ];
 
 export default function ValleClubPage() {
@@ -402,57 +459,171 @@ export default function ValleClubPage() {
           </TabsContent>
 
           {/* Recompensas */}
-          <TabsContent value="recompensas">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {REWARDS.map((reward) => {
-                const canRedeem = userPoints >= reward.points && reward.available;
-                return (
-                  <Card 
-                    key={reward.id}
-                    className={cn(
-                      "border-2 transition-all",
-                      canRedeem 
-                        ? "border-[#1672d6]/30 hover:border-[#1672d6]/50" 
-                        : "border-[#001533]/10 dark:border-white/10 opacity-70"
-                    )}
-                  >
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className={cn(
-                          "p-3 rounded-xl",
-                          canRedeem ? "bg-[#1672d6]/10" : "bg-[#001533]/10 dark:bg-white/10"
-                        )}>
-                          <Gift className={cn(
-                            "w-6 h-6",
-                            canRedeem ? "text-[#1672d6]" : "text-[#001533]/40 dark:text-white/40"
-                          )} />
+          <TabsContent value="recompensas" className="space-y-8">
+            {/* Recompensas Gerais */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Gift className="w-5 h-5 text-[#1672d6]" />
+                Recompensas Gerais
+              </h3>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {REWARDS.map((reward) => {
+                  const canRedeem = userPoints >= reward.points && reward.available;
+                  return (
+                    <Card 
+                      key={reward.id}
+                      className={cn(
+                        "border-2 transition-all",
+                        canRedeem 
+                          ? "border-[#1672d6]/30 hover:border-[#1672d6]/50" 
+                          : "border-[#001533]/10 dark:border-white/10 opacity-70"
+                      )}
+                    >
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className={cn(
+                            "p-3 rounded-xl",
+                            canRedeem ? "bg-[#1672d6]/10" : "bg-[#001533]/10 dark:bg-white/10"
+                          )}>
+                            <Gift className={cn(
+                              "w-6 h-6",
+                              canRedeem ? "text-[#1672d6]" : "text-[#001533]/40 dark:text-white/40"
+                            )} />
+                          </div>
+                          <Badge className={cn(
+                            canRedeem 
+                              ? "bg-[#1672d6]/10 text-[#1672d6]" 
+                              : "bg-[#001533]/10 text-[#001533]/60 dark:bg-white/10 dark:text-white/60"
+                          )}>
+                            {reward.points.toLocaleString()} pts
+                          </Badge>
                         </div>
-                        <Badge className={cn(
-                          canRedeem 
-                            ? "bg-[#1672d6]/10 text-[#1672d6]" 
-                            : "bg-[#001533]/10 text-[#001533]/60 dark:bg-white/10 dark:text-white/60"
-                        )}>
-                          {reward.points.toLocaleString()} pts
-                        </Badge>
-                      </div>
-                      <h3 className="font-semibold text-[#001533] dark:text-white mb-4">
-                        {reward.name}
-                      </h3>
-                      <Button 
-                        className={cn(
-                          "w-full",
-                          canRedeem 
-                            ? "bg-[#1672d6] hover:bg-[#1260b5] text-white" 
-                            : "bg-[#001533]/10 text-[#001533]/50 cursor-not-allowed"
-                        )}
-                        disabled={!canRedeem}
-                      >
-                        {canRedeem ? "Resgatar" : "Pontos insuficientes"}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                        <h3 className="font-semibold text-[#001533] dark:text-white mb-4">
+                          {reward.name}
+                        </h3>
+                        <Button 
+                          className={cn(
+                            "w-full",
+                            canRedeem 
+                              ? "bg-[#1672d6] hover:bg-[#1260b5] text-white" 
+                              : "bg-[#001533]/10 text-[#001533]/50 cursor-not-allowed"
+                          )}
+                          disabled={!canRedeem}
+                        >
+                          {canRedeem ? "Resgatar" : "Pontos insuficientes"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ===== BENEFÍCIOS POR SEGMENTO ===== */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-500" />
+                Benefícios Exclusivos do Seu Segmento
+                <Badge className="bg-purple-500/10 text-purple-500 border-purple-500/30 text-xs">
+                  Premium
+                </Badge>
+              </h3>
+              <p className="text-sm text-[#001533]/60 dark:text-white/60 mb-4">
+                Conquiste benefícios especiais cumprindo metas específicas para o seu setor
+              </p>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                {SEGMENT_BENEFITS.map((benefit, idx) => (
+                  <motion.div
+                    key={benefit.segment}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                  >
+                    <Card className="border-2 border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-transparent hover:border-purple-500/40 transition-all">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-3 mb-3">
+                          <span className="text-3xl">{benefit.icon}</span>
+                          <div>
+                            <Badge className="bg-purple-500/10 text-purple-500 mb-1">{benefit.segment}</Badge>
+                            <h4 className="font-bold text-[#001533] dark:text-white">{benefit.benefit}</h4>
+                          </div>
+                        </div>
+                        <p className="text-sm text-[#001533]/70 dark:text-white/70 mb-3">
+                          {benefit.description}
+                        </p>
+                        <div className="p-3 rounded-lg bg-[#001533]/5 dark:bg-white/5">
+                          <p className="text-xs text-[#001533]/60 dark:text-white/60">
+                            <strong>Como desbloquear:</strong> {benefit.requirement}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {/* ===== METAS PARA BENEFÍCIOS ===== */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Target className="w-5 h-5 text-emerald-500" />
+                Seu Progresso nas Metas
+              </h3>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    {BENEFIT_GOALS.map((goal) => {
+                      const GoalIcon = goal.icon;
+                      const progressPercent = (goal.progress / goal.total) * 100;
+                      const isComplete = goal.progress >= goal.total;
+                      
+                      return (
+                        <div 
+                          key={goal.id} 
+                          className={cn(
+                            "p-4 rounded-xl border-2 transition-all",
+                            isComplete 
+                              ? "border-emerald-500/30 bg-emerald-500/5" 
+                              : "border-[#001533]/10 dark:border-white/10"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "p-2 rounded-lg",
+                                isComplete ? "bg-emerald-500/10" : "bg-[#001533]/10 dark:bg-white/10"
+                              )}>
+                                <GoalIcon className={cn(
+                                  "w-5 h-5",
+                                  isComplete ? "text-emerald-500" : "text-[#001533]/60 dark:text-white/60"
+                                )} />
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-[#001533] dark:text-white">{goal.name}</h4>
+                                <p className="text-xs text-[#001533]/60 dark:text-white/60">{goal.description}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              {isComplete ? (
+                                <Badge className="bg-emerald-500 text-white">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Completo
+                                </Badge>
+                              ) : (
+                                <span className="text-sm font-medium text-[#001533] dark:text-white">
+                                  {goal.progress}/{goal.total}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Progress value={progressPercent} className="h-2" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>
