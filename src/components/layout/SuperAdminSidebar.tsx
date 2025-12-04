@@ -1,0 +1,316 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  LayoutDashboard,
+  Users,
+  UsersRound,
+  Calendar,
+  TrendingUp,
+  BarChart3,
+  CreditCard,
+  FileText,
+  Settings,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Brain,
+  Target,
+  FileSignature,
+  Link as LinkIcon,
+  Kanban,
+  Briefcase,
+  Receipt,
+  PieChart,
+  Shield,
+  Activity,
+  MessageSquare,
+  Sparkles,
+  Building,
+  Scale,
+  ClipboardList
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+
+// ============================================
+// SUPER ADMIN SIDEBAR - VALLE AI
+// Sidebar com accordion igual ao cliente
+// Cores: #001533 (navy), #1672d6 (primary), #ffffff (white)
+// ============================================
+
+interface NavGroup {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  items: NavItem[];
+}
+
+interface NavItem {
+  id: string;
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  badge?: number;
+}
+
+const navGroups: NavGroup[] = [
+  {
+    id: "principal",
+    label: "Principal",
+    icon: LayoutDashboard,
+    items: [
+      { id: "dashboard", label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+      { id: "intelligence", label: "Centro de Inteligência", href: "/admin/centro-inteligencia", icon: Brain },
+      { id: "kanban", label: "Kanban Geral", href: "/admin/kanban-app", icon: Kanban },
+    ],
+  },
+  {
+    id: "comercial",
+    label: "Comercial",
+    icon: Briefcase,
+    items: [
+      { id: "clients", label: "Clientes", href: "/admin/clientes", icon: Users },
+      { id: "proposals", label: "Propostas", href: "/admin/comercial/propostas", icon: FileSignature, badge: 3 },
+      { id: "contracts", label: "Contratos", href: "/admin/contratos", icon: FileText },
+      { id: "services", label: "Serviços", href: "/admin/comercial/servicos", icon: Target },
+      { id: "radar", label: "Radar de Vendas", href: "/admin/comercial/radar", icon: Activity, badge: 5 },
+    ],
+  },
+  {
+    id: "operacoes",
+    label: "Operações",
+    icon: UsersRound,
+    items: [
+      { id: "employees", label: "Colaboradores", href: "/admin/colaboradores", icon: UsersRound },
+      { id: "schedules", label: "Agendas", href: "/admin/agendas", icon: Calendar },
+      { id: "meetings", label: "Reuniões", href: "/admin/reunioes", icon: MessageSquare, badge: 3 },
+      { id: "materials", label: "Solicitações", href: "/admin/solicitacoes-material", icon: ClipboardList, badge: 5 },
+    ],
+  },
+  {
+    id: "financeiro",
+    label: "Financeiro",
+    icon: CreditCard,
+    items: [
+      { id: "financial", label: "Faturamento", href: "/admin/financeiro", icon: Receipt },
+      { id: "billing", label: "Cobranças", href: "/admin/financeiro/clientes", icon: CreditCard },
+      { id: "reports", label: "Relatórios", href: "/admin/relatorios", icon: PieChart },
+    ],
+  },
+  {
+    id: "inteligencia",
+    label: "Inteligência",
+    icon: Sparkles,
+    items: [
+      { id: "insights", label: "Insights IA", href: "/admin/inteligencia", icon: Brain },
+      { id: "performance", label: "Performance", href: "/admin/performance", icon: BarChart3 },
+      { id: "traffic", label: "Tráfego", href: "/admin/trafego-comparativo", icon: TrendingUp },
+      { id: "competitor", label: "Concorrência", href: "/admin/inteligencia-concorrencia", icon: Target },
+    ],
+  },
+  {
+    id: "juridico",
+    label: "Jurídico",
+    icon: Scale,
+    items: [
+      { id: "contracts-legal", label: "Contratos", href: "/admin/contratos", icon: FileText },
+      { id: "documents", label: "Documentos", href: "/admin/documentos", icon: FileSignature },
+    ],
+  },
+  {
+    id: "sistema",
+    label: "Sistema",
+    icon: Settings,
+    items: [
+      { id: "integrations", label: "Integrações", href: "/admin/integracoes", icon: LinkIcon },
+      { id: "audit", label: "Auditoria", href: "/admin/auditoria", icon: Shield },
+      { id: "settings", label: "Configurações", href: "/admin/configuracoes", icon: Settings },
+    ],
+  },
+];
+
+interface SuperAdminSidebarProps {
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
+}
+
+export function SuperAdminSidebar({ 
+  collapsed = false, 
+  onCollapsedChange 
+}: SuperAdminSidebarProps) {
+  const pathname = usePathname();
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(["principal", "comercial"]);
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(groupId) 
+        ? prev.filter(id => id !== groupId)
+        : [...prev, groupId]
+    );
+  };
+
+  const isItemActive = (href: string) => pathname === href;
+  const isGroupActive = (items: NavItem[]) => items.some(item => pathname === item.href);
+
+  return (
+    <aside
+      className={cn(
+        "fixed left-0 top-0 h-screen z-40",
+        "bg-[#001533] border-r border-white/10",
+        "transition-all duration-300 flex flex-col",
+        collapsed ? "w-[70px]" : "w-[280px]"
+      )}
+    >
+      {/* Header com Logo */}
+      <div className="p-4 border-b border-white/10">
+        <div className="flex items-center justify-between">
+          <Link href="/admin/dashboard" className="flex items-center gap-3">
+            {collapsed ? (
+              <Image
+                src="/images/valle360-icon.png"
+                alt="Valle 360"
+                width={40}
+                height={40}
+                className="rounded-lg"
+              />
+            ) : (
+              <Image
+                src="/images/valle360-logo.png"
+                alt="Valle 360"
+                width={160}
+                height={40}
+                className="h-10 w-auto"
+              />
+            )}
+          </Link>
+          
+          {!collapsed && (
+            <button
+              onClick={() => onCollapsedChange?.(!collapsed)}
+              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <ChevronLeft className="size-4 text-white/60" />
+            </button>
+          )}
+        </div>
+
+        {/* Saudação */}
+        {!collapsed && (
+          <div className="mt-4 p-3 rounded-xl bg-[#1672d6]/20 border border-[#1672d6]/30">
+            <p className="text-white text-sm">
+              Olá, <span className="font-semibold">Guilherme Valle</span>!
+            </p>
+            <p className="text-white/60 text-xs mt-0.5">Seja bem vindo.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+        {navGroups.map((group) => {
+          const GroupIcon = group.icon;
+          const isExpanded = expandedGroups.includes(group.id);
+          const hasActiveItem = isGroupActive(group.items);
+
+          return (
+            <div key={group.id}>
+              {/* Group Header */}
+              <button
+                onClick={() => !collapsed && toggleGroup(group.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all",
+                  hasActiveItem 
+                    ? "bg-[#1672d6]/20 text-white" 
+                    : "text-white/70 hover:bg-white/5 hover:text-white",
+                  collapsed && "justify-center"
+                )}
+              >
+                <GroupIcon className="size-5 flex-shrink-0" />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 text-left text-sm font-medium">{group.label}</span>
+                    <ChevronDown 
+                      className={cn(
+                        "size-4 transition-transform",
+                        isExpanded && "rotate-180"
+                      )} 
+                    />
+                  </>
+                )}
+              </button>
+
+              {/* Group Items */}
+              <AnimatePresence>
+                {!collapsed && isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pl-4 mt-1 space-y-0.5">
+                      {group.items.map((item) => {
+                        const ItemIcon = item.icon;
+                        const isActive = isItemActive(item.href);
+
+                        return (
+                          <Link
+                            key={item.id}
+                            href={item.href}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm",
+                              isActive
+                                ? "bg-[#1672d6] text-white shadow-lg shadow-[#1672d6]/30"
+                                : "text-white/60 hover:bg-white/5 hover:text-white"
+                            )}
+                          >
+                            <ItemIcon className="size-4 flex-shrink-0" />
+                            <span className="flex-1">{item.label}</span>
+                            {item.badge && (
+                              <Badge className="bg-red-500 text-white text-[10px] px-1.5 py-0 h-4">
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </nav>
+
+      {/* Collapse Button (quando collapsed) */}
+      {collapsed && (
+        <div className="p-3 border-t border-white/10">
+          <button
+            onClick={() => onCollapsedChange?.(!collapsed)}
+            className="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+          >
+            <ChevronRight className="size-5 text-white/60 mx-auto" />
+          </button>
+        </div>
+      )}
+
+      {/* Footer */}
+      {!collapsed && (
+        <div className="p-3 border-t border-white/10">
+          <div className="text-center">
+            <p className="text-white/40 text-xs">Valle 360 Admin</p>
+            <p className="text-white/30 text-[10px]">v2.0.0</p>
+          </div>
+        </div>
+      )}
+    </aside>
+  );
+}
+

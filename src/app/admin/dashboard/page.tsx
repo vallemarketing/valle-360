@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Users, 
   UserPlus, 
@@ -26,7 +26,12 @@ import {
   AlertCircle,
   Settings,
   FileText,
-  MessageSquare
+  MessageSquare,
+  X,
+  Phone,
+  Mail,
+  Building,
+  ExternalLink
 } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -37,6 +42,7 @@ import { Progress } from '@/components/ui/progress'
 import StatsCards from '@/components/valle-ui/StatsCards'
 import OrbitalTimeline from '@/components/valle-ui/OrbitalTimeline'
 import IntegrationsOrbit from '@/components/valle-ui/IntegrationsOrbit'
+import { cn } from '@/lib/utils'
 
 interface DashboardStats {
   totalClients: number
@@ -56,6 +62,19 @@ interface RecentActivity {
   description: string
   time: string
   icon: 'user' | 'task' | 'money' | 'alert'
+}
+
+interface ActiveClient {
+  id: string
+  name: string
+  company: string
+  email: string
+  phone: string
+  status: 'em_dia' | 'atrasado' | 'novo'
+  projectStatus: string
+  nextDelivery: string
+  contractValue: string
+  avatar?: string
 }
 
 const container = {
@@ -84,6 +103,90 @@ export default function AdminDashboard() {
     completedTasksToday: 12,
     avgClientSatisfaction: 4.7
   })
+
+  const [selectedClient, setSelectedClient] = useState<ActiveClient | null>(null)
+  const [showClientModal, setShowClientModal] = useState(false)
+
+  const activeClients: ActiveClient[] = [
+    {
+      id: '1',
+      name: 'João Silva',
+      company: 'Tech Solutions Ltda',
+      email: 'joao@techsolutions.com',
+      phone: '(11) 99999-0001',
+      status: 'em_dia',
+      projectStatus: 'Em produção - 75%',
+      nextDelivery: '15/12/2024',
+      contractValue: 'R$ 8.500,00/mês'
+    },
+    {
+      id: '2',
+      name: 'Maria Santos',
+      company: 'Valle Boutique',
+      email: 'maria@valleboutique.com',
+      phone: '(11) 99999-0002',
+      status: 'atrasado',
+      projectStatus: 'Aguardando aprovação',
+      nextDelivery: '10/12/2024',
+      contractValue: 'R$ 5.200,00/mês'
+    },
+    {
+      id: '3',
+      name: 'Pedro Costa',
+      company: 'Inova Marketing',
+      email: 'pedro@inovamarketing.com',
+      phone: '(11) 99999-0003',
+      status: 'em_dia',
+      projectStatus: 'Em produção - 40%',
+      nextDelivery: '20/12/2024',
+      contractValue: 'R$ 12.000,00/mês'
+    },
+    {
+      id: '4',
+      name: 'Ana Oliveira',
+      company: 'Digital Plus',
+      email: 'ana@digitalplus.com',
+      phone: '(11) 99999-0004',
+      status: 'novo',
+      projectStatus: 'Onboarding',
+      nextDelivery: '05/01/2025',
+      contractValue: 'R$ 6.800,00/mês'
+    },
+    {
+      id: '5',
+      name: 'Carlos Mendes',
+      company: 'E-commerce Pro',
+      email: 'carlos@ecommercepro.com',
+      phone: '(11) 99999-0005',
+      status: 'em_dia',
+      projectStatus: 'Finalizado - Manutenção',
+      nextDelivery: 'Contínuo',
+      contractValue: 'R$ 15.000,00/mês'
+    }
+  ]
+
+  const handleClientClick = (client: ActiveClient) => {
+    setSelectedClient(client)
+    setShowClientModal(true)
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'em_dia': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+      case 'atrasado': return 'bg-red-500/10 text-red-500 border-red-500/30'
+      case 'novo': return 'bg-[#1672d6]/10 text-[#1672d6] border-[#1672d6]/30'
+      default: return 'bg-gray-500/10 text-gray-500 border-gray-500/30'
+    }
+  }
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'em_dia': return 'Em dia'
+      case 'atrasado': return 'Atrasado'
+      case 'novo': return 'Novo'
+      default: return status
+    }
+  }
 
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([
     {
@@ -433,6 +536,68 @@ export default function AdminDashboard() {
           </Card>
         </motion.div>
 
+        {/* Clientes Ativos - Clicáveis */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mb-8"
+        >
+          <Card className="border-border/60">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                  <Building className="w-5 h-5 text-[#1672d6]" />
+                  Clientes Ativos
+                </CardTitle>
+                <Link href="/admin/clientes">
+                  <Button variant="ghost" size="sm" className="text-[#1672d6]">
+                    Ver todos
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </Link>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Clique no nome do cliente para ver detalhes
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {activeClients.map((client) => (
+                  <motion.button
+                    key={client.id}
+                    onClick={() => handleClientClick(client)}
+                    whileHover={{ x: 4, backgroundColor: 'rgba(22, 114, 214, 0.05)' }}
+                    className="w-full flex items-center justify-between p-4 rounded-xl border border-border/60 bg-card hover:border-[#1672d6]/40 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-10 w-10 border-2 border-[#1672d6]/20">
+                        <AvatarFallback className="bg-[#1672d6]/10 text-[#1672d6] font-semibold">
+                          {client.name.split(' ').map(n => n[0]).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-foreground">{client.name}</p>
+                        <p className="text-sm text-muted-foreground">{client.company}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right hidden sm:block">
+                        <p className="text-sm font-medium text-foreground">{client.projectStatus}</p>
+                        <p className="text-xs text-muted-foreground">Próx. entrega: {client.nextDelivery}</p>
+                      </div>
+                      <Badge className={cn("border", getStatusColor(client.status))}>
+                        {getStatusLabel(client.status)}
+                      </Badge>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
         {/* Integrações */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -447,6 +612,110 @@ export default function AdminDashboard() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Modal de Detalhes do Cliente */}
+      <AnimatePresence>
+        {showClientModal && selectedClient && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => setShowClientModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#0a0f1a] rounded-2xl w-full max-w-lg shadow-2xl border border-border/60"
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-border/60">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-14 w-14 border-2 border-[#1672d6]/30">
+                      <AvatarFallback className="bg-[#1672d6] text-white text-lg font-bold">
+                        {selectedClient.name.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h2 className="text-xl font-bold text-foreground">{selectedClient.name}</h2>
+                      <p className="text-muted-foreground">{selectedClient.company}</p>
+                      <Badge className={cn("mt-2 border", getStatusColor(selectedClient.status))}>
+                        {getStatusLabel(selectedClient.status)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowClientModal(false)}
+                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 space-y-4">
+                {/* Contato */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <Mail className="w-4 h-4 text-[#1672d6]" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">E-mail</p>
+                      <p className="text-sm font-medium">{selectedClient.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <Phone className="w-4 h-4 text-[#1672d6]" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Telefone</p>
+                      <p className="text-sm font-medium">{selectedClient.phone}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Projeto */}
+                <div className="p-4 rounded-xl border border-border/60 bg-card">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-[#1672d6]" />
+                    Status do Projeto
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Status</span>
+                      <span className="text-sm font-medium">{selectedClient.projectStatus}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Próxima Entrega</span>
+                      <span className="text-sm font-medium">{selectedClient.nextDelivery}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Valor Contratado</span>
+                      <span className="text-sm font-bold text-[#1672d6]">{selectedClient.contractValue}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ações */}
+                <div className="flex gap-3">
+                  <Link href={`/admin/clientes?id=${selectedClient.id}`} className="flex-1">
+                    <Button variant="outline" className="w-full">
+                      <Eye className="w-4 h-4 mr-2" />
+                      Ver Perfil Completo
+                    </Button>
+                  </Link>
+                  <Button className="flex-1 bg-[#1672d6] hover:bg-[#1672d6]/90">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Enviar Mensagem
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
