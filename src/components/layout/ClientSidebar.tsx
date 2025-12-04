@@ -7,6 +7,7 @@
 // ============================================
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -145,12 +146,18 @@ export function ClientSidebar({ collapsed = false, onCollapsedChange }: ClientSi
           isCollapsed ? "justify-center" : "justify-between"
         )}>
           <Link href="/cliente/dashboard" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1672d6] to-[#1672d6]/80 flex items-center justify-center shadow-lg shadow-[#1672d6]/30 flex-shrink-0">
-              <span className="text-white font-bold text-sm">V</span>
+            <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-lg flex-shrink-0 overflow-hidden">
+              <Image 
+                src="/icons/valle360-icon.png" 
+                alt="Valle 360" 
+                width={32} 
+                height={32}
+                className="object-contain"
+              />
             </div>
             {!isCollapsed && (
               <div className="overflow-hidden">
-                <span className="font-semibold text-white block">Valle AI</span>
+                <span className="font-semibold text-white block">Valle 360</span>
                 <span className="text-white/40 text-xs">Portal do Cliente</span>
               </div>
             )}

@@ -348,13 +348,13 @@ export function ClientOnboarding({ userName = "Cliente", onComplete, isOpen = tr
           <div className="p-6 border-b border-[#001533]/10 dark:border-white/10">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center">
-                  <Image src="/icons/valle360-icon.png" alt="Valle 360" width={24} height={24} />
+                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-md overflow-hidden">
+                  <Image src="/icons/valle360-icon.png" alt="Valle 360" width={32} height={32} className="object-contain" />
                 </div>
                 <div>
-                  <h1 className="font-bold text-[#001533] dark:text-white">Configuração Inicial</h1>
+                  <h1 className="font-bold text-[#001533] dark:text-white">Valle 360</h1>
                   <p className="text-xs text-[#001533]/50 dark:text-white/50">
-                    Etapa {currentStep + 1} de {steps.length}
+                    Configuração • Etapa {currentStep + 1} de {steps.length}
                   </p>
                 </div>
               </div>
