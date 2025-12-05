@@ -638,7 +638,9 @@ export default function APICentralPage() {
                       </span>
                       <code className="font-mono text-sm text-gray-700">{endpoint.path}</code>
                       {endpoint.auth && (
-                        <Shield className="w-4 h-4 text-green-500" title="Requer autenticação" />
+                        <span title="Requer autenticação">
+                          <Shield className="w-4 h-4 text-green-500" />
+                        </span>
                       )}
                     </div>
                     <p className="text-sm text-gray-600">{endpoint.description}</p>
