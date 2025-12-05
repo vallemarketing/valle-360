@@ -5,9 +5,10 @@ import { motion } from 'framer-motion';
 import {
   Users, Brain, Target, TrendingUp, TrendingDown,
   AlertTriangle, Award, Calendar, FileText, Plus,
-  Search, Filter, ChevronRight, BarChart3
+  Search, Filter, ChevronRight, BarChart3, Building2, ArrowRight
 } from 'lucide-react';
 import { BehavioralTests } from '@/components/rh/BehavioralTests';
+import Link from 'next/link';
 
 interface Employee {
   id: string;
@@ -173,6 +174,39 @@ export default function RHPage() {
             color="var(--warning-500)"
           />
         </div>
+
+        {/* Link para Franqueados */}
+        <Link href="/admin/franqueados">
+          <motion.div
+            whileHover={{ scale: 1.01 }}
+            className="flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all"
+            style={{ 
+              backgroundColor: 'var(--bg-primary)',
+              borderColor: 'var(--border-light)'
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <div 
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
+              >
+                <Building2 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Gestão de Franqueados
+                </h3>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  Pipeline de candidatos, testes e análise de performance das franquias
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2" style={{ color: 'var(--primary-500)' }}>
+              <span className="text-sm font-medium">Acessar</span>
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </motion.div>
+        </Link>
 
         {/* Search and Filter */}
         <div className="flex flex-col md:flex-row gap-4">

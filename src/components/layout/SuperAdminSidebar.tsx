@@ -31,7 +31,9 @@ import {
   Sparkles,
   Building,
   Scale,
-  ClipboardList
+  ClipboardList,
+  ToggleLeft,
+  Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -122,10 +124,20 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    id: "gestao",
+    label: "Gestão",
+    icon: Building2,
+    items: [
+      { id: "franqueados", label: "Franqueados", href: "/admin/franqueados", icon: Building2 },
+      { id: "rh", label: "RH", href: "/admin/rh", icon: UsersRound },
+    ],
+  },
+  {
     id: "sistema",
     label: "Sistema",
     icon: Settings,
     items: [
+      { id: "feature-flags", label: "Feature Flags", href: "/admin/feature-flags", icon: ToggleLeft },
       { id: "integrations", label: "Integrações", href: "/admin/integracoes", icon: LinkIcon },
       { id: "audit", label: "Auditoria", href: "/admin/auditoria", icon: Shield },
       { id: "settings", label: "Configurações", href: "/admin/configuracoes", icon: Settings },

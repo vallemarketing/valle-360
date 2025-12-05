@@ -37,6 +37,8 @@ import {
   Sparkles,
   Trophy,
   HelpCircle,
+  Star,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,8 +65,15 @@ const navGroups = [
     items: [
       { href: "/cliente/insights", label: "Insights", icon: Lightbulb },
       { href: "/cliente/evolucao", label: "Evolução", icon: TrendingUp },
+      { href: "/cliente/reputacao", label: "Reputação", icon: Star },
       { href: "/cliente/concorrentes", label: "Concorrentes", icon: Users },
       { href: "/cliente/redes", label: "Redes Sociais", icon: Share2 },
+    ],
+  },
+  {
+    label: "Gestão",
+    items: [
+      { href: "/cliente/franqueados", label: "Franqueados", icon: Building2 },
     ],
   },
   {

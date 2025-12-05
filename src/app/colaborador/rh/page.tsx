@@ -8,7 +8,7 @@ import {
   Brain, RefreshCw, Target, TrendingUp, Star, Heart,
   ChevronRight, Filter, Settings, Mail, Phone, MapPin,
   Briefcase, GraduationCap, Coffee, Smile, Frown, Meh,
-  Sparkles, BarChart3, PieChart, Activity, Layers
+  Sparkles, BarChart3, PieChart, Activity, Layers, Building2, ArrowRight
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, differenceInDays, differenceInMonths } from 'date-fns'
@@ -339,6 +339,28 @@ export default function RHPage() {
             <p className="text-xs text-gray-500 mt-1">{stats.totalCandidates} candidatos</p>
           </div>
         </div>
+
+        {/* Link para Gestão de Franqueados */}
+        <Link href="/admin/franqueados">
+          <motion.div
+            whileHover={{ scale: 1.01 }}
+            className="flex items-center justify-between p-4 mb-6 rounded-xl border bg-white cursor-pointer hover:shadow-md transition-all"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <Building2 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">Gestão de Franqueados</h3>
+                <p className="text-sm text-gray-500">Pipeline de candidatos, testes comportamentais e análise de franquias</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-orange-600">
+              <span className="text-sm font-medium">Acessar</span>
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </motion.div>
+        </Link>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-3 gap-6">
