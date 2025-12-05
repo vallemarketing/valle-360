@@ -3,7 +3,7 @@
  * Análise de sentimento de comentários e menções em redes sociais
  */
 
-import { openaiClient } from '@/lib/integrations/openai/client';
+// import { getOpenAIClient } from '@/lib/integrations/openai/client'; // Descomentado quando integrar com OpenAI
 
 // =====================================================
 // TIPOS
