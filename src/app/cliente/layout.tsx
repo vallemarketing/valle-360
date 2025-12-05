@@ -266,10 +266,10 @@ export default function ClienteLayout({
         </div>
       </header>
 
-          {/* Page Content */}
-          <main className="min-h-[calc(100vh-4rem)]">
-        {children}
-      </main>
+          {/* Page Content - Responsivo */}
+          <main className="min-h-[calc(100vh-4rem)] p-4 lg:p-6">
+            {children}
+          </main>
         </div>
 
         {/* Val Floating Chat */}

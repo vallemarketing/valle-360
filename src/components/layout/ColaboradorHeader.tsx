@@ -7,7 +7,11 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Link from 'next/link';
 import Image from 'next/image';
 
-export function ColaboradorHeader() {
+interface ColaboradorHeaderProps {
+  onMenuClick?: () => void;
+}
+
+export function ColaboradorHeader({ onMenuClick }: ColaboradorHeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [userName, setUserName] = useState('');
@@ -81,23 +85,41 @@ export function ColaboradorHeader() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm h-[73px]">
       <div className="flex items-center justify-between px-6 h-full">
-        {/* Logo Valle 360 */}
-        <div className="flex items-center gap-4 w-64">
+        {/* Menu Mobile + Logo Valle 360 */}
+        <div className="flex items-center gap-3 lg:w-64">
+          {/* Botão Menu Mobile */}
+          {onMenuClick && (
+            <button
+              onClick={onMenuClick}
+              className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
+          
           <Link href="/colaborador/dashboard" className="flex items-center">
             <Image
               src="/Logo/valle360-logo.png"
               alt="Valle 360"
               width={160}
               height={45}
-              className="object-contain"
+              className="object-contain hidden sm:block"
+              priority
+            />
+            <Image
+              src="/icons/valle360-icon.png"
+              alt="Valle 360"
+              width={36}
+              height={36}
+              className="object-contain sm:hidden"
               priority
             />
           </Link>
         </div>
 
-        {/* Barra de Busca Central */}
-        <div className="flex-1 max-w-2xl px-8">
-          <form onSubmit={handleSearch} className="relative group">
+        {/* Barra de Busca Central - Responsiva */}
+        <div className="hidden md:flex flex-1 max-w-2xl px-4 lg:px-8">
+          <form onSubmit={handleSearch} className="relative group w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
             </div>
@@ -110,10 +132,15 @@ export function ColaboradorHeader() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-              <span className="text-gray-400 text-xs border border-gray-200 rounded px-1.5 py-0.5">⌘K</span>
+              <span className="text-gray-400 text-xs border border-gray-200 rounded px-1.5 py-0.5 hidden lg:block">⌘K</span>
             </div>
           </form>
         </div>
+        
+        {/* Busca Mobile - Ícone apenas */}
+        <button className="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+          <Search className="h-5 w-5" />
+        </button>
 
         {/* Ações do Usuário */}
         <div className="flex items-center gap-4">
