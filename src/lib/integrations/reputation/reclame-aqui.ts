@@ -142,6 +142,7 @@ class ReclameAquiClient {
           city: 'Belo Horizonte',
           state: 'MG'
         },
+        company: {},
         category: 'Atendimento'
       }
     ];
