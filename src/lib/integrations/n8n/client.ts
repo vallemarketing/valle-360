@@ -214,25 +214,25 @@ class N8NClient {
   async listExecutions(workflowId?: string): Promise<WorkflowExecution[]> {
     // TODO: Implementar chamada real
     
-    return [
+    const executions: WorkflowExecution[] = [
       {
         id: 'exec_1',
         workflowId: 'wf_1',
-        status: 'success',
+        status: 'success' as const,
         startedAt: '2024-12-05T10:30:00Z',
         finishedAt: '2024-12-05T10:30:05Z'
       },
       {
         id: 'exec_2',
         workflowId: 'wf_2',
-        status: 'success',
+        status: 'success' as const,
         startedAt: '2024-12-05T09:15:00Z',
         finishedAt: '2024-12-05T09:15:02Z'
       },
       {
         id: 'exec_3',
         workflowId: 'wf_4',
-        status: 'error',
+        status: 'error' as const,
         startedAt: '2024-12-05T08:00:00Z',
         finishedAt: '2024-12-05T08:00:10Z',
         error: 'Timeout ao conectar com serviço externo'
@@ -240,10 +240,12 @@ class N8NClient {
       {
         id: 'exec_4',
         workflowId: 'wf_5',
-        status: 'running',
+        status: 'running' as const,
         startedAt: '2024-12-05T11:00:00Z'
       }
-    ].filter(e => !workflowId || e.workflowId === workflowId);
+    ];
+    
+    return executions.filter(e => !workflowId || e.workflowId === workflowId);
   }
 
   // =====================================================
