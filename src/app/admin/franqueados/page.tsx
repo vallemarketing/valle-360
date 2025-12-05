@@ -523,7 +523,7 @@ function CandidateDetailsModal({ candidate, onClose, onApplyTest }: {
                     {value.completed ? (
                       <span className="flex items-center gap-1 text-green-600 text-sm">
                         <CheckCircle className="w-4 h-4" />
-                        {value.score ? `${value.score}%` : value.profile}
+                        {'score' in value && value.score ? `${value.score}%` : 'profile' in value ? value.profile : 'Concluído'}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-gray-400 text-sm">
