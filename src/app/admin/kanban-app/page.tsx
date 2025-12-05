@@ -352,14 +352,15 @@ export default function AdminKanbanPage() {
       </AnimatePresence>
 
       {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+      <div className="flex-1 overflow-x-auto overflow-y-auto">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div 
-            className="flex gap-4 p-6 h-full"
+            className="flex gap-4 p-6 min-h-full"
             style={{ 
               minWidth: `${columns.length * (columnWidth + 16)}px`,
               transform: `scale(${zoomLevel})`,
-              transformOrigin: 'top left'
+              transformOrigin: 'top left',
+              height: 'fit-content'
             }}
           >
             {filteredColumns.map((column) => (
@@ -397,7 +398,11 @@ export default function AdminKanbanPage() {
                         "flex-1 p-2 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400",
                         snapshot.isDraggingOver && "bg-blue-50"
                       )}
-                      style={{ maxHeight: 'calc(100vh - 280px)', scrollBehavior: 'smooth' }}
+                      style={{ 
+                        minHeight: '200px',
+                        maxHeight: 'calc(100vh - 320px)', 
+                        scrollBehavior: 'smooth' 
+                      }}
                     >
                       {column.cards.map((card, index) => (
                         <Draggable key={card.id} draggableId={card.id} index={index}>

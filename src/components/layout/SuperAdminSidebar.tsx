@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -109,6 +110,7 @@ const navGroups: NavGroup[] = [
     icon: Sparkles,
     items: [
       { id: "insights", label: "Insights IA", href: "/admin/inteligencia", icon: Brain },
+      { id: "preditivo", label: "Analytics Preditivo", href: "/admin/analytics/preditivo", icon: Brain },
       { id: "performance", label: "Performance", href: "/admin/performance", icon: BarChart3 },
       { id: "traffic", label: "Tráfego", href: "/admin/trafego-comparativo", icon: TrendingUp },
       { id: "competitor", label: "Concorrência", href: "/admin/inteligencia-concorrencia", icon: Target },
@@ -130,6 +132,7 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "franqueados", label: "Franqueados", href: "/admin/franqueados", icon: Building2 },
       { id: "rh", label: "RH", href: "/admin/rh", icon: UsersRound },
+      { id: "linkedin", label: "Vagas LinkedIn", href: "/admin/rh/vagas/linkedin", icon: Briefcase },
     ],
   },
   {
@@ -139,6 +142,8 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "feature-flags", label: "Feature Flags", href: "/admin/feature-flags", icon: ToggleLeft },
       { id: "integrations", label: "Integrações", href: "/admin/integracoes", icon: LinkIcon },
+      { id: "n8n", label: "N8N Workflows", href: "/admin/integracoes/n8n", icon: Activity },
+      { id: "api", label: "Central de APIs", href: "/admin/integracoes/api", icon: Shield },
       { id: "audit", label: "Auditoria", href: "/admin/auditoria", icon: Shield },
       { id: "settings", label: "Configurações", href: "/admin/configuracoes", icon: Settings },
     ],
@@ -182,19 +187,21 @@ export function SuperAdminSidebar({
         <div className="flex items-center justify-between">
           <Link href="/admin/dashboard" className="flex items-center gap-3">
             {collapsed ? (
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">V</span>
-              </div>
+              <Image 
+                src="/icons/valle360-icon.png" 
+                alt="Valle 360" 
+                width={36} 
+                height={36}
+                className="object-contain"
+              />
             ) : (
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-lg">V</span>
-                </div>
-                <div>
-                  <h1 className="text-white font-bold text-lg leading-none">Valle 360</h1>
-                  <p className="text-white/50 text-[10px]">Marketing Digital</p>
-                </div>
-              </div>
+              <Image 
+                src="/Logo/valle360-logo.png" 
+                alt="Valle 360" 
+                width={140} 
+                height={40}
+                className="object-contain"
+              />
             )}
           </Link>
           
