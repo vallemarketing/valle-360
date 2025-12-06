@@ -108,6 +108,19 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    id: "diretoria",
+    label: "Diretoria Virtual",
+    icon: Building,
+    items: [
+      { id: "csuite", label: "C-Suite IA", href: "/admin/diretoria", icon: Building },
+      { id: "cfo", label: "CFO (Financeiro)", href: "/admin/diretoria/cfo", icon: CreditCard },
+      { id: "cto", label: "CTO (Operações)", href: "/admin/diretoria/cto", icon: Settings },
+      { id: "cmo", label: "CMO (Clientes)", href: "/admin/diretoria/cmo", icon: TrendingUp },
+      { id: "chro", label: "CHRO (Pessoas)", href: "/admin/diretoria/chro", icon: Users },
+      { id: "solicitacoes", label: "Solicitações", href: "/admin/solicitacoes", icon: Calendar, badge: 3 },
+    ],
+  },
+  {
     id: "inteligencia",
     label: "Inteligência",
     icon: Sparkles,
