@@ -78,6 +78,7 @@ const navGroups: NavGroup[] = [
     icon: Briefcase,
     items: [
       { id: "clients", label: "Clientes", href: "/admin/clientes", icon: Users },
+      { id: "prospecting", label: "Prospecção IA", href: "/admin/prospeccao", icon: Target, badge: 12 },
       { id: "proposals", label: "Propostas", href: "/admin/comercial/propostas", icon: FileSignature, badge: 3 },
       { id: "contracts", label: "Contratos", href: "/admin/contratos", icon: FileText },
       { id: "services", label: "Serviços", href: "/admin/comercial/servicos", icon: Target },
@@ -90,6 +91,7 @@ const navGroups: NavGroup[] = [
     icon: UsersRound,
     items: [
       { id: "employees", label: "Colaboradores", href: "/admin/colaboradores", icon: UsersRound },
+      { id: "goals", label: "Metas IA", href: "/admin/metas", icon: Target },
       { id: "schedules", label: "Agendas", href: "/admin/agendas", icon: Calendar },
       { id: "meetings", label: "Reuniões", href: "/admin/reunioes", icon: MessageSquare, badge: 3 },
       { id: "materials", label: "Solicitações", href: "/admin/solicitacoes-material", icon: ClipboardList, badge: 5 },
