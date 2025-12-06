@@ -111,6 +111,7 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "insights", label: "Insights IA", href: "/admin/inteligencia", icon: Brain },
       { id: "preditivo", label: "Analytics Preditivo", href: "/admin/analytics/preditivo", icon: Brain },
+      { id: "sentiment", label: "Análise Sentimento", href: "/admin/configuracoes/sentimento", icon: MessageSquare },
       { id: "performance", label: "Performance", href: "/admin/performance", icon: BarChart3 },
       { id: "traffic", label: "Tráfego", href: "/admin/trafego-comparativo", icon: TrendingUp },
       { id: "competitor", label: "Concorrência", href: "/admin/inteligencia-concorrencia", icon: Target },
