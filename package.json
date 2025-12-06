@@ -69,6 +69,6 @@
     "@types/uuid": "^9.0.8",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.9.3",
-    "vercel": "^48.10.11"
+    "vercel": "^48.12.1"
   }
 }
