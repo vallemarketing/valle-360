@@ -220,9 +220,9 @@ export function AIInsightsPanel({
                     
                     {(!compact || isExpanded) && (
                       <motion.div
-                        initial={compact ? { height: 0, opacity: 0 } : false}
-                        animate={compact ? { height: 'auto', opacity: 1 } : false}
-                        exit={compact ? { height: 0, opacity: 0 } : false}
+                        initial={compact ? { height: 0, opacity: 0 } : undefined}
+                        animate={compact ? { height: 'auto', opacity: 1 } : undefined}
+                        exit={compact ? { height: 0, opacity: 0 } : undefined}
                       >
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                           {insight.description}
