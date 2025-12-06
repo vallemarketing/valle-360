@@ -344,7 +344,7 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
                     Ações Rápidas
                   </p>
                   <div className="grid grid-cols-2 gap-2">
-                    {QUICK_ACTIONS.map((action, index) => {
+                    {(quickActions.length > 0 ? quickActions : DEFAULT_QUICK_ACTIONS).map((action, index) => {
                       const Icon = action.icon;
                       return (
                         <PromptSuggestion
