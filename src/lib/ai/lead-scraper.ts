@@ -461,6 +461,32 @@ Equipe Valle 360`
       return false;
     }
   }
+
+  /**
+   * Atualiza o score de um lead baseado em interação
+   */
+  async updateLeadScore(id: string, interaction: string): Promise<void> {
+    // Pontuação por tipo de interação
+    const scoreChanges: Record<string, number> = {
+      email_opened: 5,
+      email_clicked: 10,
+      email_replied: 20,
+      call_answered: 15,
+      call_scheduled: 25,
+      meeting_scheduled: 30,
+      proposal_sent: 20,
+      proposal_viewed: 15,
+      contract_sent: 25,
+      negative_response: -10,
+      no_response: -5,
+      unsubscribed: -20
+    };
+
+    const scoreChange = scoreChanges[interaction] || 0;
+    
+    // Em produção, atualizar no Supabase
+    console.log(`Lead ${id}: score ${scoreChange > 0 ? '+' : ''}${scoreChange} (${interaction})`);
+  }
 }
 
 export const leadScraper = new LeadScraperService();
