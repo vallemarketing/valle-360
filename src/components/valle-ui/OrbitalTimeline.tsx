@@ -291,13 +291,24 @@ export default function OrbitalTimeline({
                   <Icon className={cn("w-6 h-6", status.text)} />
                 </motion.div>
 
-                {/* Label */}
+                {/* Label - Nome do Cliente em Destaque */}
                 <div className={cn(
-                  "absolute top-16 left-1/2 -translate-x-1/2 whitespace-nowrap",
-                  "text-xs font-medium transition-all",
-                  isExpanded ? "text-foreground scale-110" : "text-muted-foreground"
+                  "absolute top-16 left-1/2 -translate-x-1/2",
+                  "text-center transition-all max-w-[120px]",
+                  isExpanded ? "scale-110" : ""
                 )}>
-                  {item.title}
+                  <div className={cn(
+                    "font-bold text-sm truncate",
+                    isExpanded ? "text-foreground" : "text-foreground/90"
+                  )}>
+                    {item.client || item.title.split(' - ')[0]}
+                  </div>
+                  <div className={cn(
+                    "text-[10px] truncate",
+                    isExpanded ? "text-muted-foreground" : "text-muted-foreground/70"
+                  )}>
+                    {item.category}
+                  </div>
                 </div>
 
                 {/* Expanded Card */}

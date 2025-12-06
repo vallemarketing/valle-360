@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import { useAI } from '@/hooks/useAI';
 import {
   Brain,
@@ -268,7 +269,20 @@ function AlertCard({ alert }: { alert: Alert }) {
           <h4 className="font-medium text-gray-900">{alert.title}</h4>
           <p className="text-sm text-gray-600 mt-1">{alert.description}</p>
           {alert.action && (
-            <button className="text-sm text-blue-600 font-medium mt-2 flex items-center gap-1 hover:underline">
+            <button 
+              onClick={() => {
+                toast.info(`Executando: ${alert.action}`);
+                // Ações baseadas no tipo de alerta
+                if (alert.type === 'danger') {
+                  window.location.href = '/admin/clientes?filter=churn';
+                } else if (alert.type === 'warning') {
+                  window.location.href = '/admin/clientes?filter=engajamento';
+                } else {
+                  window.location.href = '/admin/comercial/radar';
+                }
+              }}
+              className="text-sm text-blue-600 font-medium mt-2 flex items-center gap-1 hover:underline"
+            >
               {alert.action}
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -503,7 +517,16 @@ export default function PreditivoPage() {
                 <strong>e-commerce</strong> apresentam 40% mais engajamento que a média.
                 Recomendamos focar a prospecção neste segmento para os próximos 30 dias.
               </p>
-              <button className="w-full py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
+              <button 
+                onClick={() => {
+                  toast.info('Abrindo análise detalhada...');
+                  // Simular navegação ou modal de análise
+                  setTimeout(() => {
+                    toast.success('Relatório completo disponível para download');
+                  }, 1500);
+                }}
+                className="w-full py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+              >
                 Ver Análise Completa
               </button>
             </div>
@@ -513,12 +536,13 @@ export default function PreditivoPage() {
               <h3 className="font-bold text-gray-900 dark:text-white mb-4">Ações Recomendadas</h3>
               <div className="space-y-2">
                 {[
-                  { icon: Users, label: 'Contatar clientes em risco', count: 3 },
-                  { icon: Target, label: 'Oportunidades de upsell', count: 5 },
-                  { icon: Calendar, label: 'Reuniões a agendar', count: 2 }
+                  { icon: Users, label: 'Contatar clientes em risco', count: 3, action: () => { toast.info('Abrindo lista de clientes em risco...'); window.location.href = '/admin/clientes?filter=risco'; } },
+                  { icon: Target, label: 'Oportunidades de upsell', count: 5, action: () => { toast.info('Carregando oportunidades de upsell...'); window.location.href = '/admin/comercial/radar'; } },
+                  { icon: Calendar, label: 'Reuniões a agendar', count: 2, action: () => { toast.info('Abrindo agenda...'); window.location.href = '/admin/agendas'; } }
                 ].map((action, idx) => (
                   <button
                     key={idx}
+                    onClick={action.action}
                     className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
                   >
                     <div className="flex items-center gap-3">

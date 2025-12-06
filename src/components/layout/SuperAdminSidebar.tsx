@@ -34,7 +34,8 @@ import {
   Scale,
   ClipboardList,
   ToggleLeft,
-  Building2
+  Building2,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -322,7 +323,26 @@ export function SuperAdminSidebar({
 
       {/* Footer */}
       {!collapsed && (
-        <div className="p-3 border-t border-white/10">
+        <div className="p-3 border-t border-white/10 space-y-3">
+          {/* Botão Sair */}
+          <button
+            onClick={() => {
+              // Logout via Supabase
+              if (typeof window !== 'undefined') {
+                import('@/lib/supabase/client').then(({ createClient }) => {
+                  const supabase = createClient();
+                  supabase.auth.signOut().then(() => {
+                    window.location.href = '/login';
+                  });
+                });
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all border border-red-500/30"
+          >
+            <LogOut className="size-4" />
+            <span className="text-sm font-medium">Sair</span>
+          </button>
+          
           <div className="text-center">
             <p className="text-white/40 text-xs">Valle 360 Admin</p>
             <p className="text-white/30 text-[10px]">v2.0.0</p>

@@ -14,7 +14,8 @@ import {
   DollarSign, Target, BarChart3, ChevronRight, X, Eye, Phone,
   Mail, Calendar, Star, Sparkles, ArrowUpRight, ArrowDownRight,
   UserCheck, UserMinus, GraduationCap, BadgeDollarSign, RefreshCw,
-  MessageSquare, FileText, Briefcase, Clock, CheckCircle, XCircle
+  MessageSquare, FileText, Briefcase, Clock, CheckCircle, XCircle,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -539,6 +540,18 @@ export default function RHInteligenciaPage() {
                         ))}
                       </div>
                     )}
+                    
+                    {/* Botão Ver Performance Completa */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.location.href = `/admin/rh/colaborador/${col.id}`;
+                      }}
+                      className="mt-3 w-full py-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors flex items-center justify-center gap-1"
+                    >
+                      <Eye className="w-3 h-3" />
+                      Ver Performance Completa
+                    </button>
                   </motion.div>
                 );
               })}
