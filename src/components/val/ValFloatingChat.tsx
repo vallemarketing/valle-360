@@ -51,9 +51,9 @@ interface ValPersona {
 }
 
 interface QuickAction {
-  label: string;
-  action: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
+  text: string;
+  color: string;
 }
 
 interface ValFloatingChatProps {
