@@ -24,7 +24,7 @@ export interface Lead {
   };
   score: number;
   status: 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' | 'lost';
-  source: 'scraping' | 'referral' | 'inbound' | 'outbound' | 'event';
+  source: 'scraping' | 'referral' | 'inbound' | 'outbound' | 'event' | 'manual';
   tags?: string[];
   notes?: string;
   created_at?: string;
