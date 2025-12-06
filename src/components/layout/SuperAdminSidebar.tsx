@@ -133,7 +133,8 @@ const navGroups: NavGroup[] = [
     icon: Building2,
     items: [
       { id: "franqueados", label: "Franqueados", href: "/admin/franqueados", icon: Building2 },
-      { id: "rh", label: "RH", href: "/admin/rh", icon: UsersRound },
+      { id: "rh", label: "Gestão RH", href: "/admin/rh", icon: UsersRound },
+      { id: "rh-inteligencia", label: "RH Inteligência", href: "/admin/rh/inteligencia", icon: Brain },
       { id: "linkedin", label: "Vagas LinkedIn", href: "/admin/rh/vagas/linkedin", icon: Briefcase },
     ],
   },

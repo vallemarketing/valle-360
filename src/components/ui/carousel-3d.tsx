@@ -78,6 +78,7 @@ interface Carousel3DProps {
   items: NewsItem[]
   onItemClick?: (item: NewsItem) => void
   className?: string
+  hideInstructions?: boolean
 }
 
 const duration = 0.15
@@ -192,7 +193,7 @@ const CarouselInner = memo(
 
 CarouselInner.displayName = "CarouselInner"
 
-export function Carousel3D({ items, onItemClick, className }: Carousel3DProps) {
+export function Carousel3D({ items, onItemClick, className, hideInstructions = false }: Carousel3DProps) {
   const [activeItem, setActiveItem] = useState<NewsItem | null>(null)
   const [isCarouselActive, setIsCarouselActive] = useState(true)
   const controls = useAnimation()
@@ -289,9 +290,11 @@ export function Carousel3D({ items, onItemClick, className }: Carousel3DProps) {
       </div>
       
       {/* Instrução */}
-      <p className="text-center text-sm text-[#001533]/50 dark:text-white/50 mt-4">
-        Arraste para explorar os insights • Clique para ver detalhes
-      </p>
+      {!hideInstructions && (
+        <p className="text-center text-sm text-[#001533]/50 dark:text-white/50 mt-4">
+          Arraste para explorar os insights • Clique para ver detalhes
+        </p>
+      )}
     </motion.div>
   )
 }

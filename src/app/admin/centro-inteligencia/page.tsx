@@ -688,8 +688,12 @@ export default function SuperAdminDashboard() {
                 { id: 6, title: "ROI Médio das Campanhas", description: "Retorno de 340% nos últimos 3 meses", image: "https://images.unsplash.com/photo-1533750349088-cd871a92f312?w=400", category: "Marketing" },
               ]}
               onItemClick={(item) => console.log('Clicked:', item)}
+              hideInstructions={true}
             />
           </div>
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            Arraste para explorar os insights • Clique para ver detalhes
+          </p>
         </CardContent>
       </Card>
 
