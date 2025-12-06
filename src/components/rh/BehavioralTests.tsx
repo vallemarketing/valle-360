@@ -30,7 +30,7 @@ interface BehavioralTestsProps {
   onComplete?: (results: TestResult[]) => void;
 }
 
-// DISC Test Questions
+// DISC Test Questions - 10 perguntas para análise completa
 const DISC_QUESTIONS: TestQuestion[] = [
   {
     id: '1',
@@ -80,6 +80,56 @@ const DISC_QUESTIONS: TestQuestion[] = [
       { id: 'b', text: 'Buscar apoio e conversar com outros', value: { D: 1, I: 3, S: 1, C: 0 } },
       { id: 'c', text: 'Manter a calma e evitar conflitos', value: { D: 0, I: 1, S: 3, C: 1 } },
       { id: 'd', text: 'Focar nos detalhes e procedimentos', value: { D: 0, I: 0, S: 1, C: 3 } }
+    ]
+  },
+  {
+    id: '6',
+    text: 'Quando recebe feedback negativo, você:',
+    options: [
+      { id: 'a', text: 'Questiona e busca entender os fatos', value: { D: 3, I: 1, S: 0, C: 0 } },
+      { id: 'b', text: 'Se sente afetado emocionalmente mas supera rápido', value: { D: 1, I: 3, S: 1, C: 0 } },
+      { id: 'c', text: 'Aceita com calma e reflete sobre o que pode melhorar', value: { D: 0, I: 1, S: 3, C: 1 } },
+      { id: 'd', text: 'Analisa detalhadamente se o feedback é válido', value: { D: 0, I: 0, S: 1, C: 3 } }
+    ]
+  },
+  {
+    id: '7',
+    text: 'Ao iniciar um novo projeto, você prefere:',
+    options: [
+      { id: 'a', text: 'Definir metas ambiciosas e partir para ação', value: { D: 3, I: 1, S: 0, C: 0 } },
+      { id: 'b', text: 'Reunir a equipe e fazer um brainstorm', value: { D: 1, I: 3, S: 1, C: 0 } },
+      { id: 'c', text: 'Entender o processo e seguir passo a passo', value: { D: 0, I: 1, S: 3, C: 1 } },
+      { id: 'd', text: 'Pesquisar referências e criar um planejamento detalhado', value: { D: 0, I: 0, S: 1, C: 3 } }
+    ]
+  },
+  {
+    id: '8',
+    text: 'Em relação a mudanças no trabalho, você:',
+    options: [
+      { id: 'a', text: 'Abraça mudanças como oportunidades de crescimento', value: { D: 3, I: 1, S: 0, C: 0 } },
+      { id: 'b', text: 'Se adapta bem se puder compartilhar a experiência com outros', value: { D: 1, I: 3, S: 1, C: 0 } },
+      { id: 'c', text: 'Prefere tempo para se adaptar gradualmente', value: { D: 0, I: 1, S: 3, C: 1 } },
+      { id: 'd', text: 'Precisa entender a lógica e os detalhes da mudança', value: { D: 0, I: 0, S: 1, C: 3 } }
+    ]
+  },
+  {
+    id: '9',
+    text: 'Seu estilo de comunicação é mais:',
+    options: [
+      { id: 'a', text: 'Direto, objetivo e focado em resultados', value: { D: 3, I: 1, S: 0, C: 0 } },
+      { id: 'b', text: 'Entusiasmado, expressivo e persuasivo', value: { D: 1, I: 3, S: 1, C: 0 } },
+      { id: 'c', text: 'Calmo, empático e bom ouvinte', value: { D: 0, I: 1, S: 3, C: 1 } },
+      { id: 'd', text: 'Preciso, lógico e baseado em fatos', value: { D: 0, I: 0, S: 1, C: 3 } }
+    ]
+  },
+  {
+    id: '10',
+    text: 'O que mais te motiva no trabalho?',
+    options: [
+      { id: 'a', text: 'Desafios, autonomia e resultados', value: { D: 3, I: 1, S: 0, C: 0 } },
+      { id: 'b', text: 'Reconhecimento, interação social e criatividade', value: { D: 1, I: 3, S: 1, C: 0 } },
+      { id: 'c', text: 'Estabilidade, trabalho em equipe e ajudar outros', value: { D: 0, I: 1, S: 3, C: 1 } },
+      { id: 'd', text: 'Precisão, qualidade e fazer o trabalho bem feito', value: { D: 0, I: 0, S: 1, C: 3 } }
     ]
   }
 ];

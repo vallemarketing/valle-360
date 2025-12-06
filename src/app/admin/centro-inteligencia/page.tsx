@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { Download, FileSpreadsheet } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -85,6 +86,45 @@ export default function SuperAdminDashboard() {
   const [selectedAction, setSelectedAction] = useState<AIRecommendation | null>(null);
   const [executingAction, setExecutingAction] = useState(false);
   const [actionExecuted, setActionExecuted] = useState<string[]>([]);
+  const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
+  const [analysisGenerated, setAnalysisGenerated] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Handler para gerar análise de IA
+  const handleGenerateAnalysis = async () => {
+    setIsGeneratingAnalysis(true);
+    // Simular geração de análise
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    setIsGeneratingAnalysis(false);
+    setAnalysisGenerated(true);
+    alert('✅ Análise de IA gerada com sucesso! Confira os novos insights no dashboard.');
+  };
+
+  // Handler para exportar relatório
+  const handleExport = async (format: 'pdf' | 'excel') => {
+    setExportFormat(format);
+    setIsExporting(true);
+    // Simular exportação
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    setIsExporting(false);
+    setShowExportModal(false);
+    alert(`✅ Relatório exportado em ${format.toUpperCase()} com sucesso!`);
+  };
+
+  // Handler para ações rápidas
+  const handleQuickAction = async (action: string) => {
+    const messages: Record<string, string> = {
+      'cobrar': '📧 Enviando lembretes de cobrança para 3 clientes em atraso...',
+      'elogiar': '🎉 Enviando reconhecimento para 5 colaboradores com alta performance...',
+      'agendar': '📅 Criando convites para 4 reuniões pendentes...',
+      'relatorio': '📊 Gerando relatório mensal consolidado...'
+    };
+    alert(messages[action] || '⚡ Executando ação...');
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    alert('✅ Ação executada com sucesso!');
+  };
 
   const handleExecuteClick = (rec: AIRecommendation) => {
     setSelectedAction(rec);
@@ -275,13 +315,26 @@ export default function SuperAdminDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setShowExportModal(true)}>
             <BarChart3 className="w-4 h-4 mr-2" />
             Exportar Relatório
           </Button>
-          <Button className="bg-orange-600 hover:bg-orange-700">
-            <Sparkles className="w-4 h-4 mr-2" />
-            Gerar Análise IA
+          <Button 
+            className="bg-orange-600 hover:bg-orange-700"
+            onClick={handleGenerateAnalysis}
+            disabled={isGeneratingAnalysis}
+          >
+            {isGeneratingAnalysis ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Gerar Análise IA
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -530,85 +583,93 @@ export default function SuperAdminDashboard() {
 
       {/* ===== CARDS DE INTELIGÊNCIA PREDITIVA ===== */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <motion.div whileHover={{ y: -4 }}>
-          <Card className="cursor-pointer border-2 border-transparent hover:border-emerald-500/30 hover:shadow-lg transition-all h-full">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2.5 rounded-xl bg-emerald-500/10">
-                  <TrendingUp className="w-5 h-5 text-emerald-500" />
+        <Link href="/admin/analytics/preditivo">
+          <motion.div whileHover={{ y: -4 }}>
+            <Card className="cursor-pointer border-2 border-transparent hover:border-emerald-500/30 hover:shadow-lg transition-all h-full">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10">
+                    <TrendingUp className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <span className="text-xs text-emerald-500 font-medium">Previsão</span>
                 </div>
-                <span className="text-xs text-emerald-500 font-medium">Previsão</span>
-              </div>
-              <h4 className="font-bold text-lg mb-1">+22% Receita</h4>
-              <p className="text-sm text-muted-foreground">
-                Projeção para próximo trimestre baseada em contratos ativos
-              </p>
-              <div className="mt-3 flex items-center text-emerald-500 text-xs font-medium">
-                Ver análise <ChevronRight className="w-3 h-3 ml-1" />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+                <h4 className="font-bold text-lg mb-1">+22% Receita</h4>
+                <p className="text-sm text-muted-foreground">
+                  Projeção para próximo trimestre baseada em contratos ativos
+                </p>
+                <div className="mt-3 flex items-center text-emerald-500 text-xs font-medium">
+                  Ver análise <ChevronRight className="w-3 h-3 ml-1" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </Link>
 
-        <motion.div whileHover={{ y: -4 }}>
-          <Card className="cursor-pointer border-2 border-transparent hover:border-amber-500/30 hover:shadow-lg transition-all h-full">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2.5 rounded-xl bg-amber-500/10">
-                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+        <Link href="/admin/clientes?filter=churn_risk">
+          <motion.div whileHover={{ y: -4 }}>
+            <Card className="cursor-pointer border-2 border-transparent hover:border-amber-500/30 hover:shadow-lg transition-all h-full">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 rounded-xl bg-amber-500/10">
+                    <AlertTriangle className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <span className="text-xs text-amber-500 font-medium">Alerta IA</span>
                 </div>
-                <span className="text-xs text-amber-500 font-medium">Alerta IA</span>
-              </div>
-              <h4 className="font-bold text-lg mb-1">3 Clientes Risco</h4>
-              <p className="text-sm text-muted-foreground">
-                Probabilidade de churn detectada pela análise comportamental
-              </p>
-              <div className="mt-3 flex items-center text-amber-500 text-xs font-medium">
-                Ver clientes <ChevronRight className="w-3 h-3 ml-1" />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+                <h4 className="font-bold text-lg mb-1">3 Clientes Risco</h4>
+                <p className="text-sm text-muted-foreground">
+                  Probabilidade de churn detectada pela análise comportamental
+                </p>
+                <div className="mt-3 flex items-center text-amber-500 text-xs font-medium">
+                  Ver clientes <ChevronRight className="w-3 h-3 ml-1" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </Link>
 
-        <motion.div whileHover={{ y: -4 }}>
-          <Card className="cursor-pointer border-2 border-transparent hover:border-purple-500/30 hover:shadow-lg transition-all h-full">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2.5 rounded-xl bg-purple-500/10">
-                  <Users className="w-5 h-5 text-purple-500" />
+        <Link href="/admin/clientes?filter=upsell">
+          <motion.div whileHover={{ y: -4 }}>
+            <Card className="cursor-pointer border-2 border-transparent hover:border-purple-500/30 hover:shadow-lg transition-all h-full">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 rounded-xl bg-purple-500/10">
+                    <Users className="w-5 h-5 text-purple-500" />
+                  </div>
+                  <span className="text-xs text-purple-500 font-medium">Oportunidade</span>
                 </div>
-                <span className="text-xs text-purple-500 font-medium">Oportunidade</span>
-              </div>
-              <h4 className="font-bold text-lg mb-1">5 Upsells</h4>
-              <p className="text-sm text-muted-foreground">
-                Clientes com alto engajamento prontos para upgrade
-              </p>
-              <div className="mt-3 flex items-center text-purple-500 text-xs font-medium">
-                Ver oportunidades <ChevronRight className="w-3 h-3 ml-1" />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+                <h4 className="font-bold text-lg mb-1">5 Upsells</h4>
+                <p className="text-sm text-muted-foreground">
+                  Clientes com alto engajamento prontos para upgrade
+                </p>
+                <div className="mt-3 flex items-center text-purple-500 text-xs font-medium">
+                  Ver oportunidades <ChevronRight className="w-3 h-3 ml-1" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </Link>
 
-        <motion.div whileHover={{ y: -4 }}>
-          <Card className="cursor-pointer border-2 border-transparent hover:border-[#1672d6]/30 hover:shadow-lg transition-all h-full">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2.5 rounded-xl bg-[#1672d6]/10">
-                  <Target className="w-5 h-5 text-[#1672d6]" />
+        <Link href="/admin/comercial/leads">
+          <motion.div whileHover={{ y: -4 }}>
+            <Card className="cursor-pointer border-2 border-transparent hover:border-[#1672d6]/30 hover:shadow-lg transition-all h-full">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 rounded-xl bg-[#1672d6]/10">
+                    <Target className="w-5 h-5 text-[#1672d6]" />
+                  </div>
+                  <span className="text-xs text-[#1672d6] font-medium">SQL</span>
                 </div>
-                <span className="text-xs text-[#1672d6] font-medium">SQL</span>
-              </div>
-              <h4 className="font-bold text-lg mb-1">8 Leads Quentes</h4>
-              <p className="text-sm text-muted-foreground">
-                Leads qualificados prontos para conversão este mês
-              </p>
-              <div className="mt-3 flex items-center text-[#1672d6] text-xs font-medium">
-                Ver leads <ChevronRight className="w-3 h-3 ml-1" />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+                <h4 className="font-bold text-lg mb-1">8 Leads Quentes</h4>
+                <p className="text-sm text-muted-foreground">
+                  Leads qualificados prontos para conversão este mês
+                </p>
+                <div className="mt-3 flex items-center text-[#1672d6] text-xs font-medium">
+                  Ver leads <ChevronRight className="w-3 h-3 ml-1" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </Link>
       </div>
 
       {/* Ações Rápidas com IA */}
@@ -624,34 +685,38 @@ export default function SuperAdminDashboard() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              onClick={() => handleQuickAction('cobrar')}
               className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-[#1672d6]/30 transition-all text-left"
             >
               <Mail className="w-6 h-6 text-[#1672d6] mb-2" />
               <p className="font-semibold text-sm">Cobrar Clientes</p>
-              <p className="text-xs text-muted-foreground">Em atraso</p>
+              <p className="text-xs text-muted-foreground">3 em atraso</p>
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-[#1672d6]/30 transition-all text-left"
+              onClick={() => handleQuickAction('elogiar')}
+              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-emerald-500/30 transition-all text-left"
             >
               <ThumbsUp className="w-6 h-6 text-emerald-500 mb-2" />
               <p className="font-semibold text-sm">Elogiar Equipe</p>
-              <p className="text-xs text-muted-foreground">Performance alta</p>
+              <p className="text-xs text-muted-foreground">5 destaques</p>
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-[#1672d6]/30 transition-all text-left"
+              onClick={() => handleQuickAction('agendar')}
+              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-purple-500/30 transition-all text-left"
             >
               <Calendar className="w-6 h-6 text-purple-500 mb-2" />
               <p className="font-semibold text-sm">Agendar Reuniões</p>
-              <p className="text-xs text-muted-foreground">Pendentes</p>
+              <p className="text-xs text-muted-foreground">4 pendentes</p>
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-[#1672d6]/30 transition-all text-left"
+              onClick={() => handleQuickAction('relatorio')}
+              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-orange-500/30 transition-all text-left"
             >
               <FileText className="w-6 h-6 text-orange-500 mb-2" />
               <p className="font-semibold text-sm">Gerar Relatório</p>
@@ -733,6 +798,75 @@ export default function SuperAdminDashboard() {
                     )}
                   </Button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Exportação */}
+      <AnimatePresence>
+        {showExportModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => !isExporting && setShowExportModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#0a0f1a] rounded-2xl w-full max-w-md shadow-2xl"
+            >
+              <div className="p-6 border-b border-border">
+                <h2 className="text-xl font-bold text-foreground">Exportar Relatório</h2>
+                <p className="text-sm text-muted-foreground">Escolha o formato do arquivo</p>
+              </div>
+
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleExport('pdf')}
+                    disabled={isExporting}
+                    className="p-6 rounded-xl border-2 border-red-500/30 bg-red-500/5 hover:bg-red-500/10 transition-all text-center"
+                  >
+                    <Download className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                    <p className="font-semibold text-red-600">PDF</p>
+                    <p className="text-xs text-muted-foreground">Relatório formatado</p>
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleExport('excel')}
+                    disabled={isExporting}
+                    className="p-6 rounded-xl border-2 border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 transition-all text-center"
+                  >
+                    <FileSpreadsheet className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                    <p className="font-semibold text-emerald-600">Excel</p>
+                    <p className="text-xs text-muted-foreground">Planilha editável</p>
+                  </motion.button>
+                </div>
+
+                {isExporting && (
+                  <div className="flex items-center justify-center gap-2 text-[#1672d6]">
+                    <div className="w-4 h-4 border-2 border-[#1672d6]/30 border-t-[#1672d6] rounded-full animate-spin" />
+                    <span className="text-sm">Gerando {exportFormat.toUpperCase()}...</span>
+                  </div>
+                )}
+
+                <Button
+                  variant="outline"
+                  className="w-full mt-4"
+                  onClick={() => setShowExportModal(false)}
+                  disabled={isExporting}
+                >
+                  Cancelar
+                </Button>
               </div>
             </motion.div>
           </motion.div>

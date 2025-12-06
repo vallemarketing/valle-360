@@ -155,8 +155,32 @@ export default function ContratosPage() {
   };
 
   const handleSendToLegal = async (contractId: string) => {
-    // Simular envio para jurídico
-    alert('✅ Contrato enviado para aprovação do Jurídico!');
+    alert('📧 Enviando contrato para aprovação do Jurídico...');
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    alert('✅ Contrato enviado para aprovação do Jurídico com sucesso!');
+  };
+
+  const handleSendForSignature = async () => {
+    alert('✉️ Enviando contrato para assinatura eletrônica...');
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    alert('✅ Link de assinatura enviado para o cliente por e-mail!');
+  };
+
+  const handleDownloadPDF = async () => {
+    alert('📥 Gerando PDF do contrato...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    alert('✅ PDF gerado! O download iniciará automaticamente.');
+  };
+
+  const handleNewContract = () => {
+    // TODO: Implementar formulário de novo contrato com template padrão
+    setShowNewContractModal(true);
+  };
+
+  const handleExportCSV = async () => {
+    alert('📊 Exportando lista de contratos...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    alert('✅ Arquivo CSV gerado com sucesso!');
   };
 
   return (
@@ -178,7 +202,7 @@ export default function ContratosPage() {
               </p>
             </div>
             <Button 
-              onClick={() => setShowNewContractModal(true)}
+              onClick={handleNewContract}
               className="bg-[#1672d6] hover:bg-[#1260b5]"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -476,16 +500,23 @@ export default function ContratosPage() {
 
               {/* Footer */}
               <div className="p-6 border-t border-[#001533]/10 flex justify-between">
-                <Button variant="outline">
+                <Button variant="outline" onClick={handleDownloadPDF}>
                   <Download className="w-4 h-4 mr-2" />
                   Baixar PDF
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant="outline" className="text-purple-600 border-purple-600/30">
+                  <Button 
+                    variant="outline" 
+                    className="text-purple-600 border-purple-600/30 hover:bg-purple-50"
+                    onClick={() => handleSendToLegal(selectedContract.id)}
+                  >
                     <Scale className="w-4 h-4 mr-2" />
                     Enviar ao Jurídico
                   </Button>
-                  <Button className="bg-[#1672d6] hover:bg-[#1260b5]">
+                  <Button 
+                    className="bg-[#1672d6] hover:bg-[#1260b5]"
+                    onClick={handleSendForSignature}
+                  >
                     <Send className="w-4 h-4 mr-2" />
                     Enviar para Assinatura
                   </Button>

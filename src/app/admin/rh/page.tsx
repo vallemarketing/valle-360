@@ -70,11 +70,71 @@ const SAMPLE_EMPLOYEES: Employee[] = [
   }
 ];
 
+// Roteiro de Entrevista
+const INTERVIEW_SCRIPT = [
+  { 
+    category: 'Apresentação',
+    questions: [
+      { id: 'intro1', text: 'Conte-me sobre sua trajetória profissional.', tip: 'Observe clareza na comunicação e estrutura do pensamento' },
+      { id: 'intro2', text: 'O que te atraiu para esta oportunidade?', tip: 'Avalie motivação genuína e pesquisa sobre a empresa' },
+    ]
+  },
+  {
+    category: 'Experiência',
+    questions: [
+      { id: 'exp1', text: 'Descreva um projeto de que você tem orgulho. Qual foi seu papel?', tip: 'Foco em resultados e contribuição individual' },
+      { id: 'exp2', text: 'Conte sobre uma situação desafiadora que você superou no trabalho.', tip: 'Metodologia STAR: Situação, Tarefa, Ação, Resultado' },
+      { id: 'exp3', text: 'Como você lida com prazos apertados e múltiplas prioridades?', tip: 'Habilidades de organização e gestão de tempo' },
+    ]
+  },
+  {
+    category: 'Comportamental',
+    questions: [
+      { id: 'behav1', text: 'Como você prefere trabalhar: sozinho ou em equipe?', tip: 'Alinhamento com a cultura da empresa' },
+      { id: 'behav2', text: 'Conte sobre um conflito no trabalho e como você o resolveu.', tip: 'Inteligência emocional e resolução de conflitos' },
+      { id: 'behav3', text: 'Como você lida com feedback negativo?', tip: 'Capacidade de aprendizado e crescimento' },
+    ]
+  },
+  {
+    category: 'Fit Cultural',
+    questions: [
+      { id: 'fit1', text: 'Quais são seus valores profissionais mais importantes?', tip: 'Compare com os valores da empresa' },
+      { id: 'fit2', text: 'Como você se mantém atualizado na sua área?', tip: 'Proatividade e busca por conhecimento' },
+      { id: 'fit3', text: 'O que você espera da empresa e do gestor?', tip: 'Expectativas e maturidade profissional' },
+    ]
+  },
+  {
+    category: 'Fechamento',
+    questions: [
+      { id: 'close1', text: 'Você tem alguma dúvida sobre a vaga ou a empresa?', tip: 'Qualidade das perguntas indica interesse real' },
+      { id: 'close2', text: 'Qual sua disponibilidade para início?', tip: 'Verifique compatibilidade com as necessidades' },
+      { id: 'close3', text: 'Há algo mais que gostaria de compartilhar?', tip: 'Espaço para informações adicionais relevantes' },
+    ]
+  }
+];
+
 export default function RHPage() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showTest, setShowTest] = useState(false);
+  const [showInterviewScript, setShowInterviewScript] = useState(false);
+  const [showNewJob, setShowNewJob] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRisk, setFilterRisk] = useState<'all' | 'low' | 'medium' | 'high'>('all');
+  const [checkedQuestions, setCheckedQuestions] = useState<Record<string, boolean>>({});
+  const [questionNotes, setQuestionNotes] = useState<Record<string, string>>({});
+
+  const handleToggleQuestion = (questionId: string) => {
+    setCheckedQuestions(prev => ({ ...prev, [questionId]: !prev[questionId] }));
+  };
+
+  const handleNoteChange = (questionId: string, note: string) => {
+    setQuestionNotes(prev => ({ ...prev, [questionId]: note }));
+  };
+
+  const handleNewJob = () => {
+    alert('🚀 Criando vaga com IA...');
+    setShowNewJob(true);
+  };
 
   const filteredEmployees = SAMPLE_EMPLOYEES.filter(emp => {
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -125,6 +185,16 @@ export default function RHPage() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              onClick={() => setShowInterviewScript(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium"
+              style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }}
+            >
+              <FileText className="w-4 h-4" />
+              Roteiro Entrevista
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setShowTest(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-white"
               style={{ backgroundColor: 'var(--purple-500)' }}
@@ -135,6 +205,7 @@ export default function RHPage() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              onClick={handleNewJob}
               className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-white"
               style={{ backgroundColor: 'var(--primary-500)' }}
             >
@@ -375,7 +446,7 @@ export default function RHPage() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                  Teste DISC
+                  Teste DISC (10 perguntas)
                 </h2>
                 <button
                   onClick={() => setShowTest(false)}
@@ -391,6 +462,144 @@ export default function RHPage() {
                   console.log('Resultados:', results);
                 }}
               />
+            </motion.div>
+          </div>
+        )}
+
+        {/* Roteiro de Entrevista Modal */}
+        {showInterviewScript && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div 
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setShowInterviewScript(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl p-6"
+              style={{ backgroundColor: 'var(--bg-primary)' }}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: 'var(--primary-100)' }}
+                  >
+                    <FileText className="w-5 h-5" style={{ color: 'var(--primary-500)' }} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                      Roteiro de Entrevista
+                    </h2>
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      Clique nas perguntas para marcar como feitas
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowInterviewScript(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100"
+                  style={{ backgroundColor: 'var(--bg-secondary)' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {INTERVIEW_SCRIPT.map((section, sectionIdx) => (
+                  <div key={sectionIdx}>
+                    <h3 
+                      className="font-semibold mb-3 flex items-center gap-2"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-sm text-white"
+                        style={{ backgroundColor: 'var(--primary-500)' }}>
+                        {sectionIdx + 1}
+                      </span>
+                      {section.category}
+                    </h3>
+                    <div className="space-y-3">
+                      {section.questions.map((question) => (
+                        <div 
+                          key={question.id}
+                          className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                            checkedQuestions[question.id] ? 'border-green-500 bg-green-50' : ''
+                          }`}
+                          style={{ 
+                            backgroundColor: checkedQuestions[question.id] ? 'var(--success-100)' : 'var(--bg-secondary)',
+                            borderColor: checkedQuestions[question.id] ? 'var(--success-500)' : 'var(--border-light)'
+                          }}
+                          onClick={() => handleToggleQuestion(question.id)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div 
+                              className={`w-5 h-5 rounded-full flex items-center justify-center border-2 flex-shrink-0 mt-0.5 ${
+                                checkedQuestions[question.id] ? 'bg-green-500 border-green-500' : 'border-gray-300'
+                              }`}
+                            >
+                              {checkedQuestions[question.id] && (
+                                <Award className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <p 
+                                className={`font-medium ${checkedQuestions[question.id] ? 'line-through opacity-60' : ''}`}
+                                style={{ color: 'var(--text-primary)' }}
+                              >
+                                {question.text}
+                              </p>
+                              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                                💡 {question.tip}
+                              </p>
+                              <textarea
+                                placeholder="Anotações sobre a resposta..."
+                                value={questionNotes[question.id] || ''}
+                                onChange={(e) => handleNoteChange(question.id, e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-2 w-full p-2 text-sm rounded-lg border resize-none"
+                                style={{ 
+                                  backgroundColor: 'var(--bg-primary)',
+                                  borderColor: 'var(--border-light)',
+                                  color: 'var(--text-primary)'
+                                }}
+                                rows={2}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 pt-6 border-t flex items-center justify-between" style={{ borderColor: 'var(--border-light)' }}>
+                <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {Object.values(checkedQuestions).filter(Boolean).length} de {INTERVIEW_SCRIPT.reduce((acc, s) => acc + s.questions.length, 0)} perguntas feitas
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setCheckedQuestions({});
+                      setQuestionNotes({});
+                    }}
+                    className="px-4 py-2 rounded-lg"
+                    style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    onClick={() => {
+                      alert('✅ Roteiro salvo! Notas exportadas para o perfil do candidato.');
+                      setShowInterviewScript(false);
+                    }}
+                    className="px-4 py-2 rounded-lg text-white"
+                    style={{ backgroundColor: 'var(--primary-500)' }}
+                  >
+                    Salvar Avaliação
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

@@ -71,9 +71,30 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
   const [isTyping, setIsTyping] = useState(false);
   const [selectedModel, setSelectedModel] = useState("val-pro");
   const [webSearch, setWebSearch] = useState(false);
-  const [showGreeting, setShowGreeting] = useState(true);
+  const [showGreeting, setShowGreeting] = useState(false); // Começa oculto
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Mostrar saudação após 10 segundos e esconder após 10 segundos
+  useEffect(() => {
+    // Mostrar após 10 segundos de entrar na página
+    const showTimer = setTimeout(() => {
+      setShowGreeting(true);
+    }, 10000); // 10 segundos para aparecer
+
+    return () => clearTimeout(showTimer);
+  }, []);
+
+  // Esconder saudação automaticamente após 10 segundos de ser exibida
+  useEffect(() => {
+    if (showGreeting) {
+      const hideTimer = setTimeout(() => {
+        setShowGreeting(false);
+      }, 10000); // 10 segundos visível
+
+      return () => clearTimeout(hideTimer);
+    }
+  }, [showGreeting]);
 
   // Scroll to bottom when messages change
   useEffect(() => {

@@ -412,9 +412,11 @@ export default function AdminDashboard() {
                     <Clock className="w-5 h-5 text-[#1672d6]" />
                     Atividades Recentes
                   </span>
-                  <Button variant="ghost" size="sm" className="text-[#1672d6]">
-                    Ver todas
-                  </Button>
+                  <Link href="/admin/auditoria">
+                    <Button variant="ghost" size="sm" className="text-[#1672d6]">
+                      Ver todas
+                    </Button>
+                  </Link>
                 </CardTitle>
               </CardHeader>
               <CardContent>

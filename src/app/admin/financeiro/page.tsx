@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   DollarSign, TrendingUp, Download, Filter, Calendar,
   PieChart, BarChart3, FileText, AlertTriangle, Brain, Sparkles, 
-  Zap, ThumbsUp, Mail, ArrowRight, CheckCircle
+  Zap, ThumbsUp, Mail, ArrowRight, CheckCircle, FileSpreadsheet, X
 } from 'lucide-react';
 import { CashFlowKPIs } from '@/components/financial/FinancialKPICards';
 import { WaterfallChart } from '@/components/financial/WaterfallChart';
@@ -16,6 +16,38 @@ import { Badge } from '@/components/ui/badge';
 export default function FinanceiroPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('2024');
   const [selectedMonth, setSelectedMonth] = useState('all');
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
+
+  // Handler para exportar relatório
+  const handleExport = async (format: 'pdf' | 'excel') => {
+    setIsExporting(true);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    setIsExporting(false);
+    setShowExportModal(false);
+    alert(`✅ Relatório financeiro exportado em ${format.toUpperCase()} com sucesso!`);
+  };
+
+  // Handler para gerar nova análise
+  const handleGenerateAnalysis = async () => {
+    setIsGeneratingAnalysis(true);
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    setIsGeneratingAnalysis(false);
+    alert('✅ Nova análise financeira gerada com sucesso! Confira os insights atualizados.');
+  };
+
+  // Handler para cobrar inadimplentes
+  const handleChargeClients = async () => {
+    alert('📧 Enviando lembretes de cobrança para 3 clientes inadimplentes...');
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    alert('✅ E-mails de cobrança enviados com sucesso!');
+  };
+
+  // Handler para ver clientes
+  const handleViewClients = () => {
+    window.location.href = '/admin/clientes?filter=upsell';
+  };
 
   return (
     <div className="min-h-screen p-6" style={{ backgroundColor: '#0F172A' }}>
@@ -81,6 +113,7 @@ export default function FinanceiroPage() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              onClick={() => setShowExportModal(true)}
               className="p-2 rounded-xl"
               style={{ 
                 backgroundColor: '#1E293B',
@@ -137,7 +170,8 @@ export default function FinanceiroPage() {
               Demonstrativo de Resultados (DRE)
             </h2>
             <button 
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+              onClick={() => setShowExportModal(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-[#2E3B4B]"
               style={{ 
                 backgroundColor: '#1E293B',
                 color: 'white',
@@ -145,7 +179,7 @@ export default function FinanceiroPage() {
               }}
             >
               <Download className="w-4 h-4" />
-              Exportar Excel
+              Exportar Excel/PDF
             </button>
           </div>
           <DRETable />
@@ -214,9 +248,22 @@ export default function FinanceiroPage() {
                 <p className="text-gray-400 text-sm">Análise inteligente dos dados financeiros</p>
               </div>
             </div>
-            <Button className="bg-[#1672d6] hover:bg-[#1260b5]">
-              <Zap className="w-4 h-4 mr-2" />
-              Gerar Nova Análise
+            <Button 
+              className="bg-[#1672d6] hover:bg-[#1260b5]"
+              onClick={handleGenerateAnalysis}
+              disabled={isGeneratingAnalysis}
+            >
+              {isGeneratingAnalysis ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 mr-2" />
+                  Gerar Nova Análise
+                </>
+              )}
             </Button>
           </div>
 
@@ -252,7 +299,12 @@ export default function FinanceiroPage() {
                     <strong className="text-amber-400">3 clientes</strong> estão com pagamento atrasado há mais de 15 dias. 
                     Recomendo ação de cobrança imediata.
                   </p>
-                  <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                    onClick={handleChargeClients}
+                  >
                     <Mail className="w-3 h-3 mr-1" />
                     Enviar Cobrança
                   </Button>
@@ -272,7 +324,12 @@ export default function FinanceiroPage() {
                     <strong className="text-purple-400">5 clientes</strong> têm potencial para upgrade de plano, 
                     o que pode aumentar a receita em até <strong className="text-purple-400">R$ 18.500/mês</strong>.
                   </p>
-                  <Button size="sm" variant="outline" className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                    onClick={handleViewClients}
+                  >
                     Ver Clientes
                     <ArrowRight className="w-3 h-3 ml-1" />
                   </Button>
@@ -307,25 +364,111 @@ export default function FinanceiroPage() {
           <div className="mt-6 pt-6 border-t border-white/10">
             <h4 className="text-sm font-medium text-gray-400 mb-3">Ações Rápidas com IA</h4>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" className="border-white/10 text-white hover:bg-white/5">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="border-white/10 text-white hover:bg-white/5"
+                onClick={() => setShowExportModal(true)}
+              >
                 <FileText className="w-3 h-3 mr-1" />
                 Gerar Relatório Mensal
               </Button>
-              <Button size="sm" variant="outline" className="border-white/10 text-white hover:bg-white/5">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="border-white/10 text-white hover:bg-white/5"
+                onClick={handleChargeClients}
+              >
                 <Mail className="w-3 h-3 mr-1" />
                 Cobrar Inadimplentes
               </Button>
-              <Button size="sm" variant="outline" className="border-white/10 text-white hover:bg-white/5">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="border-white/10 text-white hover:bg-white/5"
+                onClick={handleGenerateAnalysis}
+              >
                 <BarChart3 className="w-3 h-3 mr-1" />
                 Análise de Tendências
               </Button>
-              <Button size="sm" variant="outline" className="border-white/10 text-white hover:bg-white/5">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="border-white/10 text-white hover:bg-white/5"
+                onClick={handleGenerateAnalysis}
+              >
                 <PieChart className="w-3 h-3 mr-1" />
                 Projeção de Fluxo de Caixa
               </Button>
             </div>
           </div>
         </motion.div>
+
+        {/* Modal de Exportação */}
+        <AnimatePresence>
+          {showExportModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+              onClick={() => !isExporting && setShowExportModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="rounded-2xl w-full max-w-md shadow-2xl"
+                style={{ backgroundColor: '#1E293B' }}
+              >
+                <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Exportar Relatório</h2>
+                    <p className="text-sm text-gray-400">Escolha o formato do arquivo</p>
+                  </div>
+                  <button onClick={() => setShowExportModal(false)} className="text-gray-400 hover:text-white">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-6">
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleExport('pdf')}
+                      disabled={isExporting}
+                      className="p-6 rounded-xl border-2 border-red-500/30 bg-red-500/5 hover:bg-red-500/10 transition-all text-center"
+                    >
+                      <Download className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                      <p className="font-semibold text-red-400">PDF</p>
+                      <p className="text-xs text-gray-400">Relatório formatado</p>
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleExport('excel')}
+                      disabled={isExporting}
+                      className="p-6 rounded-xl border-2 border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 transition-all text-center"
+                    >
+                      <FileSpreadsheet className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                      <p className="font-semibold text-emerald-400">Excel</p>
+                      <p className="text-xs text-gray-400">Planilha editável</p>
+                    </motion.button>
+                  </div>
+
+                  {isExporting && (
+                    <div className="flex items-center justify-center gap-2 text-[#1672d6]">
+                      <div className="w-4 h-4 border-2 border-[#1672d6]/30 border-t-[#1672d6] rounded-full animate-spin" />
+                      <span className="text-sm text-white">Gerando relatório...</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

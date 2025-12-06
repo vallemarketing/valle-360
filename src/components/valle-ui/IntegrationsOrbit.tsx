@@ -30,14 +30,14 @@ interface IntegrationsOrbitProps {
 }
 
 const defaultIntegrations: Integration[] = [
-  { id: "1", name: "Meta Ads", icon: "📱", status: "connected", description: "Gerenciamento de campanhas", category: "Ads" },
-  { id: "2", name: "Google Ads", icon: "🔍", status: "connected", description: "Campanhas de busca", category: "Ads" },
-  { id: "3", name: "n8n", icon: "⚡", status: "connected", description: "Automação de workflows", category: "Automation" },
-  { id: "4", name: "Slack", icon: "💬", status: "connected", description: "Comunicação da equipe", category: "Communication" },
-  { id: "5", name: "Notion", icon: "📝", status: "pending", description: "Documentação", category: "Productivity" },
-  { id: "6", name: "HubSpot", icon: "🎯", status: "disconnected", description: "CRM e Marketing", category: "CRM" },
-  { id: "7", name: "Stripe", icon: "💳", status: "connected", description: "Pagamentos", category: "Finance" },
-  { id: "8", name: "Zapier", icon: "🔗", status: "pending", description: "Integrações", category: "Automation" },
+  { id: "1", name: "Meta Ads", icon: "/icons/meta-logo.svg", status: "connected", description: "Facebook e Instagram Ads", category: "Ads" },
+  { id: "2", name: "Google Ads", icon: "/icons/google-ads-logo.svg", status: "connected", description: "Campanhas de busca e display", category: "Ads" },
+  { id: "3", name: "n8n", icon: "/icons/n8n-logo.svg", status: "connected", description: "Automação de workflows", category: "Automation" },
+  { id: "4", name: "Slack", icon: "/icons/slack-logo.svg", status: "connected", description: "Comunicação da equipe", category: "Communication" },
+  { id: "5", name: "Google Analytics", icon: "/icons/google-analytics-logo.svg", status: "connected", description: "Analytics e métricas", category: "Analytics" },
+  { id: "6", name: "HubSpot", icon: "/icons/hubspot-logo.svg", status: "pending", description: "CRM e Marketing", category: "CRM" },
+  { id: "7", name: "Stripe", icon: "/icons/stripe-logo.svg", status: "connected", description: "Pagamentos online", category: "Finance" },
+  { id: "8", name: "LinkedIn", icon: "/icons/linkedin-logo.svg", status: "connected", description: "Vagas e networking", category: "Social" },
 ];
 
 const statusConfig = {
@@ -110,7 +110,27 @@ function SemiCircleOrbit({
               )}
               style={{ width: iconSize, height: iconSize }}
             >
-              <span className="text-2xl">{item.icon}</span>
+              {item.icon.startsWith('/') ? (
+                <img 
+                  src={item.icon} 
+                  alt={item.name}
+                  className="w-8 h-8 object-contain"
+                  onError={(e) => {
+                    // Fallback para iniciais se a imagem não carregar
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      const fallback = document.createElement('span');
+                      fallback.className = 'text-lg font-bold text-[#1672d6]';
+                      fallback.textContent = item.name.substring(0, 2).toUpperCase();
+                      parent.appendChild(fallback);
+                    }
+                  }}
+                />
+              ) : (
+                <span className="text-2xl">{item.icon}</span>
+              )}
               
               {/* Status Indicator */}
               <div className={cn(

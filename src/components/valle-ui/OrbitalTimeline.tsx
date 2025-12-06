@@ -40,7 +40,7 @@ interface OrbitalTimelineProps {
 const defaultTimelineData: TimelineItem[] = [
   {
     id: 1,
-    title: "TechStart Brasil",
+    title: "Tech Solutions Ltda",
     date: "Jan 2024",
     content: "Gestão completa de redes sociais e tráfego pago",
     category: "Cliente",
@@ -48,11 +48,11 @@ const defaultTimelineData: TimelineItem[] = [
     relatedIds: [2, 3],
     status: "in-progress",
     energy: 85,
-    client: "TechStart"
+    client: "Tech Solutions"
   },
   {
     id: 2,
-    title: "Campanha Black Friday",
+    title: "Campanha Black Friday - Valle Boutique",
     date: "Nov 2024",
     content: "Campanha multicanal com foco em conversão",
     category: "Campanha",
@@ -60,10 +60,11 @@ const defaultTimelineData: TimelineItem[] = [
     relatedIds: [1, 4],
     status: "completed",
     energy: 100,
+    client: "Valle Boutique"
   },
   {
     id: 3,
-    title: "Lançamento App",
+    title: "Digital Plus - Lançamento App",
     date: "Dez 2024",
     content: "Estratégia de lançamento para aplicativo mobile",
     category: "Projeto",
@@ -71,10 +72,11 @@ const defaultTimelineData: TimelineItem[] = [
     relatedIds: [1],
     status: "in-progress",
     energy: 65,
+    client: "Digital Plus"
   },
   {
     id: 4,
-    title: "E-commerce XYZ",
+    title: "E-commerce Pro",
     date: "Mar 2024",
     content: "Reestruturação completa de funil de vendas",
     category: "Cliente",
@@ -82,11 +84,11 @@ const defaultTimelineData: TimelineItem[] = [
     relatedIds: [2, 5],
     status: "in-progress",
     energy: 72,
-    client: "XYZ Store"
+    client: "E-commerce Pro"
   },
   {
     id: 5,
-    title: "Automação Marketing",
+    title: "Inova Marketing - Automação",
     date: "Fev 2024",
     content: "Implementação de fluxos automatizados via n8n",
     category: "Projeto",
@@ -94,18 +96,19 @@ const defaultTimelineData: TimelineItem[] = [
     relatedIds: [4, 6],
     status: "pending",
     energy: 45,
+    client: "Inova Marketing"
   },
   {
     id: 6,
-    title: "Startup ABC",
+    title: "Startup Nexus",
     date: "Abr 2024",
-    content: "Consultoria estratégica e branding",
+    content: "Consultoria estratégica e branding completo",
     category: "Cliente",
     icon: Users,
     relatedIds: [5],
     status: "pending",
     energy: 30,
-    client: "ABC Inc"
+    client: "Startup Nexus"
   },
 ];
 

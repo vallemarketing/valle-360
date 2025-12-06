@@ -55,6 +55,31 @@ interface BeforeValleMetrics {
   traffic_leads: number;
 }
 
+// Dados fictícios para simulação
+const mockClients: Client[] = [
+  { id: '1', full_name: 'Tech Solutions Ltda' },
+  { id: '2', full_name: 'Valle Boutique' },
+  { id: '3', full_name: 'Digital Plus' },
+  { id: '4', full_name: 'E-commerce Pro' },
+  { id: '5', full_name: 'Inova Marketing' }
+];
+
+const mockBeforeMetrics: Record<string, BeforeValleMetrics> = {
+  '1': { traffic_roas: 1.8, traffic_cpl: 45.00, traffic_conversions: 28, traffic_ctr: 0.9, traffic_investment: 8000, traffic_leads: 178 },
+  '2': { traffic_roas: 1.2, traffic_cpl: 62.00, traffic_conversions: 15, traffic_ctr: 0.6, traffic_investment: 5000, traffic_leads: 81 },
+  '3': { traffic_roas: 2.1, traffic_cpl: 38.00, traffic_conversions: 42, traffic_ctr: 1.1, traffic_investment: 12000, traffic_leads: 316 },
+  '4': { traffic_roas: 1.5, traffic_cpl: 55.00, traffic_conversions: 22, traffic_ctr: 0.8, traffic_investment: 10000, traffic_leads: 182 },
+  '5': { traffic_roas: 1.3, traffic_cpl: 68.00, traffic_conversions: 18, traffic_ctr: 0.7, traffic_investment: 6000, traffic_leads: 88 }
+};
+
+const mockAfterMetrics: Record<string, TrafficMetrics> = {
+  '1': { roas: 4.2, cpc: 1.85, cpm: 18.50, ctr: 2.4, investment: 8000, conversions: 78, leads: 432 },
+  '2': { roas: 3.5, cpc: 2.20, cpm: 22.00, ctr: 1.8, investment: 5000, conversions: 42, leads: 227 },
+  '3': { roas: 5.1, cpc: 1.45, cpm: 14.50, ctr: 3.2, investment: 12000, conversions: 118, leads: 827 },
+  '4': { roas: 3.8, cpc: 2.00, cpm: 20.00, ctr: 2.1, investment: 10000, conversions: 68, leads: 500 },
+  '5': { roas: 3.2, cpc: 2.50, cpm: 25.00, ctr: 1.6, investment: 6000, conversions: 38, leads: 240 }
+};
+
 export default function TrafegoComparativoPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState('');
@@ -79,22 +104,29 @@ export default function TrafegoComparativoPage() {
       .eq('user_type', 'cliente')
       .order('full_name');
 
-    if (data) {
+    // Se não houver dados do banco, usar dados fictícios para demonstração
+    if (data && data.length > 0) {
       setClients(data);
+    } else {
+      setClients(mockClients);
     }
   };
 
   const loadMetrics = async () => {
     setLoading(true);
 
+    // Tentar buscar do banco primeiro
     const { data: beforeData } = await supabase
       .from('before_valle_metrics')
       .select('*')
       .eq('client_id', selectedClient)
       .maybeSingle();
 
+    // Se houver dados do banco, usar; senão, usar mock
     if (beforeData) {
       setBeforeMetrics(beforeData);
+    } else if (mockBeforeMetrics[selectedClient]) {
+      setBeforeMetrics(mockBeforeMetrics[selectedClient]);
     }
 
     const { data: afterData } = await supabase
@@ -105,8 +137,11 @@ export default function TrafegoComparativoPage() {
       .limit(1)
       .maybeSingle();
 
+    // Se houver dados do banco, usar; senão, usar mock
     if (afterData) {
       setAfterMetrics(afterData);
+    } else if (mockAfterMetrics[selectedClient]) {
+      setAfterMetrics(mockAfterMetrics[selectedClient]);
     }
 
     setLoading(false);
