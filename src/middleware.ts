@@ -40,6 +40,7 @@ const rateLimitedRoutes = [
 const allowedOrigins = [
   'https://valle360.com',
   'https://app.valle360.com',
+  'https://valle-360-platform-guilherme-valles-projects.vercel.app',
   'http://localhost:3000',
   'http://localhost:3001',
 ];
@@ -119,6 +120,7 @@ export async function middleware(request: NextRequest) {
 
     // =========================================
     // 5. Verificar permissões de rota
+    // NOTA: Em ambiente de teste, super_admin tem acesso total
     // =========================================
     const { data: userProfile } = await supabase
       .from('user_profiles')
@@ -128,23 +130,26 @@ export async function middleware(request: NextRequest) {
 
     const userRole = userProfile?.role || 'user';
 
-    // Rotas de admin
+    // Super admin tem acesso a TODAS as áreas
+    if (userRole === 'super_admin') {
+      return response;
+    }
+
+    // Rotas de admin - apenas super_admin
     if (pathname.startsWith('/admin')) {
-      if (userRole !== 'super_admin') {
-        return NextResponse.redirect(new URL('/cliente/dashboard', request.url));
-      }
+      return NextResponse.redirect(new URL('/cliente/dashboard', request.url));
     }
 
     // Rotas de cliente
     if (pathname.startsWith('/cliente')) {
-      if (userRole !== 'cliente' && userRole !== 'super_admin') {
+      if (userRole !== 'cliente') {
         return NextResponse.redirect(new URL('/colaborador/dashboard', request.url));
       }
     }
 
     // Rotas de colaborador
     if (pathname.startsWith('/colaborador')) {
-      const allowedRoles = ['employee', 'colaborador', 'super_admin'];
+      const allowedRoles = ['employee', 'colaborador'];
       if (!allowedRoles.includes(userRole)) {
         return NextResponse.redirect(new URL('/login', request.url));
       }
@@ -153,8 +158,8 @@ export async function middleware(request: NextRequest) {
   } catch (error) {
     console.error('Middleware auth error:', error);
     
-    // Em caso de erro, permitir acesso mas logar
-    // Em produção, você pode querer ser mais restritivo
+    // Em caso de erro durante teste, permitir acesso
+    // TODO: Em produção, ser mais restritivo
   }
 
   return response;
