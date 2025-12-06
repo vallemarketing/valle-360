@@ -111,13 +111,17 @@ function base32ToBytes(base32: string): Uint8Array {
 async function hmacSha1(key: Uint8Array, message: Uint8Array): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    key,
+    key.buffer.slice(key.byteOffset, key.byteOffset + key.byteLength) as ArrayBuffer,
     { name: 'HMAC', hash: 'SHA-1' },
     false,
     ['sign']
   );
   
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, message);
+  const signature = await crypto.subtle.sign(
+    'HMAC', 
+    cryptoKey, 
+    message.buffer.slice(message.byteOffset, message.byteOffset + message.byteLength) as ArrayBuffer
+  );
   return new Uint8Array(signature);
 }
 
