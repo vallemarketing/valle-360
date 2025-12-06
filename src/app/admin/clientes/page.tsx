@@ -775,22 +775,22 @@ export default function ClientsListPage() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-                        <div className="flex items-center gap-2 text-gray-500">
-                          <User className="w-4 h-4" />
-                          <span>{client.contactName}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                        <div className="flex items-center gap-2 text-gray-500 min-w-0">
+                          <User className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">{client.contactName}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-gray-500">
-                          <Mail className="w-4 h-4" />
-                          <span>{client.email}</span>
+                        <div className="flex items-center gap-2 text-gray-500 min-w-0">
+                          <Mail className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">{client.email}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-gray-500">
-                          <Globe className="w-4 h-4" />
-                          <span>{client.industry}</span>
+                        <div className="flex items-center gap-2 text-gray-500 min-w-0">
+                          <Building2 className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">{client.industry}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4 text-green-500" />
-                          <span className="font-semibold text-green-600">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <TrendingUp className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          <span className="font-semibold text-green-600 whitespace-nowrap">
                             R$ {client.monthlyValue.toLocaleString('pt-BR')} /mês
                           </span>
                         </div>

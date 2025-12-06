@@ -341,10 +341,11 @@ export default function AdminKanbanPage() {
       <AnimatePresence>
         {showInsights && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="px-6 overflow-hidden"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="px-6"
           >
             <KanbanInsights columns={filteredColumns} area={selectedAreaInfo.label} />
           </motion.div>

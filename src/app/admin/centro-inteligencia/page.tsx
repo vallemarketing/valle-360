@@ -690,9 +690,6 @@ export default function SuperAdminDashboard() {
               onItemClick={(item) => console.log('Clicked:', item)}
             />
           </div>
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Arraste para explorar os insights • Clique para ver detalhes
-          </p>
         </CardContent>
       </Card>
 

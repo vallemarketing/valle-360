@@ -290,7 +290,7 @@ export function Carousel3D({ items, onItemClick, className }: Carousel3DProps) {
       
       {/* Instrução */}
       <p className="text-center text-sm text-[#001533]/50 dark:text-white/50 mt-4">
-        Arraste para girar • Clique para ler
+        Arraste para explorar os insights • Clique para ver detalhes
       </p>
     </motion.div>
   )
