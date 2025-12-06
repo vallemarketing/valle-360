@@ -97,16 +97,20 @@ export async function POST(request: NextRequest) {
         });
     }
 
-    // Registrar envio
-    await supabase.from('email_logs').insert({
-      user_id: user.id,
-      type,
-      recipient_email: recipient.email,
-      recipient_name: recipient.name,
-      success: result.success,
-      message_id: result.messageId,
-      error: result.error
-    }).catch(() => {});
+    // Registrar envio (ignorar erro se tabela não existir)
+    try {
+      await supabase.from('email_logs').insert({
+        user_id: user.id,
+        type,
+        recipient_email: recipient.email,
+        recipient_name: recipient.name,
+        success: result.success,
+        message_id: result.messageId,
+        error: result.error
+      });
+    } catch {
+      // Ignorar erro silenciosamente
+    }
 
     return NextResponse.json({
       success: result.success,

@@ -73,14 +73,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Tipo de pesquisa inválido' }, { status: 400 });
     }
 
-    // Registrar pesquisa
-    await supabase.from('search_logs').insert({
-      user_id: user.id,
-      search_type: type,
-      query,
-      results_count: result.results.length,
-      response_time: result.responseTime
-    }).catch(() => {});
+    // Registrar pesquisa (ignorar erro se tabela não existir)
+    try {
+      await supabase.from('search_logs').insert({
+        user_id: user.id,
+        search_type: type,
+        query,
+        results_count: result.results.length,
+        response_time: result.responseTime
+      });
+    } catch {
+      // Ignorar erro silenciosamente
+    }
 
     return NextResponse.json({
       success: true,
