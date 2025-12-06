@@ -329,8 +329,7 @@ export function SuperAdminSidebar({
             onClick={() => {
               // Logout via Supabase
               if (typeof window !== 'undefined') {
-                import('@/lib/supabase/client').then(({ createClient }) => {
-                  const supabase = createClient();
+                import('@/lib/supabase').then(({ supabase }) => {
                   supabase.auth.signOut().then(() => {
                     window.location.href = '/login';
                   });
