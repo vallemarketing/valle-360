@@ -367,6 +367,100 @@ Retorne JSON:
 
     return filteredLeads;
   }
+
+  /**
+   * Gera mensagem de abordagem personalizada para um lead
+   */
+  generateOutreachMessage(lead: Lead, template: string = 'initial'): string {
+    const templates: Record<string, string> = {
+      initial: `Olá! Notamos que a ${lead.company_name} tem um grande potencial no setor de ${lead.industry || 'negócios'}. 
+
+Somos a Valle 360, especialistas em marketing digital e gostaríamos de apresentar soluções que podem impulsionar seus resultados.
+
+${lead.ai_insights?.potential_services?.length ? `Identificamos oportunidades em: ${lead.ai_insights.potential_services.join(', ')}.` : ''}
+
+Podemos agendar uma conversa rápida de 15 minutos?
+
+Atenciosamente,
+Equipe Valle 360`,
+      
+      followup: `Olá! Estou fazendo um acompanhamento do nosso contato anterior.
+
+A ${lead.company_name} continua sendo uma empresa com perfil ideal para nossas soluções de marketing digital.
+
+Gostaria de retomar nossa conversa. Qual o melhor horário para você?
+
+Atenciosamente,
+Equipe Valle 360`,
+
+      proposal: `Olá! Conforme conversamos, segue nossa proposta para a ${lead.company_name}.
+
+Com base na análise do seu negócio, preparamos um plano personalizado que pode gerar resultados expressivos.
+
+${lead.ai_insights?.estimated_value ? `Investimento estimado: R$ ${lead.ai_insights.estimated_value.toLocaleString('pt-BR')}/mês` : ''}
+
+Aguardo seu retorno para discutirmos os detalhes.
+
+Atenciosamente,
+Equipe Valle 360`
+    };
+
+    return templates[template] || templates.initial;
+  }
+
+  /**
+   * Salva um lead no banco de dados
+   */
+  async saveLead(lead: Lead): Promise<Lead | null> {
+    try {
+      // Em produção, salvar no Supabase
+      // Por enquanto, retorna o lead com ID gerado
+      return {
+        ...lead,
+        id: `lead_${Date.now()}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Erro ao salvar lead:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Atualiza um lead existente
+   */
+  async updateLead(id: string, updates: Partial<Lead>): Promise<Lead | null> {
+    try {
+      // Em produção, atualizar no Supabase
+      return {
+        id,
+        company_name: updates.company_name || 'Lead Atualizado',
+        score: updates.score || 50,
+        status: updates.status || 'new',
+        source: updates.source || 'manual',
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Erro ao atualizar lead:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Remove um lead
+   */
+  async deleteLead(id: string): Promise<boolean> {
+    try {
+      // Em produção, deletar do Supabase
+      console.log(`Lead ${id} removido`);
+      return true;
+    } catch (error) {
+      console.error('Erro ao deletar lead:', error);
+      return false;
+    }
+  }
 }
 
 export const leadScraper = new LeadScraperService();
