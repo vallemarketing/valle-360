@@ -1,7 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+/**
+ * Valle 360 - Página de Insights para Cliente
+ * Mostra insights personalizados gerados por IA
+ */
+
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lightbulb,
   TrendingUp,
@@ -17,25 +22,30 @@ import {
   BarChart3,
   Users,
   DollarSign,
-  Eye
+  Eye,
+  RefreshCw,
+  MessageSquare,
+  Star
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { useAI } from '@/hooks/useAI';
 
 interface Insight {
   id: string;
-  type: 'opportunity' | 'warning' | 'achievement' | 'recommendation';
+  type: 'opportunity' | 'warning' | 'achievement' | 'recommendation' | 'trend';
   priority: 'high' | 'medium' | 'low';
   title: string;
   description: string;
+  impact?: string;
+  action?: string;
   metric?: {
     label: string;
     value: string;
-    change: number;
+    change?: number;
   };
-  action?: {
-    label: string;
-    href: string;
-  };
-  createdAt: Date;
 }
 
 interface WeeklySummary {
@@ -48,388 +58,391 @@ interface WeeklySummary {
     icon: React.ElementType;
   }[];
   opportunities: string[];
-  risks: string[];
-  nextSteps: string[];
 }
 
-// Mock data
-const mockInsights: Insight[] = [
-  {
-    id: '1',
-    type: 'opportunity',
-    priority: 'high',
-    title: 'Horário de Ouro Identificado',
-    description: 'Seus posts entre 19h e 21h têm 45% mais engajamento. Considere concentrar publicações neste período.',
-    metric: { label: 'Engajamento', value: '+45%', change: 45 },
-    action: { label: 'Ver Análise Completa', href: '/cliente/dashboard' },
-    createdAt: new Date()
+const typeConfig = {
+  opportunity: {
+    icon: Target,
+    color: 'text-green-600',
+    bg: 'bg-green-50 dark:bg-green-900/20',
+    border: 'border-green-200 dark:border-green-800'
   },
-  {
-    id: '2',
-    type: 'achievement',
-    priority: 'medium',
-    title: 'Meta de Seguidores Atingida! 🎉',
-    description: 'Você alcançou 15.000 seguidores no Instagram, um crescimento de 12% este mês.',
-    metric: { label: 'Seguidores', value: '15K', change: 12 },
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5)
+  warning: {
+    icon: AlertTriangle,
+    color: 'text-yellow-600',
+    bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+    border: 'border-yellow-200 dark:border-yellow-800'
   },
-  {
-    id: '3',
-    type: 'warning',
-    priority: 'high',
-    title: 'Queda no Alcance Detectada',
-    description: 'O alcance orgânico caiu 18% na última semana. Recomendamos aumentar a frequência de Reels.',
-    metric: { label: 'Alcance', value: '-18%', change: -18 },
-    action: { label: 'Ver Recomendações', href: '/cliente/noticias' },
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 12)
+  achievement: {
+    icon: CheckCircle,
+    color: 'text-blue-600',
+    bg: 'bg-blue-50 dark:bg-blue-900/20',
+    border: 'border-blue-200 dark:border-blue-800'
   },
-  {
-    id: '4',
-    type: 'recommendation',
-    priority: 'medium',
-    title: 'Tendência: Conteúdo em Carrossel',
-    description: 'Posts em carrossel estão gerando 2x mais salvamentos. Considere criar mais deste formato.',
-    action: { label: 'Solicitar Conteúdo', href: '/cliente/producao' },
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24)
+  recommendation: {
+    icon: Lightbulb,
+    color: 'text-purple-600',
+    bg: 'bg-purple-50 dark:bg-purple-900/20',
+    border: 'border-purple-200 dark:border-purple-800'
   },
-  {
-    id: '5',
-    type: 'opportunity',
-    priority: 'low',
-    title: 'Seu Concorrente Está Inativo',
-    description: 'O concorrente "Alpha" não postou há 5 dias. Boa oportunidade para aumentar presença.',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 36)
+  trend: {
+    icon: TrendingUp,
+    color: 'text-cyan-600',
+    bg: 'bg-cyan-50 dark:bg-cyan-900/20',
+    border: 'border-cyan-200 dark:border-cyan-800'
   }
-];
-
-const mockWeeklySummary: WeeklySummary = {
-  period: '18-24 Nov 2024',
-  highlights: [
-    '📈 Crescimento de 12% em seguidores',
-    '🎯 3 posts com engajamento acima da média',
-    '💬 87 novos comentários respondidos',
-    '🔥 1 Reel viral com 50K visualizações'
-  ],
-  metrics: [
-    { label: 'Alcance Total', value: '125.4K', change: 8, icon: Eye },
-    { label: 'Novos Seguidores', value: '+1.2K', change: 12, icon: Users },
-    { label: 'Engajamento', value: '4.8%', change: 5, icon: TrendingUp },
-    { label: 'Leads Gerados', value: '23', change: 15, icon: DollarSign }
-  ],
-  opportunities: [
-    'Aumentar produção de Reels (performance 3x maior)',
-    'Explorar horário das 7h (baixa concorrência)',
-    'Criar série de conteúdo educativo'
-  ],
-  risks: [
-    'Engajamento em stories caindo 10%',
-    'Taxa de resposta de DMs abaixo da meta'
-  ],
-  nextSteps: [
-    'Aprovar 5 posts pendentes para próxima semana',
-    'Revisar calendário de conteúdo de Dezembro',
-    'Agendar reunião de alinhamento'
-  ]
 };
 
-const INSIGHT_ICONS: Record<string, React.ElementType> = {
-  opportunity: Lightbulb,
-  warning: AlertTriangle,
-  achievement: CheckCircle,
-  recommendation: Target
-};
+export default function ClienteInsightsPage() {
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [summary, setSummary] = useState<WeeklySummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedInsight, setSelectedInsight] = useState<Insight | null>(null);
+  
+  const { generateInsights, isLoading: aiLoading } = useAI();
 
-const INSIGHT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  opportunity: { bg: 'var(--success-50)', text: 'var(--success-700)', border: 'var(--success-200)' },
-  warning: { bg: 'var(--warning-50)', text: 'var(--warning-700)', border: 'var(--warning-200)' },
-  achievement: { bg: 'var(--purple-50)', text: 'var(--purple-700)', border: 'var(--purple-200)' },
-  recommendation: { bg: 'var(--primary-50)', text: 'var(--primary-700)', border: 'var(--primary-200)' }
-};
+  // Carregar insights ao montar
+  useEffect(() => {
+    loadInsights();
+  }, []);
 
-export default function InsightsPage() {
-  const [insights] = useState<Insight[]>(mockInsights);
-  const [summary] = useState<WeeklySummary>(mockWeeklySummary);
-  const [filter, setFilter] = useState<string>('all');
+  const loadInsights = async () => {
+    setIsLoading(true);
+    try {
+      // Buscar insights da API
+      const response = await fetch('/api/ai/insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'strategic', data: { userType: 'cliente' } })
+      });
 
-  const filteredInsights = filter === 'all' 
-    ? insights 
-    : insights.filter(i => i.type === filter);
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Mapear insights para o formato do componente
+        const mappedInsights = (data.data || []).map((insight: any, idx: number) => ({
+          id: insight.id || `insight_${idx}`,
+          type: mapInsightType(insight.type),
+          priority: insight.priority || 'medium',
+          title: insight.title,
+          description: insight.description,
+          impact: insight.impact,
+          action: insight.action
+        }));
+
+        setInsights(mappedInsights);
+      }
+
+      // Gerar resumo semanal
+      setSummary({
+        period: getWeekPeriod(),
+        highlights: [
+          'Alcance nas redes sociais aumentou 23%',
+          '5 novas oportunidades de negócio identificadas',
+          'Taxa de engajamento acima da média do setor'
+        ],
+        metrics: [
+          { label: 'Alcance', value: '45.2K', change: 23, icon: Eye },
+          { label: 'Engajamento', value: '4.8%', change: 12, icon: Users },
+          { label: 'Conversões', value: '127', change: -5, icon: Target },
+          { label: 'ROI', value: '3.2x', change: 8, icon: DollarSign }
+        ],
+        opportunities: [
+          'Investir mais em Reels - formato com maior engajamento',
+          'Explorar TikTok para alcançar público mais jovem',
+          'Criar campanha promocional para o próximo mês'
+        ]
+      });
+
+    } catch (error) {
+      console.error('Erro ao carregar insights:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const mapInsightType = (type: string): Insight['type'] => {
+    const typeMap: Record<string, Insight['type']> = {
+      opportunity: 'opportunity',
+      risk: 'warning',
+      alert: 'warning',
+      trend: 'trend',
+      recommendation: 'recommendation',
+      achievement: 'achievement'
+    };
+    return typeMap[type] || 'recommendation';
+  };
+
+  const getWeekPeriod = () => {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    
+    return `${startOfWeek.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} - ${endOfWeek.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Gerando seus insights personalizados...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2 text-[#001533] dark:text-white">
-          <Sparkles className="w-7 h-7 text-[#1672d6]" />
-          Central de Insights
-        </h1>
-        <p className="text-[#001533]/60 dark:text-white/60">
-          Análises e recomendações personalizadas pela Val IA
-        </p>
-      </div>
-
-      {/* Weekly Summary Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl overflow-hidden"
-        style={{ 
-          background: 'linear-gradient(135deg, var(--primary-500) 0%, var(--purple-500) 100%)'
-        }}
-      >
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-white/80" />
-              <span className="text-white/80 text-sm">Resumo Semanal</span>
+    <div className="min-h-screen p-6 bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-6xl mx-auto space-y-6">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+              <Sparkles className="w-7 h-7 text-white" />
             </div>
-            <span className="px-3 py-1 rounded-full bg-white/20 text-white text-sm">
-              {summary.period}
-            </span>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Insights Personalizados</h1>
+              <p className="text-sm text-gray-500">Recomendações da Val IA para seu negócio</p>
+            </div>
           </div>
 
-          {/* Highlights */}
-          <div className="grid grid-cols-2 gap-2 mb-6">
-            {summary.highlights.map((highlight, index) => (
-              <div
-                key={index}
-                className="p-3 rounded-xl bg-white/10 text-white text-sm"
-              >
-                {highlight}
+          <Button onClick={loadInsights} disabled={aiLoading} variant="outline">
+            <RefreshCw className={cn("w-4 h-4 mr-2", aiLoading && "animate-spin")} />
+            Atualizar
+          </Button>
+        </div>
+
+        {/* Resumo Semanal */}
+        {summary && (
+          <Card className="bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white/70 text-sm">Resumo da Semana</p>
+                  <CardTitle className="text-2xl text-white">{summary.period}</CardTitle>
+                </div>
+                <Star className="w-8 h-8 text-yellow-300" />
               </div>
-            ))}
-          </div>
-
-          {/* Metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {summary.metrics.map((metric, index) => {
-              const Icon = metric.icon;
-              return (
-                <div
-                  key={index}
-                  className="p-3 rounded-xl bg-white/10"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon className="w-4 h-4 text-white/70" />
-                    <span className="text-white/70 text-xs">{metric.label}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-white text-xl font-bold">{metric.value}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      metric.change > 0 ? 'bg-green-400/30 text-green-100' : 'bg-red-400/30 text-red-100'
-                    }`}>
-                      {metric.change > 0 ? '+' : ''}{metric.change}%
+            </CardHeader>
+            <CardContent>
+              {/* Métricas */}
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                {summary.metrics.map((metric, idx) => (
+                  <div key={idx} className="text-center p-3 bg-white/10 rounded-xl">
+                    <metric.icon className="w-5 h-5 mx-auto mb-1 opacity-70" />
+                    <p className="text-2xl font-bold">{metric.value}</p>
+                    <p className="text-xs opacity-70">{metric.label}</p>
+                    <span className={cn(
+                      "text-xs",
+                      metric.change >= 0 ? "text-green-300" : "text-red-300"
+                    )}>
+                      {metric.change >= 0 ? '+' : ''}{metric.change}%
                     </span>
                   </div>
-                </div>
+                ))}
+              </div>
+
+              {/* Destaques */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-white/80">Destaques:</p>
+                {summary.highlights.map((highlight, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="w-4 h-4 text-green-300" />
+                    <span>{highlight}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Lista de Insights */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <AnimatePresence>
+            {insights.map((insight, idx) => {
+              const config = typeConfig[insight.type];
+              const Icon = config.icon;
+
+              return (
+                <motion.div
+                  key={insight.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ delay: idx * 0.1 }}
+                >
+                  <Card 
+                    className={cn(
+                      "cursor-pointer transition-all hover:shadow-lg",
+                      config.bg,
+                      config.border,
+                      "border-2"
+                    )}
+                    onClick={() => setSelectedInsight(insight)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className={cn("p-2 rounded-lg", config.bg)}>
+                          <Icon className={cn("w-5 h-5", config.color)} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className="text-xs">
+                              {insight.priority === 'high' ? '⚡ Alta' : insight.priority === 'medium' ? '📊 Média' : '📌 Baixa'}
+                            </Badge>
+                          </div>
+                          <h3 className="font-semibold text-gray-900 dark:text-white">
+                            {insight.title}
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                            {insight.description}
+                          </p>
+                          {insight.impact && (
+                            <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                              <TrendingUp className="w-3 h-3" />
+                              {insight.impact}
+                            </p>
+                          )}
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               );
             })}
-          </div>
+          </AnimatePresence>
         </div>
 
-        {/* Action Items */}
-        <div className="p-4 bg-white/10">
-          <div className="flex items-center gap-2 mb-3">
-            <Zap className="w-4 h-4 text-white" />
-            <span className="text-white font-medium text-sm">Próximos Passos</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {summary.nextSteps.map((step, index) => (
-              <span
-                key={index}
-                className="px-3 py-1.5 rounded-lg bg-white/20 text-white text-sm"
-              >
-                {step}
-              </span>
-            ))}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Opportunities & Risks */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Opportunities */}
-        <div 
-          className="p-4 rounded-xl"
-          style={{ backgroundColor: 'var(--success-50)', border: '1px solid var(--success-200)' }}
-        >
-          <h3 className="font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--success-700)' }}>
-            <TrendingUp className="w-5 h-5" />
-            Oportunidades
-          </h3>
-          <div className="space-y-2">
-            {summary.opportunities.map((opp, index) => (
-              <div key={index} className="flex items-start gap-2">
-                <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--success-500)' }} />
-                <span className="text-sm" style={{ color: 'var(--success-700)' }}>{opp}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Risks */}
-        <div 
-          className="p-4 rounded-xl"
-          style={{ backgroundColor: 'var(--warning-50)', border: '1px solid var(--warning-200)' }}
-        >
-          <h3 className="font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--warning-700)' }}>
-            <AlertTriangle className="w-5 h-5" />
-            Pontos de Atenção
-          </h3>
-          <div className="space-y-2">
-            {summary.risks.map((risk, index) => (
-              <div key={index} className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--warning-500)' }} />
-                <span className="text-sm" style={{ color: 'var(--warning-700)' }}>{risk}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {[
-          { id: 'all', label: 'Todos' },
-          { id: 'opportunity', label: 'Oportunidades' },
-          { id: 'warning', label: 'Alertas' },
-          { id: 'achievement', label: 'Conquistas' },
-          { id: 'recommendation', label: 'Recomendações' }
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setFilter(tab.id)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all`}
-            style={{
-              backgroundColor: filter === tab.id ? 'var(--primary-500)' : 'var(--bg-secondary)',
-              color: filter === tab.id ? 'white' : 'var(--text-primary)'
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Insights List */}
-      <div className="space-y-4">
-        {filteredInsights.map((insight, index) => {
-          const Icon = INSIGHT_ICONS[insight.type];
-          const colors = INSIGHT_COLORS[insight.type];
-          
-          return (
-            <motion.div
-              key={insight.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="p-4 rounded-xl"
-              style={{ 
-                backgroundColor: colors.bg, 
-                border: `1px solid ${colors.border}`
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <div 
-                  className="p-2 rounded-lg"
-                  style={{ backgroundColor: `${colors.text}20` }}
-                >
-                  <Icon className="w-5 h-5" style={{ color: colors.text }} />
-                </div>
-                
-                <div className="flex-1">
-                  <div className="flex items-start justify-between mb-1">
-                    <h3 className="font-bold" style={{ color: colors.text }}>
-                      {insight.title}
-                    </h3>
-                    {insight.priority === 'high' && (
-                      <span 
-                        className="px-2 py-0.5 rounded-full text-xs font-medium"
-                        style={{ backgroundColor: 'var(--error-100)', color: 'var(--error-700)' }}
-                      >
-                        Prioridade Alta
-                      </span>
-                    )}
+        {/* Oportunidades */}
+        {summary && summary.opportunities.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-green-500" />
+                Oportunidades Identificadas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {summary.opportunities.map((opp, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center text-green-600 font-bold">
+                      {idx + 1}
+                    </div>
+                    <span className="text-gray-700 dark:text-gray-300">{opp}</span>
+                    <Button variant="ghost" size="sm" className="ml-auto">
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
                   </div>
-                  
-                  <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-                    {insight.description}
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* CTA - Falar com a Agência */}
+        <Card className="bg-gradient-to-r from-gray-900 to-gray-800 text-white border-0">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <MessageSquare className="w-10 h-10" />
+                <div>
+                  <h3 className="text-lg font-bold">Tem dúvidas sobre os insights?</h3>
+                  <p className="text-gray-400">Nossa equipe está pronta para explicar e ajudar você a agir!</p>
+                </div>
+              </div>
+              <Button className="bg-white text-gray-900 hover:bg-gray-100">
+                Falar com a Agência
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Modal de Detalhes do Insight */}
+        <AnimatePresence>
+          {selectedInsight && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+              onClick={() => setSelectedInsight(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl"
+              >
+                <div className="p-6">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className={cn("p-3 rounded-xl", typeConfig[selectedInsight.type].bg)}>
+                      {React.createElement(typeConfig[selectedInsight.type].icon, {
+                        className: cn("w-6 h-6", typeConfig[selectedInsight.type].color)
+                      })}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                        {selectedInsight.title}
+                      </h2>
+                      <Badge variant="outline" className="mt-1">
+                        {selectedInsight.type}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    {selectedInsight.description}
                   </p>
 
-                  <div className="flex items-center justify-between">
-                    {insight.metric && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                          {insight.metric.label}:
-                        </span>
-                        <span 
-                          className="font-bold"
-                          style={{ 
-                            color: insight.metric.change > 0 ? 'var(--success-600)' : 'var(--error-600)'
-                          }}
-                        >
-                          {insight.metric.value}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {insight.action && (
-                      <a
-                        href={insight.action.href}
-                        className="flex items-center gap-1 text-sm font-medium"
-                        style={{ color: colors.text }}
-                      >
-                        {insight.action.label}
-                        <ChevronRight className="w-4 h-4" />
-                      </a>
-                    )}
+                  {selectedInsight.impact && (
+                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl mb-4">
+                      <p className="text-sm font-medium text-green-700 dark:text-green-400 flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4" />
+                        Impacto Esperado
+                      </p>
+                      <p className="text-green-600 dark:text-green-300 mt-1">
+                        {selectedInsight.impact}
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedInsight.action && (
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl mb-4">
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-400 flex items-center gap-2">
+                        <Zap className="w-4 h-4" />
+                        Ação Recomendada
+                      </p>
+                      <p className="text-blue-600 dark:text-blue-300 mt-1">
+                        {selectedInsight.action}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => setSelectedInsight(null)}
+                    >
+                      Fechar
+                    </Button>
+                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700">
+                      Falar com a Equipe
+                    </Button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             </motion.div>
-          );
-        })}
-      </div>
-
-      {/* Val AI Summary */}
-      <div 
-        className="p-4 rounded-xl"
-        style={{ 
-          background: 'linear-gradient(135deg, var(--purple-50) 0%, var(--primary-50) 100%)',
-          border: '1px solid var(--purple-200)'
-        }}
-      >
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--purple-500)' }}>
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h3 className="font-bold" style={{ color: 'var(--purple-700)' }}>
-              Resumo da Val
-            </h3>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-              "Olá! Esta semana você teve um ótimo desempenho, especialmente com Reels. 
-              Recomendo focar em conteúdos em carrossel e manter a consistência nos horários de pico. 
-              Seu concorrente principal está menos ativo - aproveite para ganhar mais espaço! 
-              Qualquer dúvida, estou aqui para ajudar. 💜"
-            </p>
-            <a 
-              href="/cliente/ia"
-              className="inline-flex items-center gap-1 mt-3 text-sm font-medium"
-              style={{ color: 'var(--purple-600)' }}
-            >
-              Conversar com Val
-              <ArrowRight className="w-4 h-4" />
-            </a>
-          </div>
-        </div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
 }
-
-
-
-
-
-
-

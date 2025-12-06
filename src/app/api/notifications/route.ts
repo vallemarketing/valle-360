@@ -1,100 +1,121 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+/**
+ * Valle 360 - API de Notificações
+ * Gerencia notificações em tempo real
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+import { notifications } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
+// GET - Buscar notificações
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-        },
-      }
-    )
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const unreadOnly = searchParams.get('unread') === 'true'
+    const { searchParams } = new URL(request.url);
+    const unreadOnly = searchParams.get('unread') === 'true';
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const offset = parseInt(searchParams.get('offset') || '0');
 
-    let query = supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(limit)
+    const [notificationsList, unreadCount] = await Promise.all([
+      notifications.getNotifications(user.id, { unreadOnly, limit, offset }),
+      notifications.getUnreadCount(user.id)
+    ]);
 
-    if (unreadOnly) {
-      query = query.eq('read', false)
-    }
+    return NextResponse.json({
+      success: true,
+      notifications: notificationsList,
+      unreadCount
+    });
 
-    const { data: notifications, error } = await query
-
-    if (error) {
-      console.error('Erro ao buscar notificações:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ notifications })
   } catch (error: any) {
-    console.error('Erro ao buscar notificações:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Erro ao buscar notificações:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
+// POST - Criar notificação ou marcar como lida
+export async function POST(request: NextRequest) {
+  try {
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { action, notificationId, notification } = body;
+
+    switch (action) {
+      case 'mark_read':
+        if (!notificationId) {
+          return NextResponse.json({ error: 'notificationId obrigatório' }, { status: 400 });
+        }
+        const readSuccess = await notifications.markAsRead(notificationId, user.id);
+        return NextResponse.json({ success: readSuccess });
+
+      case 'mark_all_read':
+        const allReadSuccess = await notifications.markAllAsRead(user.id);
+        return NextResponse.json({ success: allReadSuccess });
+
+      case 'send':
+        // Verificar se é admin
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('user_type')
+          .eq('id', user.id)
+          .single();
+
+        if (!['super_admin', 'admin'].includes(profile?.user_type)) {
+          return NextResponse.json({ error: 'Sem permissão' }, { status: 403 });
+        }
+
+        if (!notification) {
+          return NextResponse.json({ error: 'notification obrigatório' }, { status: 400 });
+        }
+
+        const result = await notifications.send(notification);
+        return NextResponse.json(result);
+
+      default:
+        return NextResponse.json({ error: 'Ação inválida' }, { status: 400 });
+    }
+
+  } catch (error: any) {
+    console.error('Erro na API de notificações:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// PATCH - Atualizar preferências
 export async function PATCH(request: NextRequest) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-        },
-      }
-    )
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const { notificationId, read } = await request.json()
+    const preferences = await request.json();
 
-    if (!notificationId) {
-      return NextResponse.json({ error: 'notificationId é obrigatório' }, { status: 400 })
-    }
+    const success = await notifications.updatePreferences(user.id, preferences);
+    return NextResponse.json({ success });
 
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read: read !== undefined ? read : true })
-      .eq('id', notificationId)
-      .eq('user_id', user.id)
-
-    if (error) {
-      console.error('Erro ao marcar notificação:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Erro ao marcar notificação:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Erro ao atualizar preferências:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

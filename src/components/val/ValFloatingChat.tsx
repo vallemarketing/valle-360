@@ -11,7 +11,8 @@ import {
   TrendingUp,
   Calendar,
   Target,
-  FileText
+  FileText,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import {
 // ============================================
 // VAL FLOATING CHAT - VALLE AI
 // Chat flutuante com avatar, toolbar e animações
+// AGORA COM PERSONAS ESPECIALIZADAS
 // ============================================
 
 interface Message {
@@ -35,13 +37,30 @@ interface Message {
   text: string;
   isUser: boolean;
   timestamp: Date;
+  persona?: {
+    name: string;
+    title: string;
+    emoji: string;
+  };
+}
+
+interface ValPersona {
+  name: string;
+  title: string;
+  emoji: string;
+}
+
+interface QuickAction {
+  label: string;
+  action: string;
+  icon: string;
 }
 
 interface ValFloatingChatProps {
   userName?: string;
 }
 
-const QUICK_ACTIONS = [
+const DEFAULT_QUICK_ACTIONS = [
   { 
     icon: TrendingUp, 
     text: "Análise de desempenho",
@@ -71,16 +90,38 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
   const [isTyping, setIsTyping] = useState(false);
   const [selectedModel, setSelectedModel] = useState("val-pro");
   const [webSearch, setWebSearch] = useState(false);
-  const [showGreeting, setShowGreeting] = useState(false); // Começa oculto
+  const [showGreeting, setShowGreeting] = useState(false);
+  const [persona, setPersona] = useState<ValPersona>({ name: 'Val', title: 'Sua Assistente IA', emoji: '🤖' });
+  const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Buscar persona do usuário ao montar
+  useEffect(() => {
+    const fetchPersona = async () => {
+      try {
+        const response = await fetch('/api/ai/val');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.persona) {
+            setPersona(data.persona);
+          }
+          if (data.quickActions) {
+            setQuickActions(data.quickActions);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar persona:', error);
+      }
+    };
+    fetchPersona();
+  }, []);
+
   // Mostrar saudação após 10 segundos e esconder após 10 segundos
   useEffect(() => {
-    // Mostrar após 10 segundos de entrar na página
     const showTimer = setTimeout(() => {
       setShowGreeting(true);
-    }, 10000); // 10 segundos para aparecer
+    }, 10000);
 
     return () => clearTimeout(showTimer);
   }, []);
