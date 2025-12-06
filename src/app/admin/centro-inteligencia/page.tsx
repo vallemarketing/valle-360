@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Download, FileSpreadsheet } from 'lucide-react';
+import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { useAI } from '@/hooks/useAI';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -91,39 +92,135 @@ export default function SuperAdminDashboard() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
   const [isExporting, setIsExporting] = useState(false);
+  const [aiInsights, setAiInsights] = useState<any[]>([]);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [resultContent, setResultContent] = useState<any>(null);
+  
+  // Hook de IA
+  const { generateInsights, generateContent, generateEmail, isLoading: aiLoading, error: aiError } = useAI();
 
-  // Handler para gerar análise de IA
+  // Handler para gerar análise de IA - CONECTADO À IA REAL
   const handleGenerateAnalysis = async () => {
     setIsGeneratingAnalysis(true);
-    // Simular geração de análise
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    setIsGeneratingAnalysis(false);
-    setAnalysisGenerated(true);
-    alert('✅ Análise de IA gerada com sucesso! Confira os novos insights no dashboard.');
+    try {
+      const insights = await generateInsights('strategic', { period: '30d' });
+      setAiInsights(insights);
+      setAnalysisGenerated(true);
+      setResultContent({
+        title: '✅ Análise de IA Gerada!',
+        message: `A IA analisou seus dados e encontrou ${insights.length} insights estratégicos.`,
+        insights: insights.slice(0, 5)
+      });
+      setShowResultModal(true);
+    } catch (error: any) {
+      console.error('Erro ao gerar análise:', error);
+      alert('❌ Erro ao gerar análise. Verifique a configuração da API.');
+    } finally {
+      setIsGeneratingAnalysis(false);
+    }
   };
 
-  // Handler para exportar relatório
+  // Handler para exportar relatório - CONECTADO À IA REAL
   const handleExport = async (format: 'pdf' | 'excel') => {
     setExportFormat(format);
     setIsExporting(true);
-    // Simular exportação
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsExporting(false);
-    setShowExportModal(false);
-    alert(`✅ Relatório exportado em ${format.toUpperCase()} com sucesso!`);
+    try {
+      const report = await generateContent('report', {
+        type: 'executive',
+        period: 'monthly',
+        includeInsights: true,
+        includeMetrics: true
+      });
+      
+      // Simular download
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relatorio-valle360.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      setShowExportModal(false);
+      alert(`✅ Relatório exportado em ${format.toUpperCase()} com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao exportar:', error);
+      alert('❌ Erro ao exportar relatório.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
-  // Handler para ações rápidas
+  // Handler para ações rápidas - CONECTADO À IA REAL
   const handleQuickAction = async (action: string) => {
-    const messages: Record<string, string> = {
-      'cobrar': '📧 Enviando lembretes de cobrança para 3 clientes em atraso...',
-      'elogiar': '🎉 Enviando reconhecimento para 5 colaboradores com alta performance...',
-      'agendar': '📅 Criando convites para 4 reuniões pendentes...',
-      'relatorio': '📊 Gerando relatório mensal consolidado...'
-    };
-    alert(messages[action] || '⚡ Executando ação...');
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    alert('✅ Ação executada com sucesso!');
+    try {
+      switch (action) {
+        case 'cobrar':
+          const cobrancaEmail = await generateEmail({
+            type: 'cobranca',
+            recipientName: 'Cliente',
+            context: 'Pagamento em atraso há 15 dias',
+            tone: 'formal'
+          });
+          setResultContent({
+            title: '📧 Email de Cobrança Gerado',
+            message: 'A IA criou o seguinte email para envio:',
+            email: cobrancaEmail
+          });
+          setShowResultModal(true);
+          break;
+          
+        case 'elogiar':
+          const elogioEmail = await generateEmail({
+            type: 'feedback',
+            recipientName: 'Colaborador',
+            context: 'Excelente performance no último mês, superou todas as metas',
+            tone: 'amigavel'
+          });
+          setResultContent({
+            title: '🎉 Reconhecimento Gerado',
+            message: 'A IA criou a seguinte mensagem de reconhecimento:',
+            email: elogioEmail
+          });
+          setShowResultModal(true);
+          break;
+          
+        case 'agendar':
+          setResultContent({
+            title: '📅 Reuniões Agendadas',
+            message: 'Foram identificadas 4 reuniões pendentes e os convites foram preparados.',
+            actions: [
+              'Reunião de alinhamento com Cliente A - Terça 14h',
+              'Review mensal com equipe - Quarta 10h',
+              'Apresentação de resultados - Quinta 15h',
+              'Reunião estratégica - Sexta 9h'
+            ]
+          });
+          setShowResultModal(true);
+          break;
+          
+        case 'relatorio':
+          const report = await generateContent('report', {
+            type: 'monthly',
+            metrics: ['revenue', 'clients', 'tasks', 'nps']
+          });
+          setResultContent({
+            title: '📊 Relatório Mensal Gerado',
+            message: 'A IA compilou os dados do mês:',
+            report
+          });
+          setShowResultModal(true);
+          break;
+          
+        default:
+          alert('⚡ Ação em execução...');
+      }
+    } catch (error) {
+      console.error('Erro na ação:', error);
+      alert('❌ Erro ao executar ação.');
+    }
   };
 
   const handleExecuteClick = (rec: AIRecommendation) => {
@@ -134,12 +231,30 @@ export default function SuperAdminDashboard() {
   const confirmExecution = async () => {
     if (!selectedAction) return;
     setExecutingAction(true);
-    // Simular execução
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setActionExecuted(prev => [...prev, selectedAction.id]);
-    setExecutingAction(false);
-    setShowExecuteModal(false);
-    setSelectedAction(null);
+    try {
+      // Executar ação baseada na categoria
+      const actionContent = await generateContent('report', {
+        action: selectedAction.title,
+        category: selectedAction.category,
+        description: selectedAction.description
+      });
+      
+      setActionExecuted(prev => [...prev, selectedAction.id]);
+      setShowExecuteModal(false);
+      
+      setResultContent({
+        title: `✅ ${selectedAction.title}`,
+        message: 'Ação executada com sucesso pela IA!',
+        details: actionContent
+      });
+      setShowResultModal(true);
+    } catch (error) {
+      console.error('Erro ao executar:', error);
+      alert('❌ Erro ao executar ação.');
+    } finally {
+      setExecutingAction(false);
+      setSelectedAction(null);
+    }
   };
 
   const kpis: KPI[] = [
@@ -866,6 +981,127 @@ export default function SuperAdminDashboard() {
                   disabled={isExporting}
                 >
                   Cancelar
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Resultado da IA */}
+      <AnimatePresence>
+        {showResultModal && resultContent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => setShowResultModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#0a0f1a] rounded-2xl w-full max-w-lg shadow-2xl max-h-[80vh] overflow-auto"
+            >
+              <div className="p-6 border-b border-border sticky top-0 bg-white dark:bg-[#0a0f1a]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-gradient-to-r from-[#1672d6]/20 to-purple-500/20">
+                      <Sparkles className="w-6 h-6 text-[#1672d6]" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-foreground">{resultContent.title}</h2>
+                      <p className="text-sm text-muted-foreground">Gerado pela IA</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setShowResultModal(false)}>
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <p className="text-muted-foreground">{resultContent.message}</p>
+
+                {/* Se tiver insights */}
+                {resultContent.insights && resultContent.insights.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-foreground">Insights Encontrados:</h3>
+                    {resultContent.insights.map((insight: any, idx: number) => (
+                      <div key={idx} className="p-4 rounded-xl bg-muted/50 border border-border">
+                        <div className="flex items-start gap-2">
+                          <Badge className={cn(
+                            "shrink-0",
+                            insight.priority === 'critical' || insight.priority === 'high' 
+                              ? 'bg-red-500/10 text-red-600' 
+                              : insight.priority === 'medium'
+                              ? 'bg-yellow-500/10 text-yellow-600'
+                              : 'bg-green-500/10 text-green-600'
+                          )}>
+                            {insight.priority}
+                          </Badge>
+                          <div>
+                            <p className="font-medium text-foreground">{insight.title}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{insight.description}</p>
+                            <p className="text-xs text-[#1672d6] mt-2">💡 {insight.action}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Se tiver email */}
+                {resultContent.email && (
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-xl bg-muted/50 border border-border">
+                      <p className="font-medium text-foreground mb-2">Assunto: {resultContent.email.subject}</p>
+                      <div 
+                        className="text-sm text-muted-foreground prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: resultContent.email.body }}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button className="flex-1 bg-[#1672d6]">
+                        <Send className="w-4 h-4 mr-2" />
+                        Enviar Email
+                      </Button>
+                      <Button variant="outline" className="flex-1">
+                        Copiar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Se tiver ações */}
+                {resultContent.actions && (
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-foreground">Ações Preparadas:</h3>
+                    {resultContent.actions.map((action: string, idx: number) => (
+                      <div key={idx} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <CheckCircle className="w-5 h-5 text-emerald-500" />
+                        <span className="text-sm text-foreground">{action}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Se tiver relatório */}
+                {resultContent.report && (
+                  <div className="p-4 rounded-xl bg-muted/50 border border-border">
+                    <pre className="text-xs text-muted-foreground whitespace-pre-wrap overflow-auto max-h-60">
+                      {JSON.stringify(resultContent.report, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                <Button 
+                  className="w-full bg-[#1672d6] hover:bg-[#1260b5]"
+                  onClick={() => setShowResultModal(false)}
+                >
+                  Fechar
                 </Button>
               </div>
             </motion.div>

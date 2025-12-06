@@ -119,20 +119,50 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
+    try {
+      // Chamar API real da Val
+      const response = await fetch('/api/ai/val', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: currentInput,
+          context: { webSearch },
+          history: messages.slice(-10).map(m => ({
+            role: m.isUser ? 'user' : 'assistant',
+            content: m.text
+          }))
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.response) {
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: data.response.message || 'Desculpe, não consegui processar sua mensagem.',
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        throw new Error(data.error || 'Erro desconhecido');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "Entendi sua solicitação! Estou analisando os dados e em breve terei uma resposta completa para você. Posso ajudar com mais alguma coisa?",
+        text: "Desculpe, tive um problema ao processar sua mensagem. Pode tentar novamente? 🙏",
         isUser: false,
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 2000);
+    }
   };
 
   const handleQuickAction = (action: string) => {

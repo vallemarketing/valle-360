@@ -3,10 +3,12 @@
 /**
  * Valle 360 - Dashboard SQL Preditivo
  * Análises preditivas com IA para tomada de decisão
+ * CONECTADO À IA REAL
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAI } from '@/hooks/useAI';
 import {
   Brain,
   TrendingUp,
@@ -281,20 +283,104 @@ function AlertCard({ alert }: { alert: Alert }) {
 }
 
 // =====================================================
-// PÁGINA PRINCIPAL
+// PÁGINA PRINCIPAL - CONECTADA À IA REAL
 // =====================================================
 
 export default function PreditivoPage() {
-  const [predictions] = useState<PredictionCard[]>(mockPredictions);
-  const [churnRisks] = useState<ChurnRisk[]>(mockChurnRisks);
-  const [alerts] = useState<Alert[]>(mockAlerts);
+  const [predictions, setPredictions] = useState<PredictionCard[]>(mockPredictions);
+  const [churnRisks, setChurnRisks] = useState<ChurnRisk[]>(mockChurnRisks);
+  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<ChurnRisk | null>(null);
+  const [actionResult, setActionResult] = useState<any>(null);
+
+  // Hook de IA
+  const { generateInsights, getForecast, generateEmail, analyzeClient, isLoading } = useAI();
+
+  // Carregar previsões reais ao montar
+  useEffect(() => {
+    loadPredictions();
+  }, [selectedPeriod]);
+
+  const loadPredictions = async () => {
+    try {
+      const forecast = await getForecast({ period: selectedPeriod });
+      if (forecast && forecast.insights) {
+        // Atualizar insights baseados na IA
+        const aiAlerts = forecast.insights.map((insight: any, idx: number) => ({
+          id: `ai_${idx}`,
+          type: insight.priority === 'critical' ? 'danger' : insight.priority === 'high' ? 'warning' : 'info',
+          title: insight.title,
+          description: insight.description,
+          action: insight.action,
+          createdAt: new Date().toISOString()
+        }));
+        setAlerts([...aiAlerts, ...mockAlerts.slice(0, 2)]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar previsões:', error);
+    }
+  };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsRefreshing(false);
+    try {
+      await loadPredictions();
+      
+      // Também gerar novos insights
+      const insights = await generateInsights('strategic', { period: selectedPeriod });
+      console.log('Novos insights:', insights);
+    } catch (error) {
+      console.error('Erro ao atualizar:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Handler para ação de churn - CONECTADO À IA
+  const handleChurnAction = async (risk: ChurnRisk) => {
+    setSelectedClient(risk);
+    setShowActionModal(true);
+    
+    try {
+      // Analisar cliente e gerar recomendações
+      const analysis = await analyzeClient(risk.clientId, {
+        revenue: risk.revenueAtRisk,
+        churnRisk: risk.risk,
+        factors: risk.factors
+      });
+      
+      // Gerar email de retenção
+      const email = await generateEmail({
+        type: 'followup',
+        recipientName: risk.clientName,
+        context: `Cliente com ${risk.risk}% de risco de churn. Fatores: ${risk.factors.join(', ')}. Receita em risco: R$ ${risk.revenueAtRisk}`,
+        tone: 'amigavel'
+      });
+      
+      setActionResult({
+        analysis,
+        email,
+        recommendations: analysis?.recommendations || [
+          'Agendar reunião de alinhamento',
+          'Oferecer desconto ou benefício',
+          'Verificar pendências de entrega',
+          'Enviar pesquisa de satisfação'
+        ]
+      });
+    } catch (error) {
+      console.error('Erro ao gerar ação:', error);
+      setActionResult({
+        error: true,
+        recommendations: [
+          'Agendar reunião de alinhamento',
+          'Verificar satisfação do cliente',
+          'Revisar entregas pendentes'
+        ]
+      });
+    }
   };
 
   const totalRevenueAtRisk = churnRisks.reduce((sum, r) => sum + r.revenueAtRisk, 0);
@@ -363,7 +449,7 @@ export default function PreditivoPage() {
                 <ChurnRiskRow
                   key={risk.clientId}
                   risk={risk}
-                  onAction={() => console.log('Action for', risk.clientName)}
+                  onAction={() => handleChurnAction(risk)}
                 />
               ))}
             </div>
@@ -452,6 +538,123 @@ export default function PreditivoPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Ação de Churn - IA */}
+      <AnimatePresence>
+        {showActionModal && selectedClient && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => setShowActionModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl max-h-[80vh] overflow-auto"
+            >
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-12 h-12 rounded-full flex items-center justify-center text-white font-bold",
+                      selectedClient.risk >= 70 ? "bg-red-500" : selectedClient.risk >= 40 ? "bg-yellow-500" : "bg-green-500"
+                    )}>
+                      {selectedClient.risk}%
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">{selectedClient.clientName}</h2>
+                      <p className="text-sm text-gray-500">R$ {selectedClient.revenueAtRisk.toLocaleString('pt-BR')} em risco</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowActionModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
+                  >
+                    <Activity className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Fatores de Risco */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Fatores de Risco</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedClient.factors.map((factor, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm">
+                        {factor}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Recomendações da IA */}
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+                    <span className="ml-2 text-gray-500">Analisando com IA...</span>
+                  </div>
+                ) : actionResult && (
+                  <>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                        <Sparkles className="w-4 h-4 inline mr-1 text-purple-500" />
+                        Recomendações da IA
+                      </h3>
+                      <div className="space-y-2">
+                        {actionResult.recommendations?.map((rec: string, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
+                            <ChevronRight className="w-4 h-4 text-purple-500" />
+                            <span className="text-sm text-gray-700">{rec}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Email Gerado */}
+                    {actionResult.email && (
+                      <div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Email de Retenção Gerado</h3>
+                        <div className="p-4 bg-gray-50 rounded-lg border">
+                          <p className="font-medium text-gray-900 mb-2">Assunto: {actionResult.email.subject}</p>
+                          <div 
+                            className="text-sm text-gray-600 prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: actionResult.email.body }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Ações */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => setShowActionModal(false)}
+                    className="flex-1 py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50"
+                  >
+                    Fechar
+                  </button>
+                  <button
+                    className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                  >
+                    Enviar Email
+                  </button>
+                  <button
+                    className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
+                  >
+                    Agendar Reunião
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
