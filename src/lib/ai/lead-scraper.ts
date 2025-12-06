@@ -274,6 +274,99 @@ Retorne JSON:
       keywords: ['empresa sem site', 'sem redes sociais', 'precisa divulgação', 'quer vender mais online']
     });
   }
+
+  /**
+   * Busca leads do banco de dados com filtros opcionais
+   */
+  async getLeads(filters: {
+    status?: string;
+    industry?: string;
+    min_score?: number;
+    assigned_to?: string;
+  }): Promise<Lead[]> {
+    // Retorna mock data por enquanto (em produção, buscar do Supabase)
+    const mockLeads: Lead[] = [
+      {
+        id: '1',
+        company_name: 'Tech Solutions SP',
+        website: 'www.techsolutions.com.br',
+        email: 'contato@techsolutions.com.br',
+        phone: '(11) 99999-8888',
+        industry: 'Tecnologia',
+        size: 'medium',
+        location: 'São Paulo, SP',
+        score: 85,
+        status: 'qualified',
+        source: 'scraping',
+        tags: ['b2b', 'software'],
+        created_at: new Date().toISOString(),
+        ai_insights: {
+          potential_services: ['Social Media', 'Tráfego Pago'],
+          estimated_value: 5000,
+          conversion_probability: 0.75
+        }
+      },
+      {
+        id: '2',
+        company_name: 'Boutique Fashion',
+        website: 'www.boutiquefashion.com.br',
+        email: 'vendas@boutiquefashion.com.br',
+        phone: '(21) 98888-7777',
+        industry: 'Moda',
+        size: 'small',
+        location: 'Rio de Janeiro, RJ',
+        score: 72,
+        status: 'new',
+        source: 'scraping',
+        tags: ['ecommerce', 'varejo'],
+        created_at: new Date().toISOString(),
+        ai_insights: {
+          potential_services: ['E-commerce', 'Instagram Ads'],
+          estimated_value: 3500,
+          conversion_probability: 0.60
+        }
+      },
+      {
+        id: '3',
+        company_name: 'Restaurante Sabor & Arte',
+        email: 'contato@saborarte.com.br',
+        phone: '(11) 97777-6666',
+        industry: 'Restaurante',
+        size: 'small',
+        location: 'São Paulo, SP',
+        score: 90,
+        status: 'proposal',
+        source: 'referral',
+        tags: ['food', 'local'],
+        created_at: new Date().toISOString(),
+        ai_insights: {
+          potential_services: ['Google Meu Negócio', 'Social Media'],
+          estimated_value: 2500,
+          conversion_probability: 0.85
+        }
+      }
+    ];
+
+    // Aplicar filtros
+    let filteredLeads = mockLeads;
+
+    if (filters.status) {
+      filteredLeads = filteredLeads.filter(l => l.status === filters.status);
+    }
+    if (filters.industry) {
+      filteredLeads = filteredLeads.filter(l => 
+        l.industry?.toLowerCase().includes(filters.industry!.toLowerCase())
+      );
+    }
+    if (filters.min_score) {
+      filteredLeads = filteredLeads.filter(l => l.score >= filters.min_score!);
+    }
+    if (filters.assigned_to) {
+      filteredLeads = filteredLeads.filter(l => l.assigned_to === filters.assigned_to);
+    }
+
+    return filteredLeads;
+  }
 }
 
 export const leadScraper = new LeadScraperService();
