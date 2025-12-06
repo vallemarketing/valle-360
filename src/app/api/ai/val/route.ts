@@ -184,14 +184,18 @@ export async function POST(request: NextRequest) {
     };
 
     // Registrar interação (ignorar erro se tabela não existir)
-    await supabase.from('val_interactions').insert({
-      user_id: user.id,
-      user_type: userType,
-      message: message,
-      response: parsedResponse.message,
-      persona: persona.name,
-      context: businessContext
-    }).catch(() => {});
+    try {
+      await supabase.from('val_interactions').insert({
+        user_id: user.id,
+        user_type: userType,
+        message: message,
+        response: parsedResponse.message,
+        persona: persona.name,
+        context: businessContext
+      });
+    } catch {
+      // Ignorar erro silenciosamente
+    }
 
     return NextResponse.json({
       success: true,
