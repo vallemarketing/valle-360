@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Eye, EyeOff, Lock, Mail, ArrowRight, Shield, CheckCircle } from 'lucide-react'
@@ -17,6 +17,13 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [show2FA, setShow2FA] = useState(false)
   const [twoFactorCode, setTwoFactorCode] = useState('')
+
+  // #region agent log - Page Mount
+  useEffect(() => {
+    console.log('LOGIN PAGE MOUNTED');
+    fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:mount',message:'Login page mounted',data:{timestamp: new Date().toISOString(), url: typeof window !== 'undefined' ? window.location.href : 'ssr'},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'page-render'})}).catch(()=>{});
+  }, []);
+  // #endregion
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
