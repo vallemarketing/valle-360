@@ -13,9 +13,11 @@ import {
   Users, Zap, Brain, RefreshCw, ChevronRight, Award,
   BarChart3, Calendar, Clock, CheckCircle, XCircle,
   Crown, Medal, Sparkles, ArrowUpRight, ArrowDownRight,
-  Filter, Plus, Settings, Eye, Bell, Gift
+  Filter, Plus, Settings, Eye, Bell, Gift, X, Wand2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 // =====================================================
 // TIPOS
@@ -386,6 +388,50 @@ export default function MetasPage() {
   const [selectedSector, setSelectedSector] = useState('all');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showNewGoalModal, setShowNewGoalModal] = useState(false);
+  
+  // Formulário de nova meta
+  const [goalForm, setGoalForm] = useState({
+    collaborator_id: '',
+    period: '',
+    type: '',
+    metrics: [] as { name: string; target: string; unit: string }[],
+    use_ai: false,
+  });
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiGeneratedMetrics, setAiGeneratedMetrics] = useState<any[]>([]);
+
+  const goalTypes = [
+    { id: 'pecas', label: 'Entregas', icon: '📦', metrics: ['pecas', 'revisoes', 'satisfacao'] },
+    { id: 'engajamento', label: 'Engajamento', icon: '📱', metrics: ['posts', 'engajamento', 'alcance'] },
+    { id: 'vendas', label: 'Vendas', icon: '💰', metrics: ['leads', 'reunioes', 'fechamentos'] },
+    { id: 'trafego', label: 'Tráfego', icon: '📈', metrics: ['roas', 'conversoes', 'cpc'] },
+    { id: 'videos', label: 'Vídeos', icon: '🎬', metrics: ['videos', 'views', 'retencao'] },
+  ];
+
+  const metricTemplates: Record<string, { label: string; unit: string; defaultTarget: string }> = {
+    pecas: { label: 'Peças Entregues', unit: 'peças', defaultTarget: '20' },
+    revisoes: { label: 'Revisões (máx)', unit: 'média', defaultTarget: '2' },
+    satisfacao: { label: 'Satisfação', unit: '%', defaultTarget: '90' },
+    posts: { label: 'Posts', unit: 'posts', defaultTarget: '30' },
+    engajamento: { label: 'Engajamento', unit: '%', defaultTarget: '4.5' },
+    alcance: { label: 'Alcance', unit: 'pessoas', defaultTarget: '50000' },
+    leads: { label: 'Leads Qualificados', unit: 'leads', defaultTarget: '15' },
+    reunioes: { label: 'Reuniões', unit: 'reuniões', defaultTarget: '12' },
+    fechamentos: { label: 'Fechamentos', unit: 'contratos', defaultTarget: '4' },
+    roas: { label: 'ROAS', unit: 'x', defaultTarget: '4' },
+    conversoes: { label: 'Conversões', unit: 'conv', defaultTarget: '100' },
+    cpc: { label: 'CPC (máx)', unit: 'R$', defaultTarget: '1.5' },
+    videos: { label: 'Vídeos Produzidos', unit: 'vídeos', defaultTarget: '8' },
+    views: { label: 'Visualizações', unit: 'views', defaultTarget: '100000' },
+    retencao: { label: 'Retenção Média', unit: '%', defaultTarget: '60' },
+  };
+
+  const periods = [
+    { id: 'dezembro_2024', label: 'Dezembro 2024' },
+    { id: 'janeiro_2025', label: 'Janeiro 2025' },
+    { id: 'q1_2025', label: '1º Trimestre 2025' },
+    { id: 'q2_2025', label: '2º Trimestre 2025' },
+  ];
 
   const sectors = [
     { id: 'all', label: 'Todos' },
@@ -421,6 +467,122 @@ export default function MetasPage() {
   const handleViewDetails = (goalId: string) => {
     toast.info('Abrindo detalhes da meta...');
     // Navegar para página de detalhes
+  };
+
+  // Handler para gerar métricas com IA
+  const handleGenerateMetricsWithAI = async () => {
+    if (!goalForm.collaborator_id) {
+      toast.error('Selecione um colaborador primeiro');
+      return;
+    }
+    
+    setIsGeneratingAI(true);
+    
+    // Simular geração de métricas pela IA
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const collaborator = mockCollaborators.find(c => c.id === goalForm.collaborator_id);
+    const sectorMetrics = {
+      designer: ['pecas', 'revisoes', 'satisfacao'],
+      social_media: ['posts', 'engajamento', 'alcance'],
+      trafego: ['roas', 'conversoes', 'cpc'],
+      comercial: ['leads', 'reunioes', 'fechamentos'],
+      video_maker: ['videos', 'views', 'retencao'],
+    }[collaborator?.sector || 'designer'] || ['pecas', 'revisoes', 'satisfacao'];
+    
+    // Gerar metas baseadas em histórico simulado
+    const generatedMetrics = sectorMetrics.map(metric => {
+      const template = metricTemplates[metric];
+      const baseTarget = parseFloat(template.defaultTarget);
+      // Adiciona variação de 10-20% baseada no "histórico"
+      const aiTarget = Math.round(baseTarget * (1 + Math.random() * 0.2));
+      return {
+        name: metric,
+        label: template.label,
+        target: aiTarget.toString(),
+        unit: template.unit,
+        aiConfidence: Math.floor(75 + Math.random() * 20), // 75-95% confiança
+      };
+    });
+    
+    setAiGeneratedMetrics(generatedMetrics);
+    setGoalForm(prev => ({
+      ...prev,
+      use_ai: true,
+      metrics: generatedMetrics.map(m => ({
+        name: m.name,
+        target: m.target,
+        unit: m.unit,
+      })),
+    }));
+    
+    setIsGeneratingAI(false);
+    toast.success('Métricas geradas com base no histórico do colaborador!');
+  };
+
+  // Handler para criar nova meta
+  const handleCreateGoal = () => {
+    if (!goalForm.collaborator_id || !goalForm.period) {
+      toast.error('Preencha os campos obrigatórios');
+      return;
+    }
+
+    if (goalForm.metrics.length === 0) {
+      toast.error('Adicione pelo menos uma métrica');
+      return;
+    }
+
+    const collaborator = mockCollaborators.find(c => c.id === goalForm.collaborator_id);
+    if (!collaborator) return;
+
+    const newGoal: Goal = {
+      id: `g${Date.now()}`,
+      collaborator,
+      period: periods.find(p => p.id === goalForm.period)?.label || goalForm.period,
+      metrics: goalForm.metrics.map((m, idx) => ({
+        name: m.name,
+        label: metricTemplates[m.name]?.label || m.name,
+        target: parseFloat(m.target),
+        current: 0,
+        unit: m.unit,
+        progress: 0,
+      })),
+      overall_progress: 0,
+      status: 'active',
+      streak_days: 0,
+      points: 0,
+      ai_suggested: goalForm.use_ai,
+      ai_confidence: goalForm.use_ai ? 85 : 0,
+    };
+
+    setGoals(prev => [newGoal, ...prev]);
+    setShowNewGoalModal(false);
+    setGoalForm({
+      collaborator_id: '',
+      period: '',
+      type: '',
+      metrics: [],
+      use_ai: false,
+    });
+    setAiGeneratedMetrics([]);
+    toast.success(`Meta criada para ${collaborator.name}!`);
+  };
+
+  // Handler para selecionar tipo de meta
+  const handleSelectGoalType = (typeId: string) => {
+    const type = goalTypes.find(t => t.id === typeId);
+    if (!type) return;
+
+    setGoalForm(prev => ({
+      ...prev,
+      type: typeId,
+      metrics: type.metrics.map(metric => ({
+        name: metric,
+        target: metricTemplates[metric]?.defaultTarget || '0',
+        unit: metricTemplates[metric]?.unit || '',
+      })),
+    }));
+    setAiGeneratedMetrics([]);
   };
 
   return (
@@ -638,6 +800,241 @@ export default function MetasPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal Nova Meta */}
+      <AnimatePresence>
+        {showNewGoalModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => setShowNewGoalModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-hidden"
+            >
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-indigo-100">
+                      <Target className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">Nova Meta</h2>
+                      <p className="text-sm text-gray-500">Configure a meta para o colaborador</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setShowNewGoalModal(false)}>
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 overflow-auto max-h-[60vh] space-y-6">
+                {/* Colaborador */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Colaborador *
+                  </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {mockCollaborators.map((collab) => (
+                      <button
+                        key={collab.id}
+                        onClick={() => setGoalForm(prev => ({ ...prev, collaborator_id: collab.id }))}
+                        className={cn(
+                          "p-3 rounded-xl border text-left transition-all flex items-center gap-3",
+                          goalForm.collaborator_id === collab.id
+                            ? "border-indigo-500 bg-indigo-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        )}
+                      >
+                        <img src={collab.avatar} alt="" className="w-10 h-10 rounded-full" />
+                        <div>
+                          <p className="text-sm font-medium">{collab.name}</p>
+                          <p className="text-xs text-gray-500">{collab.role}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Período */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Período *
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {periods.map((period) => (
+                      <button
+                        key={period.id}
+                        onClick={() => setGoalForm(prev => ({ ...prev, period: period.id }))}
+                        className={cn(
+                          "p-3 rounded-xl border text-center transition-all",
+                          goalForm.period === period.id
+                            ? "border-indigo-500 bg-indigo-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        )}
+                      >
+                        <Calendar className="w-5 h-5 mx-auto mb-1 text-gray-400" />
+                        <span className="text-xs font-medium">{period.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tipo de Meta ou Gerar com IA */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Tipo de Meta
+                    </label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateMetricsWithAI}
+                      disabled={!goalForm.collaborator_id || isGeneratingAI}
+                      className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                    >
+                      {isGeneratingAI ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mr-2" />
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-4 h-4 mr-2" />
+                          Gerar com IA
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {!goalForm.use_ai && (
+                    <div className="grid grid-cols-5 gap-2">
+                      {goalTypes.map((type) => (
+                        <button
+                          key={type.id}
+                          onClick={() => handleSelectGoalType(type.id)}
+                          className={cn(
+                            "p-3 rounded-xl border text-center transition-all",
+                            goalForm.type === type.id
+                              ? "border-indigo-500 bg-indigo-50"
+                              : "border-gray-200 hover:border-gray-300"
+                          )}
+                        >
+                          <span className="text-2xl block mb-1">{type.icon}</span>
+                          <span className="text-xs font-medium">{type.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Métricas Geradas por IA */}
+                {goalForm.use_ai && aiGeneratedMetrics.length > 0 && (
+                  <div className="p-4 rounded-xl bg-purple-50 border border-purple-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Brain className="w-5 h-5 text-purple-600" />
+                      <span className="font-medium text-purple-900">Métricas Sugeridas pela IA</span>
+                      <Badge className="bg-purple-100 text-purple-700 text-xs">Baseado no histórico</Badge>
+                    </div>
+                    <div className="space-y-3">
+                      {aiGeneratedMetrics.map((metric, idx) => (
+                        <div key={idx} className="flex items-center gap-4 p-3 bg-white rounded-lg">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">{metric.label}</p>
+                            <p className="text-xs text-gray-500">Confiança: {metric.aiConfidence}%</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={metric.target}
+                              onChange={(e) => {
+                                const newMetrics = [...aiGeneratedMetrics];
+                                newMetrics[idx].target = e.target.value;
+                                setAiGeneratedMetrics(newMetrics);
+                                setGoalForm(prev => ({
+                                  ...prev,
+                                  metrics: newMetrics.map(m => ({
+                                    name: m.name,
+                                    target: m.target,
+                                    unit: m.unit,
+                                  })),
+                                }));
+                              }}
+                              className="w-24 p-2 border rounded-lg text-center text-sm"
+                            />
+                            <span className="text-sm text-gray-500">{metric.unit}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Métricas Manuais */}
+                {!goalForm.use_ai && goalForm.metrics.length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Definir Valores
+                    </label>
+                    <div className="space-y-3">
+                      {goalForm.metrics.map((metric, idx) => (
+                        <div key={idx} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">
+                              {metricTemplates[metric.name]?.label || metric.name}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={metric.target}
+                              onChange={(e) => {
+                                const newMetrics = [...goalForm.metrics];
+                                newMetrics[idx].target = e.target.value;
+                                setGoalForm(prev => ({ ...prev, metrics: newMetrics }));
+                              }}
+                              className="w-24 p-2 border rounded-lg text-center text-sm"
+                            />
+                            <span className="text-sm text-gray-500">{metric.unit}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-gray-200 bg-gray-50 flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowNewGoalModal(false);
+                    setGoalForm({ collaborator_id: '', period: '', type: '', metrics: [], use_ai: false });
+                    setAiGeneratedMetrics([]);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+                  onClick={handleCreateGoal}
+                >
+                  <Target className="w-4 h-4 mr-2" />
+                  Criar Meta
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

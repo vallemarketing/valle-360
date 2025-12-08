@@ -1,13 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Brain, Target, TrendingUp, TrendingDown,
   AlertTriangle, Award, Calendar, FileText, Plus,
-  Search, Filter, ChevronRight, BarChart3, Building2, ArrowRight
+  Search, Filter, ChevronRight, BarChart3, Building2, ArrowRight,
+  X, Sparkles, Briefcase, MapPin, DollarSign, Clock, CheckCircle,
+  Linkedin, Globe, Heart
 } from 'lucide-react';
 import { BehavioralTests } from '@/components/rh/BehavioralTests';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 
 interface Employee {
@@ -122,6 +126,58 @@ export default function RHPage() {
   const [filterRisk, setFilterRisk] = useState<'all' | 'low' | 'medium' | 'high'>('all');
   const [checkedQuestions, setCheckedQuestions] = useState<Record<string, boolean>>({});
   const [questionNotes, setQuestionNotes] = useState<Record<string, string>>({});
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  
+  // Formulário de nova vaga (baseado em campos do LinkedIn)
+  const [jobForm, setJobForm] = useState({
+    title: '',
+    description: '',
+    department: '',
+    employment_type: 'full_time', // full_time, part_time, contract, internship
+    workplace_type: 'hybrid', // on_site, remote, hybrid
+    location: '',
+    experience_level: 'mid_senior', // internship, entry, associate, mid_senior, director, executive
+    skills: [] as string[],
+    salary_min: '',
+    salary_max: '',
+    benefits: [] as string[],
+    application_deadline: '',
+    number_of_positions: '1',
+  });
+
+  const employmentTypes = [
+    { id: 'full_time', label: 'Tempo Integral' },
+    { id: 'part_time', label: 'Meio Período' },
+    { id: 'contract', label: 'Contrato' },
+    { id: 'internship', label: 'Estágio' },
+    { id: 'freelance', label: 'Freelancer' },
+  ];
+
+  const workplaceTypes = [
+    { id: 'on_site', label: 'Presencial', icon: '🏢' },
+    { id: 'remote', label: 'Remoto', icon: '🏠' },
+    { id: 'hybrid', label: 'Híbrido', icon: '🔄' },
+  ];
+
+  const experienceLevels = [
+    { id: 'internship', label: 'Estágio' },
+    { id: 'entry', label: 'Júnior' },
+    { id: 'associate', label: 'Associado' },
+    { id: 'mid_senior', label: 'Pleno/Sênior' },
+    { id: 'director', label: 'Diretor' },
+    { id: 'executive', label: 'Executivo' },
+  ];
+
+  const commonSkills = [
+    'Social Media', 'Design Gráfico', 'Tráfego Pago', 'Copywriting', 'Video Editing',
+    'Photoshop', 'Figma', 'Google Ads', 'Meta Ads', 'SEO', 'WordPress', 'Canva'
+  ];
+
+  const commonBenefits = [
+    'Vale Alimentação', 'Vale Transporte', 'Plano de Saúde', 'Plano Odontológico',
+    'Home Office', 'Horário Flexível', 'Day Off Aniversário', 'Participação nos Lucros',
+    'Gympass', 'Auxílio Educação', 'Notebook Empresa'
+  ];
 
   const handleToggleQuestion = (questionId: string) => {
     setCheckedQuestions(prev => ({ ...prev, [questionId]: !prev[questionId] }));
@@ -132,8 +188,80 @@ export default function RHPage() {
   };
 
   const handleNewJob = () => {
-    alert('🚀 Criando vaga com IA...');
     setShowNewJob(true);
+  };
+
+  const handleGenerateDescription = async () => {
+    if (!jobForm.title) {
+      alert('Preencha o título da vaga primeiro');
+      return;
+    }
+    
+    setIsGeneratingDescription(true);
+    
+    // Simular geração de descrição com IA
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const generatedDescription = `**Sobre a Vaga:**
+Estamos buscando um(a) ${jobForm.title} talentoso(a) para integrar nossa equipe de ${jobForm.department || 'Marketing Digital'}. Se você é apaixonado(a) por resultados e inovação, esta oportunidade é para você!
+
+**Responsabilidades:**
+• Desenvolver e executar estratégias de ${jobForm.title.toLowerCase()}
+• Colaborar com a equipe para atingir metas e KPIs
+• Analisar métricas e propor melhorias contínuas
+• Manter-se atualizado(a) sobre tendências do mercado
+• Participar de reuniões de planejamento e apresentação de resultados
+
+**O que buscamos:**
+• Experiência comprovada na área
+• Perfil proativo e orientado a resultados
+• Excelente comunicação e trabalho em equipe
+• Organização e gestão de prioridades
+• Conhecimento das principais ferramentas do mercado
+
+**Diferenciais:**
+• Certificações na área
+• Experiência em agências de marketing
+• Portfólio de projetos anteriores
+
+Venha fazer parte de uma equipe que transforma negócios através do marketing digital! 🚀`;
+
+    setJobForm(prev => ({ ...prev, description: generatedDescription }));
+    setIsGeneratingDescription(false);
+  };
+
+  const handleCreateJob = () => {
+    if (!jobForm.title || !jobForm.description) {
+      alert('Preencha os campos obrigatórios');
+      return;
+    }
+    
+    alert('✅ Vaga criada com sucesso! A vaga está pronta para publicação no LinkedIn.');
+    setShowNewJob(false);
+    setJobForm({
+      title: '', description: '', department: '', employment_type: 'full_time',
+      workplace_type: 'hybrid', location: '', experience_level: 'mid_senior',
+      skills: [], salary_min: '', salary_max: '', benefits: [],
+      application_deadline: '', number_of_positions: '1'
+    });
+  };
+
+  const toggleSkill = (skill: string) => {
+    setJobForm(prev => ({
+      ...prev,
+      skills: prev.skills.includes(skill)
+        ? prev.skills.filter(s => s !== skill)
+        : [...prev.skills, skill]
+    }));
+  };
+
+  const toggleBenefit = (benefit: string) => {
+    setJobForm(prev => ({
+      ...prev,
+      benefits: prev.benefits.includes(benefit)
+        ? prev.benefits.filter(b => b !== benefit)
+        : [...prev.benefits, benefit]
+    }));
   };
 
   const filteredEmployees = SAMPLE_EMPLOYEES.filter(emp => {
@@ -603,6 +731,140 @@ export default function RHPage() {
             </motion.div>
           </div>
         )}
+
+        {/* Modal Nova Vaga */}
+        <AnimatePresence>
+          {showNewJob && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+              onClick={() => setShowNewJob(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] overflow-hidden"
+              >
+                <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-blue-500 to-indigo-600">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                      <Briefcase className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-white">Nova Vaga</h2>
+                      <p className="text-sm text-white/80 flex items-center gap-1">
+                        <Linkedin className="w-4 h-4" /> Campos baseados na API LinkedIn
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setShowNewJob(false)} className="text-white hover:bg-white/20">
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+
+                <div className="p-6 overflow-auto max-h-[60vh] space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-2 block">Título da Vaga *</label>
+                      <input
+                        type="text"
+                        value={jobForm.title}
+                        onChange={(e) => setJobForm(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="Ex: Social Media Manager"
+                        className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-2 block">Departamento</label>
+                      <select
+                        value={jobForm.department}
+                        onChange={(e) => setJobForm(prev => ({ ...prev, department: e.target.value }))}
+                        className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Design">Design</option>
+                        <option value="Performance">Performance</option>
+                        <option value="Comercial">Comercial</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-gray-700">Descrição da Vaga *</label>
+                      <Button variant="outline" size="sm" onClick={handleGenerateDescription} disabled={isGeneratingDescription} className="text-purple-600 border-purple-200 hover:bg-purple-50">
+                        {isGeneratingDescription ? (<><div className="w-4 h-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mr-2" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Gerar com IA</>)}
+                      </Button>
+                    </div>
+                    <textarea value={jobForm.description} onChange={(e) => setJobForm(prev => ({ ...prev, description: e.target.value }))} placeholder="Descreva a vaga..." rows={6} className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-2 block">Modelo de Trabalho</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {workplaceTypes.map((type) => (
+                          <button key={type.id} onClick={() => setJobForm(prev => ({ ...prev, workplace_type: type.id }))} className={`p-3 rounded-lg border text-center transition-all ${jobForm.workplace_type === type.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                            <span className="text-xl block mb-1">{type.icon}</span>
+                            <span className="text-xs">{type.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-2 block">Nível de Experiência</label>
+                      <select value={jobForm.experience_level} onChange={(e) => setJobForm(prev => ({ ...prev, experience_level: e.target.value }))} className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500">
+                        {experienceLevels.map((level) => (<option key={level.id} value={level.id}>{level.label}</option>))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-2 block flex items-center gap-1"><MapPin className="w-4 h-4" /> Localização</label>
+                      <input type="text" value={jobForm.location} onChange={(e) => setJobForm(prev => ({ ...prev, location: e.target.value }))} placeholder="São Paulo, SP" className="w-full p-3 rounded-xl border border-gray-200" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-2 block flex items-center gap-1"><DollarSign className="w-4 h-4" /> Faixa Salarial</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" value={jobForm.salary_min} onChange={(e) => setJobForm(prev => ({ ...prev, salary_min: e.target.value }))} placeholder="Mín: R$ 3.000" className="w-full p-3 rounded-xl border border-gray-200" />
+                        <input type="text" value={jobForm.salary_max} onChange={(e) => setJobForm(prev => ({ ...prev, salary_max: e.target.value }))} placeholder="Máx: R$ 5.000" className="w-full p-3 rounded-xl border border-gray-200" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Habilidades Requeridas</label>
+                    <div className="flex flex-wrap gap-2">
+                      {commonSkills.map((skill) => (
+                        <button key={skill} onClick={() => toggleSkill(skill)} className={`px-3 py-1 rounded-full text-sm transition-all ${jobForm.skills.includes(skill) ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{skill}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block flex items-center gap-1"><Heart className="w-4 h-4" /> Benefícios</label>
+                    <div className="flex flex-wrap gap-2">
+                      {commonBenefits.map((benefit) => (
+                        <button key={benefit} onClick={() => toggleBenefit(benefit)} className={`px-3 py-1 rounded-full text-sm transition-all ${jobForm.benefits.includes(benefit) ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{benefit}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 border-t bg-gray-50 flex gap-3">
+                  <Button variant="outline" className="flex-1" onClick={() => setShowNewJob(false)}>Cancelar</Button>
+                  <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={handleCreateJob}><CheckCircle className="w-4 h-4 mr-2" />Criar Vaga</Button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -34,7 +34,16 @@ import {
   ChevronRight,
   MessageSquare,
   Calendar,
-  FileText
+  FileText,
+  Eye,
+  PhoneCall,
+  FileSearch,
+  UserPlus,
+  Clock,
+  Building,
+  Star,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import ScopeCreepWidget from './widgets/ScopeCreepWidget';
 import {
@@ -81,6 +90,20 @@ interface AIRecommendation {
   category: string;
 }
 
+interface AIInsightLead {
+  id: string;
+  name: string;
+  company: string;
+  position: string;
+  phone: string;
+  email: string;
+  score: number;
+  interest: string;
+  lastContact: string;
+  script: string;
+  status: 'hot' | 'warm' | 'cold';
+}
+
 export default function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showExecuteModal, setShowExecuteModal] = useState(false);
@@ -95,6 +118,98 @@ export default function SuperAdminDashboard() {
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [showResultModal, setShowResultModal] = useState(false);
   const [resultContent, setResultContent] = useState<any>(null);
+  const [showLeadModal, setShowLeadModal] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<AIInsightLead | null>(null);
+  const [showScriptModal, setShowScriptModal] = useState(false);
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [callScheduled, setCallScheduled] = useState(false);
+  const [callTime, setCallTime] = useState('');
+  
+  // Dados de leads para Insights de IA
+  const aiLeads: AIInsightLead[] = [
+    {
+      id: '1',
+      name: 'Roberto Mendes',
+      company: 'TechVision Ltda',
+      position: 'CEO',
+      phone: '(11) 99876-5432',
+      email: 'roberto@techvision.com.br',
+      score: 95,
+      interest: 'Busca soluções de automação de marketing',
+      lastContact: '2 dias atrás',
+      script: `Olá Roberto, aqui é [Seu Nome] da Valle 360!
+
+Vi que a TechVision está crescendo muito no setor de tecnologia. Parabéns pelos resultados!
+
+Estou entrando em contato porque trabalhamos com empresas similares ajudando a automatizar o marketing digital e aumentar a geração de leads qualificados.
+
+Conseguimos em média um aumento de 40% na conversão de leads para nossos clientes do segmento tech.
+
+Gostaria de agendar uma conversa de 15 minutos para mostrar como podemos ajudar a TechVision a escalar ainda mais?`,
+      status: 'hot'
+    },
+    {
+      id: '2',
+      name: 'Ana Paula Ferreira',
+      company: 'Construtora Horizonte',
+      position: 'Diretora de Marketing',
+      phone: '(21) 98765-4321',
+      email: 'ana.paula@horizonte.com.br',
+      score: 88,
+      interest: 'Precisa melhorar presença nas redes sociais',
+      lastContact: '1 semana atrás',
+      script: `Olá Ana Paula, tudo bem?
+
+Aqui é [Seu Nome] da Valle 360. Notei que a Construtora Horizonte tem lançamentos incríveis, mas a presença digital ainda tem muito potencial.
+
+Trabalhamos com construtoras e conseguimos aumentar em média 60% o engajamento nas redes sociais e 35% nos leads de imóveis.
+
+Seria interessante uma conversa rápida para mostrar cases do setor imobiliário?`,
+      status: 'warm'
+    },
+    {
+      id: '3',
+      name: 'Carlos Eduardo',
+      company: 'Clínica Premium Saúde',
+      position: 'Sócio-administrador',
+      phone: '(31) 97654-3210',
+      email: 'carlos@premiumsaude.com.br',
+      score: 82,
+      interest: 'Quer aumentar agendamentos online',
+      lastContact: '3 dias atrás',
+      script: `Olá Dr. Carlos, aqui é [Seu Nome] da Valle 360!
+
+Acompanhei o crescimento da Clínica Premium Saúde e o trabalho excepcional que vocês fazem.
+
+Trabalhamos com clínicas e consultórios ajudando a aumentar os agendamentos online através de campanhas segmentadas e automação de WhatsApp.
+
+Um de nossos clientes do segmento de saúde aumentou 45% os agendamentos em 2 meses.
+
+Podemos marcar uma conversa para apresentar nossa metodologia?`,
+      status: 'warm'
+    },
+    {
+      id: '4',
+      name: 'Mariana Santos',
+      company: 'E-commerce Fashion Store',
+      position: 'Fundadora',
+      phone: '(41) 96543-2109',
+      email: 'mariana@fashionstore.com.br',
+      score: 76,
+      interest: 'Procura melhorar conversão do e-commerce',
+      lastContact: '5 dias atrás',
+      script: `Olá Mariana, tudo bem?
+
+Aqui é [Seu Nome] da Valle 360. Conheço o Fashion Store e vi o potencial enorme que vocês têm!
+
+Trabalhamos com e-commerces de moda ajudando a otimizar campanhas de tráfego pago e aumentar a taxa de conversão.
+
+Conseguimos para um cliente similar aumentar 52% o ROAS em 3 meses.
+
+Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
+      status: 'cold'
+    }
+  ];
   
   // Hook de IA
   const { generateInsights, generateContent, generateEmail, isLoading: aiLoading, error: aiError } = useAI();
@@ -418,6 +533,75 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  // Handlers para Insights de IA - Leads
+  const handleViewLead = (lead: AIInsightLead) => {
+    setSelectedLead(lead);
+    setShowLeadModal(true);
+  };
+
+  const handleCallLead = (lead: AIInsightLead) => {
+    setSelectedLead(lead);
+    setCallScheduled(false);
+    setCallTime('');
+    setShowCallModal(true);
+  };
+
+  const handleViewScript = (lead: AIInsightLead) => {
+    setSelectedLead(lead);
+    setShowScriptModal(true);
+  };
+
+  const handleScheduleCall = () => {
+    if (!callTime) {
+      alert('Selecione um horário para a ligação');
+      return;
+    }
+    setCallScheduled(true);
+    setTimeout(() => {
+      setShowCallModal(false);
+      setResultContent({
+        title: '📞 Ligação Agendada!',
+        message: `Ligação para ${selectedLead?.name} agendada com sucesso.`,
+        actions: [
+          `📅 Data: ${callTime}`,
+          `📱 Telefone: ${selectedLead?.phone}`,
+          `🏢 Empresa: ${selectedLead?.company}`,
+          '⏰ Lembrete será enviado 15 min antes'
+        ]
+      });
+      setShowResultModal(true);
+    }, 1500);
+  };
+
+  const handleCopyScript = () => {
+    if (selectedLead) {
+      navigator.clipboard.writeText(selectedLead.script);
+      alert('✅ Roteiro copiado para a área de transferência!');
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'hot':
+        return 'bg-red-500';
+      case 'warm':
+        return 'bg-orange-500';
+      default:
+        return 'bg-blue-500';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'hot':
+        return 'Quente';
+      case 'warm':
+        return 'Morno';
+      default:
+        return 'Frio';
+    }
+  };
+
   return (
     <div className="space-y-6 pb-8">
       <div className="flex justify-between items-start">
@@ -654,6 +838,90 @@ export default function SuperAdminDashboard() {
                 <Tooltip />
               </RechartsPieChart>
             </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ===== SEÇÃO INSIGHTS DE IA - LEADS QUALIFICADOS ===== */}
+      <Card className="border-2 border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-transparent">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-purple-600" />
+              Insights de IA - Leads Qualificados
+              <Badge className="bg-purple-500/10 text-purple-600 border border-purple-500/30 text-[10px]">
+                <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                {aiLeads.length} Leads
+              </Badge>
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2">
+            {aiLeads.map((lead) => (
+              <motion.div
+                key={lead.id}
+                whileHover={{ y: -2 }}
+                className="p-4 rounded-xl border border-border bg-white dark:bg-[#0a0f1a] shadow-sm hover:shadow-md transition-all"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold">
+                      {lead.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-foreground">{lead.name}</h4>
+                      <p className="text-xs text-muted-foreground">{lead.position} @ {lead.company}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={cn("text-white text-[10px]", getStatusColor(lead.status))}>
+                      {getStatusLabel(lead.status)}
+                    </Badge>
+                    <div className="flex items-center gap-1 bg-emerald-500/10 text-emerald-600 px-2 py-1 rounded-full text-xs font-medium">
+                      <Star className="w-3 h-3 fill-current" />
+                      {lead.score}%
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-sm text-muted-foreground mb-3">{lead.interest}</p>
+
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
+                  <Clock className="w-3 h-3" />
+                  Último contato: {lead.lastContact}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex-1 text-xs"
+                    onClick={() => handleViewLead(lead)}
+                  >
+                    <Eye className="w-3 h-3 mr-1" />
+                    Ver
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex-1 text-xs text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10"
+                    onClick={() => handleCallLead(lead)}
+                  >
+                    <PhoneCall className="w-3 h-3 mr-1" />
+                    Ligar
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="flex-1 text-xs bg-purple-600 hover:bg-purple-700"
+                    onClick={() => handleViewScript(lead)}
+                  >
+                    <FileSearch className="w-3 h-3 mr-1" />
+                    Ver Roteiro
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -983,6 +1251,310 @@ export default function SuperAdminDashboard() {
                 >
                   Cancelar
                 </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Ver Detalhes do Lead */}
+      <AnimatePresence>
+        {showLeadModal && selectedLead && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => setShowLeadModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#0a0f1a] rounded-2xl w-full max-w-lg shadow-2xl"
+            >
+              <div className="p-6 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+                      {selectedLead.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-foreground">{selectedLead.name}</h2>
+                      <p className="text-sm text-muted-foreground">{selectedLead.position}</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setShowLeadModal(false)}>
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-xl bg-muted/50">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                      <Building className="w-3 h-3" />
+                      Empresa
+                    </div>
+                    <p className="font-medium text-foreground">{selectedLead.company}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-muted/50">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                      <Star className="w-3 h-3" />
+                      Score
+                    </div>
+                    <p className="font-medium text-foreground">{selectedLead.score}%</p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-muted/50">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                    <Phone className="w-3 h-3" />
+                    Telefone
+                  </div>
+                  <p className="font-medium text-foreground">{selectedLead.phone}</p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-muted/50">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                    <Mail className="w-3 h-3" />
+                    Email
+                  </div>
+                  <p className="font-medium text-foreground">{selectedLead.email}</p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                  <div className="flex items-center gap-2 text-xs text-purple-600 mb-1">
+                    <Brain className="w-3 h-3" />
+                    Interesse Detectado pela IA
+                  </div>
+                  <p className="font-medium text-foreground">{selectedLead.interest}</p>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => {
+                      setShowLeadModal(false);
+                      handleCallLead(selectedLead);
+                    }}
+                  >
+                    <PhoneCall className="w-4 h-4 mr-2" />
+                    Ligar
+                  </Button>
+                  <Button 
+                    className="flex-1 bg-purple-600 hover:bg-purple-700"
+                    onClick={() => {
+                      setShowLeadModal(false);
+                      handleViewScript(selectedLead);
+                    }}
+                  >
+                    <FileSearch className="w-4 h-4 mr-2" />
+                    Ver Roteiro
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Agendar Ligação */}
+      <AnimatePresence>
+        {showCallModal && selectedLead && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => !callScheduled && setShowCallModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#0a0f1a] rounded-2xl w-full max-w-md shadow-2xl"
+            >
+              <div className="p-6 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-xl bg-emerald-500/10">
+                    <PhoneCall className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground">Agendar Ligação</h2>
+                    <p className="text-sm text-muted-foreground">Para {selectedLead.name}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="p-4 rounded-xl bg-muted/50 border border-border">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold">
+                      {selectedLead.name.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">{selectedLead.name}</p>
+                      <p className="text-sm text-muted-foreground">{selectedLead.phone}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{selectedLead.company}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    Escolha a data e horário
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={callTime}
+                    onChange={(e) => setCallTime(e.target.value)}
+                    className="w-full p-3 rounded-xl border border-border bg-background text-foreground"
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                  <div className="flex items-center gap-2 text-sm text-purple-600">
+                    <Brain className="w-4 h-4" />
+                    <span className="font-medium">Dica da IA:</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Melhores horários para {selectedLead.name}: 10h-12h ou 14h-16h
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowCallModal(false)}
+                    disabled={callScheduled}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                    onClick={handleScheduleCall}
+                    disabled={callScheduled}
+                  >
+                    {callScheduled ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                        Agendando...
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Agendar Ligação
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                <Button 
+                  variant="ghost" 
+                  className="w-full text-emerald-600"
+                  onClick={() => window.open(`tel:${selectedLead.phone}`)}
+                >
+                  <Phone className="w-4 h-4 mr-2" />
+                  Ligar Agora
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Ver Roteiro de Abordagem */}
+      <AnimatePresence>
+        {showScriptModal && selectedLead && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => setShowScriptModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#0a0f1a] rounded-2xl w-full max-w-lg shadow-2xl max-h-[85vh] overflow-hidden"
+            >
+              <div className="p-6 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-indigo-500/20">
+                      <FileSearch className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-foreground">Roteiro de Abordagem</h2>
+                      <p className="text-sm text-muted-foreground">Gerado pela IA para {selectedLead.name}</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setShowScriptModal(false)}>
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 overflow-auto max-h-[50vh]">
+                <div className="flex items-center gap-2 mb-4">
+                  <Badge className={cn("text-white", getStatusColor(selectedLead.status))}>
+                    Lead {getStatusLabel(selectedLead.status)}
+                  </Badge>
+                  <Badge variant="outline">Score: {selectedLead.score}%</Badge>
+                  <Badge className="bg-purple-500/10 text-purple-600 border border-purple-500/30">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    IA Personalizado
+                  </Badge>
+                </div>
+
+                <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/5 to-indigo-500/5 border border-purple-500/20">
+                  <p className="text-foreground whitespace-pre-line leading-relaxed">
+                    {selectedLead.script}
+                  </p>
+                </div>
+
+                <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <div className="flex items-center gap-2 text-sm text-amber-600 mb-1">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span className="font-medium">Pontos de Atenção:</span>
+                  </div>
+                  <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+                    <li>Foque nos benefícios específicos para {selectedLead.company}</li>
+                    <li>Mencione cases de sucesso do mesmo segmento</li>
+                    <li>Prepare-se para objeções de preço</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-border bg-muted/30">
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleCopyScript}
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copiar Roteiro
+                  </Button>
+                  <Button
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => {
+                      setShowScriptModal(false);
+                      handleCallLead(selectedLead);
+                    }}
+                  >
+                    <PhoneCall className="w-4 h-4 mr-2" />
+                    Ligar Agora
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
