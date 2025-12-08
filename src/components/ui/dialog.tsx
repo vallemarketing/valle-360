@@ -39,11 +39,12 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 interface DialogContentProps {
   children: React.ReactNode;
   onClose?: () => void;
+  className?: string;
 }
 
-export function DialogContent({ children, onClose }: DialogContentProps) {
+export function DialogContent({ children, onClose, className }: DialogContentProps) {
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-200 dark:border-gray-800">
+    <div className={`bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-200 dark:border-gray-800 ${className || ''}`}>
       {onClose && (
         <button
           onClick={onClose}
