@@ -229,7 +229,7 @@ const AlertItem = ({ alert, onAction }: { alert: Alert; onAction: () => void }) 
             <span className="text-xs font-medium opacity-70">
               {executiveLabels[alert.executive]}
             </span>
-            <Badge variant={alert.severity === 'critical' ? 'destructive' : 'secondary'} className="text-xs">
+            <Badge variant={alert.severity === 'critical' ? 'danger' : 'secondary'} className="text-xs">
               {alert.severity.toUpperCase()}
             </Badge>
           </div>
@@ -389,7 +389,7 @@ export default function DiretoriaPage() {
             </div>
             <div className="flex gap-2">
               {dashboard.consolidatedAlerts.filter(a => a.severity === 'critical').length > 0 && (
-                <Badge variant="destructive" className="animate-pulse">
+                <Badge variant="danger" className="animate-pulse">
                   {dashboard.consolidatedAlerts.filter(a => a.severity === 'critical').length} Críticos
                 </Badge>
               )}
