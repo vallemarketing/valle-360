@@ -23,18 +23,29 @@ function useSelectContext() {
 
 interface SelectProps {
   value?: string;
+  defaultValue?: string;
   onValueChange?: (value: string) => void;
   children: React.ReactNode;
 }
 
-export function Select({ value = '', onValueChange, children }: SelectProps) {
+export function Select({ value, defaultValue = '', onValueChange, children }: SelectProps) {
   const [open, setOpen] = React.useState(false);
+  const [internalValue, setInternalValue] = React.useState(defaultValue);
+  
+  const currentValue = value !== undefined ? value : internalValue;
+  
+  const handleValueChange = (newValue: string) => {
+    if (value === undefined) {
+      setInternalValue(newValue);
+    }
+    onValueChange?.(newValue);
+  };
 
   return (
     <SelectContext.Provider
       value={{
-        value,
-        onValueChange: onValueChange || (() => {}),
+        value: currentValue,
+        onValueChange: handleValueChange,
         open,
         setOpen,
       }}
