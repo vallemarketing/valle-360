@@ -306,9 +306,9 @@ export async function generateExecutiveReport(): Promise<{
       executive: 'cfo' as ExecutiveType,
       summary: `Receita mensal de R$ ${dashboard.cfo.kpis.totalRevenue.toLocaleString('pt-BR')} com margem média de ${dashboard.cfo.kpis.averageMargin.toFixed(1)}%.`,
       kpis: [
-        { label: 'Receita', value: `R$ ${dashboard.cfo.kpis.totalRevenue.toLocaleString('pt-BR')}`, trend: dashboard.cfo.kpis.revenueGrowth > 0 ? 'up' : 'down' as const },
+        { label: 'Receita', value: `R$ ${dashboard.cfo.kpis.totalRevenue.toLocaleString('pt-BR')}`, trend: (dashboard.cfo.kpis.revenueGrowth > 0 ? 'up' : 'down') as 'up' | 'down' },
         { label: 'Margem Bruta', value: `${dashboard.cfo.kpis.averageMargin.toFixed(1)}%` },
-        { label: 'Crescimento', value: `${dashboard.cfo.kpis.revenueGrowth.toFixed(1)}%`, trend: dashboard.cfo.kpis.revenueGrowth > 0 ? 'up' : 'down' as const }
+        { label: 'Crescimento', value: `${dashboard.cfo.kpis.revenueGrowth.toFixed(1)}%`, trend: (dashboard.cfo.kpis.revenueGrowth > 0 ? 'up' : 'down') as 'up' | 'down' }
       ],
       alerts: dashboard.cfo.alerts.slice(0, 2).map(a => a.title),
       recommendations: dashboard.cfo.pricingIssues.slice(0, 2).map(p => `Ajustar preço de ${p.service}`)
@@ -322,7 +322,7 @@ export async function generateExecutiveReport(): Promise<{
       executive: 'cto' as ExecutiveType,
       summary: `Utilização de capacidade em ${dashboard.cto.overview.totalUtilization.toFixed(1)}% com ${dashboard.cto.overview.bottlenecks} gargalos identificados.`,
       kpis: [
-        { label: 'Utilização', value: `${dashboard.cto.overview.totalUtilization.toFixed(1)}%`, trend: dashboard.cto.overview.totalUtilization > 85 ? 'up' : 'stable' as const },
+        { label: 'Utilização', value: `${dashboard.cto.overview.totalUtilization.toFixed(1)}%`, trend: (dashboard.cto.overview.totalUtilization > 85 ? 'up' : 'stable') as 'up' | 'stable' },
         { label: 'Eficiência', value: `${dashboard.cto.overview.averageEfficiency.toFixed(1)}%` },
         { label: 'Economia Potencial', value: `${dashboard.cto.overview.potentialSavings}h/mês` }
       ],
@@ -339,7 +339,7 @@ export async function generateExecutiveReport(): Promise<{
       summary: `${dashboard.cmo.kpis.activeClients} clientes ativos com taxa de churn de ${dashboard.cmo.kpis.churnRate.toFixed(1)}%.`,
       kpis: [
         { label: 'Clientes Ativos', value: `${dashboard.cmo.kpis.activeClients}` },
-        { label: 'Taxa de Churn', value: `${dashboard.cmo.kpis.churnRate.toFixed(1)}%`, trend: dashboard.cmo.kpis.churnRate > 10 ? 'down' : 'stable' as const },
+        { label: 'Taxa de Churn', value: `${dashboard.cmo.kpis.churnRate.toFixed(1)}%`, trend: (dashboard.cmo.kpis.churnRate > 10 ? 'down' : 'stable') as 'down' | 'stable' },
         { label: 'Pipeline Upsell', value: `R$ ${dashboard.cmo.kpis.upsellPipeline.toLocaleString('pt-BR')}` }
       ],
       alerts: dashboard.cmo.alerts.slice(0, 2).map(a => a.title),
@@ -356,7 +356,7 @@ export async function generateExecutiveReport(): Promise<{
       kpis: [
         { label: 'Performance', value: `${dashboard.chro.kpis.averagePerformance}%` },
         { label: 'Engajamento', value: `${dashboard.chro.kpis.averageEngagement}%` },
-        { label: 'Risco Turnover', value: `${dashboard.chro.kpis.turnoverRate.toFixed(1)}%`, trend: dashboard.chro.kpis.turnoverRate > 15 ? 'down' : 'stable' as const }
+        { label: 'Risco Turnover', value: `${dashboard.chro.kpis.turnoverRate.toFixed(1)}%`, trend: (dashboard.chro.kpis.turnoverRate > 15 ? 'down' : 'stable') as 'down' | 'stable' }
       ],
       alerts: dashboard.chro.alerts.slice(0, 2).map(a => a.title),
       recommendations: dashboard.chro.turnoverPredictions.slice(0, 2).map(t => `Ação preventiva para ${t.name}`)
