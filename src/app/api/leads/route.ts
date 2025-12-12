@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // GET - Buscar leads
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || undefined;
     const industry = searchParams.get('industry') || undefined;
     const min_score = searchParams.get('min_score');
@@ -141,7 +141,7 @@ export async function PUT(request: NextRequest) {
 // DELETE - Remover lead
 export async function DELETE(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // GET - Buscar contratos
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || undefined;
     const client_id = searchParams.get('client_id') || undefined;
     const expiring_soon = searchParams.get('expiring_soon') === 'true';

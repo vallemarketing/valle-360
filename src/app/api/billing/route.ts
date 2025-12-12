@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // GET - Buscar faturas
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     const status = searchParams.get('status') || undefined;
     const client_id = searchParams.get('client_id') || undefined;

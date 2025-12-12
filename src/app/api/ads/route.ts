@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // GET - Buscar dados de ads
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     const client_id = searchParams.get('client_id');
     const platform = searchParams.get('platform') as 'meta' | 'google' | 'all' | null;

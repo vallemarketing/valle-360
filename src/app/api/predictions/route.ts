@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // GET - Buscar previsões
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') as Prediction['type'] | null;
     const entity_type = searchParams.get('entity_type') || undefined;
     const entity_id = searchParams.get('entity_id') || undefined;

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // GET - Buscar posts
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     const client_id = searchParams.get('client_id') || undefined;
     const status = searchParams.get('status') || undefined;
@@ -201,7 +201,7 @@ export async function PUT(request: NextRequest) {
 // DELETE - Remover post
 export async function DELETE(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {

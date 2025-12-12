@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const collaboratorId = searchParams.get('collaborator_id');
     const sector = searchParams.get('sector');
     const status = searchParams.get('status');
