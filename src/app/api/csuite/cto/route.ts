@@ -15,6 +15,8 @@ import {
   analyzeAutomationPotential
 } from '@/lib/csuite/cto-ai';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Dashboard e dados do CTO
 export async function GET(request: Request) {
   try {

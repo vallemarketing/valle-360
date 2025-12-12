@@ -12,6 +12,8 @@ import {
   ExecutiveType
 } from '@/lib/csuite';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Dashboard consolidado
 export async function GET(request: Request) {
   try {

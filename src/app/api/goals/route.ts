@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { goalEngine } from '@/lib/goals/goal-engine';
 import { supabase } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

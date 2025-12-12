@@ -15,6 +15,8 @@ import {
   analyzeTeamHealth
 } from '@/lib/csuite/chro-ai';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Dashboard e dados do CHRO
 export async function GET(request: Request) {
   try {

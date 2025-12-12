@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { reputationService } from '@/lib/integrations/reputation';
 import { socialSentimentAnalyzer } from '@/lib/integrations/reputation/social-sentiment';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

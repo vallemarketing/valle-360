@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adsIntegration } from '@/lib/ads/ads-integration';
 import { supabase } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Buscar dados de ads
 export async function GET(request: NextRequest) {
   try {

@@ -14,6 +14,8 @@ import {
   generateRetentionCampaign
 } from '@/lib/csuite/cmo-ai';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Dashboard e dados do CMO
 export async function GET(request: Request) {
   try {

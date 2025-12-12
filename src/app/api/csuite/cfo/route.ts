@@ -14,6 +14,8 @@ import {
   analyzePricingHealth
 } from '@/lib/csuite/cfo-ai';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Dashboard e dados do CFO
 export async function GET(request: Request) {
   try {

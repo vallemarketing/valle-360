@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { postScheduler, type ScheduledPost, type Platform } from '@/lib/social/post-scheduler';
 import { supabase } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Buscar posts
 export async function GET(request: NextRequest) {
   try {

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { leadScraper, type ScrapingConfig, type Lead } from '@/lib/ai/lead-scraper';
 import { supabase } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Buscar leads
 export async function GET(request: NextRequest) {
   try {

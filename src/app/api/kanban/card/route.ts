@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic';
+
 // Função para criar cliente Supabase sob demanda (evita erro no build)
 const getSupabase = async () => {
   const { createClient } = await import('@supabase/supabase-js')

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { contractGenerator, type Contract } from '@/lib/ai/contract-generator';
 import { supabase } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Buscar contratos
 export async function GET(request: NextRequest) {
   try {

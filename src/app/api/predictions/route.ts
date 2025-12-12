@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { predictiveEngine, type Prediction } from '@/lib/ai/predictive-engine';
 import { clientHealthScore } from '@/lib/ai/client-health-score';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Buscar previsões
 export async function GET(request: NextRequest) {
   try {

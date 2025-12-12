@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { billingAutomation, type Invoice } from '@/lib/ai/billing-automation';
 import { supabase } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Buscar faturas
 export async function GET(request: NextRequest) {
   try {
