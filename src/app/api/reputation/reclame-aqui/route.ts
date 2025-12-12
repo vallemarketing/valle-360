@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { reclameAquiClient } from '@/lib/integrations/reputation/reclame-aqui';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
