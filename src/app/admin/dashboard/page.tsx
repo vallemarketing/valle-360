@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Users, 
@@ -43,6 +43,8 @@ import StatsCards from '@/components/valle-ui/StatsCards'
 import OrbitalTimeline from '@/components/valle-ui/OrbitalTimeline'
 import IntegrationsOrbit from '@/components/valle-ui/IntegrationsOrbit'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import { trackEvent } from '@/lib/telemetry/client'
 
 interface DashboardStats {
   totalClients: number
@@ -93,6 +95,7 @@ const item = {
 }
 
 export default function AdminDashboard() {
+  const quickActionsRef = useRef<HTMLDivElement | null>(null)
   const [stats, setStats] = useState<DashboardStats>({
     totalClients: 45,
     activeClients: 42,
@@ -305,6 +308,19 @@ export default function AdminDashboard() {
     return colors[type]
   }
 
+  const handleScrollToQuickActions = () => {
+    try {
+      quickActionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      toast.info('Abrindo ações rápidas…')
+      trackEvent('admin_dashboard_quick_actions_click', { level: 'info' })
+    } catch (e: any) {
+      trackEvent('admin_dashboard_quick_actions_click_error', {
+        level: 'error',
+        message: e?.message,
+      })
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -328,7 +344,7 @@ export default function AdminDashboard() {
                 <Activity className="w-3 h-3 mr-1" />
                 Sistema Online
               </Badge>
-              <Button className="bg-[#1672d6] hover:bg-[#1672d6]/90">
+              <Button onClick={handleScrollToQuickActions} className="bg-[#1672d6] hover:bg-[#1672d6]/90">
                 <Zap className="w-4 h-4 mr-2" />
                 Ações Rápidas
               </Button>
@@ -350,6 +366,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Ações Rápidas */}
           <motion.div
+            ref={quickActionsRef}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Plus, Mail, Phone, Award, Calendar, MoreVertical, X, TrendingUp, Target, Clock, Star, AlertTriangle, CheckCircle, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 
 interface Employee {
   id: string
@@ -44,8 +45,8 @@ export default function EmployeesListPage() {
     setShowModal(true)
   }
 
-  // Mock data - será substituído por dados reais do Supabase
-  const [employees] = useState<Employee[]>([
+  // Mock data - fallback (a tela tenta carregar dados reais via API)
+  const [employees, setEmployees] = useState<Employee[]>([
     {
       id: '1',
       fullName: 'Ana Silva Santos',
@@ -132,6 +133,36 @@ export default function EmployeesListPage() {
       ]
     }
   ])
+
+  const getAuthHeaders = async () => {
+    try {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      return token ? { Authorization: `Bearer ${token}` } : {}
+    } catch {
+      return {}
+    }
+  }
+
+  const loadEmployeesReal = async () => {
+    try {
+      const authHeaders = await getAuthHeaders()
+      const res = await fetch('/api/admin/employees', { headers: { ...authHeaders } })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) return
+      if (Array.isArray(data?.employees) && data.employees.length > 0) {
+        setEmployees(data.employees)
+      }
+    } catch {
+      // mantém mock
+    }
+  }
+
+  // Carrega dados reais uma vez
+  useEffect(() => {
+    loadEmployeesReal()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const getRetentionBadge = (status: string) => {
     switch (status) {

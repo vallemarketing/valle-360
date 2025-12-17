@@ -238,7 +238,13 @@ export function GuidedTour() {
             className="fixed z-[101] w-[95%] max-w-lg top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="bg-white dark:bg-[#0a0f1a] rounded-2xl shadow-2xl overflow-hidden border border-[#001533]/10 dark:border-white/10">
+            <div
+              className="bg-white dark:bg-[#0a0f1a] rounded-2xl shadow-2xl overflow-hidden border border-[#001533]/10 dark:border-white/10 flex flex-col"
+              style={{
+                maxHeight: 'min(88vh, 720px)',
+                paddingBottom: 'env(safe-area-inset-bottom)',
+              }}
+            >
               
               {/* Header com ícone e botão fechar */}
               <div className="bg-gradient-to-br from-[#001533] to-[#1672d6] p-6 relative">
@@ -292,8 +298,8 @@ export function GuidedTour() {
                 </div>
               </div>
 
-              {/* Conteúdo */}
-              <div className="p-6">
+              {/* Conteúdo (rolável para não cortar em telas menores) */}
+              <div className="p-6 overflow-y-auto">
                 <motion.div
                   key={currentStep}
                   initial={{ opacity: 0, x: 30 }}
@@ -343,7 +349,7 @@ export function GuidedTour() {
               </div>
 
               {/* Footer com botões de navegação grandes */}
-              <div className="px-6 pb-6 space-y-4">
+              <div className="px-6 pb-6 space-y-4 flex-shrink-0">
                 {/* Botões de setas grandes */}
                 <div className="flex items-center justify-center gap-4">
                   {/* Seta Voltar */}

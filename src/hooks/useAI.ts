@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
 
 // =====================================================
 // TIPOS
@@ -66,6 +67,24 @@ export function useAI(): UseAIReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const safeJson = async (response: Response) => {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  };
+
+  const getAuthHeaders = async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  };
+
   // ==========================================
   // FUNÇÕES DE INSIGHTS
   // ==========================================
@@ -75,19 +94,21 @@ export function useAI(): UseAIReturn {
     setError(null);
     
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch('/api/ai/insights', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ type, data })
       });
       
-      const result = await response.json();
+      const result = await safeJson(response);
       
       if (!response.ok) {
-        throw new Error(result.error || 'Erro ao gerar insights');
+        const details = result?.details ? ` (${result.details})` : '';
+        throw new Error((result?.error || `Erro ao gerar insights [${response.status}]`) + details);
       }
       
-      return result.data || [];
+      return result?.data || [];
     } catch (err: any) {
       setError(err.message);
       throw err;
@@ -101,22 +122,24 @@ export function useAI(): UseAIReturn {
     setError(null);
     
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch('/api/ai/insights', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ 
           type: 'client_health', 
           data: { clientId, ...data } 
         })
       });
       
-      const result = await response.json();
+      const result = await safeJson(response);
       
       if (!response.ok) {
-        throw new Error(result.error || 'Erro ao analisar cliente');
+        const details = result?.details ? ` (${result.details})` : '';
+        throw new Error((result?.error || `Erro ao analisar cliente [${response.status}]`) + details);
       }
       
-      return result.data;
+      return result?.data;
     } catch (err: any) {
       setError(err.message);
       throw err;
@@ -130,19 +153,21 @@ export function useAI(): UseAIReturn {
     setError(null);
     
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch('/api/ai/insights', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ type: 'financial_forecast', data })
       });
       
-      const result = await response.json();
+      const result = await safeJson(response);
       
       if (!response.ok) {
-        throw new Error(result.error || 'Erro ao gerar previsão');
+        const details = result?.details ? ` (${result.details})` : '';
+        throw new Error((result?.error || `Erro ao gerar previsão [${response.status}]`) + details);
       }
       
-      return result.data;
+      return result?.data;
     } catch (err: any) {
       setError(err.message);
       throw err;
@@ -160,19 +185,21 @@ export function useAI(): UseAIReturn {
     setError(null);
     
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ type, params })
       });
       
-      const result = await response.json();
+      const result = await safeJson(response);
       
       if (!response.ok) {
-        throw new Error(result.error || 'Erro ao gerar conteúdo');
+        const details = result?.details ? ` (${result.details})` : '';
+        throw new Error((result?.error || `Erro ao gerar conteúdo [${response.status}]`) + details);
       }
       
-      return result.content;
+      return result?.content;
     } catch (err: any) {
       setError(err.message);
       throw err;
@@ -210,19 +237,21 @@ export function useAI(): UseAIReturn {
     setError(null);
     
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch('/api/ai/val', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ message, context })
       });
       
-      const result = await response.json();
+      const result = await safeJson(response);
       
       if (!response.ok) {
-        throw new Error(result.error || 'Erro ao processar mensagem');
+        const details = result?.details ? ` (${result.details})` : '';
+        throw new Error((result?.error || `Erro ao processar mensagem [${response.status}]`) + details);
       }
       
-      return result.response;
+      return result?.response;
     } catch (err: any) {
       setError(err.message);
       throw err;
@@ -240,16 +269,18 @@ export function useAI(): UseAIReturn {
     setError(null);
     
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch('/api/sentiment/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ text })
       });
       
-      const result = await response.json();
+      const result = await safeJson(response);
       
       if (!response.ok) {
-        throw new Error(result.error || 'Erro ao analisar texto');
+        const details = result?.details ? ` (${result.details})` : '';
+        throw new Error((result?.error || `Erro ao analisar texto [${response.status}]`) + details);
       }
       
       return result;

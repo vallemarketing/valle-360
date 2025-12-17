@@ -173,19 +173,25 @@ export default function ProposalGeneratorPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           proposalId: generatedProposal.id,
-          clientEmail: clientData.email,
-          clientName: clientData.name,
-          items: selectedServices,
-          totalValue: calculateTotal(),
-          magicLink: `${window.location.origin}/proposta/${generatedProposal.magic_link_token}`
+          proposal_id: generatedProposal.id
         })
       })
 
-      if (response.ok) {
-        toast.success('✅ Proposta enviada por email com sucesso!')
-      } else {
-        // Simular envio bem-sucedido em modo demo
-        toast.success('✅ Proposta enviada por email com sucesso!')
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        const msg = data?.error || 'Falha ao enviar proposta'
+        toast.error(msg)
+        return
+      }
+
+      toast.success('✅ Proposta marcada como enviada!')
+      if (data?.proposal_link) {
+        try {
+          await navigator.clipboard.writeText(data.proposal_link)
+          toast.success('Link copiado para a área de transferência')
+        } catch {
+          // ignore
+        }
       }
       
       setShowSendModal(false)
@@ -193,10 +199,7 @@ export default function ProposalGeneratorPage() {
       setSelectedServices([])
       setGeneratedProposal(null)
     } catch (error) {
-      toast.success('✅ Proposta enviada por email com sucesso!')
-      setShowSendModal(false)
-      setClientData({ name: '', email: '', company: '', phone: '', notes: '' })
-      setSelectedServices([])
+      toast.error('Erro ao enviar proposta. Tente novamente.')
     }
     setSendingEmail(false)
   }

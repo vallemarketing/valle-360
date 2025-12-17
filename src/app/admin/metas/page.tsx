@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 import {
   Target, Trophy, Flame, Star, TrendingUp, TrendingDown,
   Users, Zap, Brain, RefreshCw, ChevronRight, Award,
@@ -388,6 +389,91 @@ export default function MetasPage() {
   const [selectedSector, setSelectedSector] = useState('all');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showNewGoalModal, setShowNewGoalModal] = useState(false);
+
+  const getAuthHeaders = async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const mapDbGoalToUi = (row: any): Goal => {
+    const name = row.collaborator_name || 'Colaborador';
+    const sector = row.sector || 'designer';
+    const collaborator: Collaborator = {
+      id: row.collaborator_id,
+      name,
+      sector,
+      role: sector,
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
+    };
+
+    const goalsObj = row.goals || {};
+    const metrics: GoalMetric[] = Object.entries(goalsObj).map(([metricName, data]: any) => {
+      const tmpl = metricTemplates[metricName] || { label: metricName, unit: data?.unit || '', defaultTarget: '0' };
+      const target = Number(data?.target || 0);
+      const current = Number(data?.current || 0);
+      const progress = target > 0 ? Math.round((current / target) * 100) : 0;
+      return {
+        name: metricName,
+        label: tmpl.label,
+        target,
+        current,
+        unit: data?.unit || tmpl.unit,
+        progress,
+      };
+    });
+
+    const period = row.period_start ? new Date(row.period_start).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : 'Período';
+
+    return {
+      id: row.id,
+      collaborator,
+      period,
+      metrics,
+      overall_progress: Math.round(Number(row.overall_progress || 0)),
+      status: row.status || 'active',
+      streak_days: row.streak_days || 0,
+      points: row.points_earned || 0,
+      ai_suggested: !!row.ai_suggested,
+      ai_confidence: Math.round(Number(row.ai_confidence || 0)),
+    };
+  };
+
+  const refreshGoalsFromApi = async () => {
+    const authHeaders = await getAuthHeaders();
+    const res = await fetch('/api/goals', { headers: { ...authHeaders } });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) return;
+    const rows = Array.isArray(json.data) ? json.data : [];
+    if (rows.length === 0) return;
+
+    const mapped = rows.map(mapDbGoalToUi);
+    setGoals(mapped);
+
+    // Ranking simples baseado em pontos
+    const rankingComputed: RankingEntry[] = mapped
+      .slice()
+      .sort((a, b) => (b.points || 0) - (a.points || 0))
+      .slice(0, 10)
+      .map((g, idx) => ({
+        position: idx + 1,
+        collaborator: g.collaborator,
+        points: g.points || 0,
+        goalsCompleted: g.status === 'completed' || g.status === 'exceeded' ? 1 : 0,
+        streak: g.streak_days || 0,
+        change: 0,
+      }));
+    if (rankingComputed.length > 0) setRanking(rankingComputed);
+  };
+
+  useEffect(() => {
+    // Se houver dados reais no banco, preferimos mostrar.
+    refreshGoalsFromApi().catch(() => {});
+  }, []);
   
   // Formulário de nova meta
   const [goalForm, setGoalForm] = useState({
@@ -456,12 +542,28 @@ export default function MetasPage() {
   const handleGenerateGoals = async () => {
     setIsGenerating(true);
     toast.loading('Gerando metas com IA para todos os colaboradores...');
-    
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    
-    toast.dismiss();
-    toast.success('Metas geradas com sucesso! 6 colaboradores atualizados.');
-    setIsGenerating(false);
+    try {
+      const authHeaders = await getAuthHeaders();
+      const response = await fetch('/api/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ action: 'generate_all', period_type: 'monthly' })
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || 'Erro ao gerar metas');
+      }
+
+      toast.dismiss();
+      toast.success(`Metas geradas com sucesso! ${data.generated || 0} colaboradores atualizados.`);
+      await refreshGoalsFromApi();
+    } catch (err: any) {
+      toast.dismiss();
+      toast.error(err?.message || 'Erro ao gerar metas');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleViewDetails = (goalId: string) => {

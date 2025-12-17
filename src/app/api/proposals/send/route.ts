@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
+export const dynamic = 'force-dynamic';
+
 // POST - Enviar proposta para cliente
 export async function POST(request: NextRequest) {
   const supabase = createRouteHandlerClient({ cookies })
   
   try {
-    const { proposal_id } = await request.json()
+    const body = await request.json()
+    const proposalId = body?.proposal_id || body?.proposalId || body?.id
 
-    if (!proposal_id) {
+    if (!proposalId) {
       return NextResponse.json(
         { error: 'ID da proposta é obrigatório' },
         { status: 400 }
@@ -18,9 +21,9 @@ export async function POST(request: NextRequest) {
 
     // Buscar proposta
     const { data: proposal, error: fetchError } = await supabase
-      .from('commercial_proposals')
+      .from('proposals')
       .select('*')
-      .eq('id', proposal_id)
+      .eq('id', proposalId)
       .single()
 
     if (fetchError || !proposal) {
@@ -38,28 +41,38 @@ export async function POST(request: NextRequest) {
     }
 
     // Gerar link da proposta
-    const proposalLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/proposta/${proposal.magic_link_token}`
+    const origin = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin || 'http://localhost:3000'
+    const proposalLink = `${origin}/proposta/${proposal.magic_link_token}`
 
     // Atualizar status para enviado
+    const hasValidUntil = !!proposal.valid_until
+    const validUntil = hasValidUntil
+      ? proposal.valid_until
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
     const { error: updateError } = await supabase
-      .from('commercial_proposals')
+      .from('proposals')
       .update({
         status: 'sent',
-        sent_at: new Date().toISOString()
+        valid_until: validUntil,
+        updated_at: new Date().toISOString()
       })
-      .eq('id', proposal_id)
+      .eq('id', proposalId)
 
     if (updateError) throw updateError
 
     // Criar notificação
-    await supabase.from('notifications').insert({
-      user_id: proposal.created_by,
-      title: 'Proposta Enviada',
-      message: `Proposta para ${proposal.client_name} foi enviada com sucesso.`,
-      type: 'proposal',
-      link: `/colaborador/comercial`,
-      metadata: { proposal_id }
-    })
+    const ownerId = proposal.sales_rep_id || proposal.created_by || proposal.user_id || null
+    if (ownerId) {
+      await supabase.from('notifications').insert({
+        user_id: ownerId,
+        title: 'Proposta Enviada',
+        message: `Proposta para ${proposal.client_name} foi marcada como enviada.`,
+        type: 'proposal',
+        link: `/admin/comercial/propostas`,
+        metadata: { proposal_id: proposalId }
+      })
+    }
 
     // Criar workflow transition para Jurídico (se aceita)
     // Isso será feito quando o cliente aceitar

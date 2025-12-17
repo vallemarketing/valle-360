@@ -2,12 +2,45 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
+export const dynamic = 'force-dynamic';
+
+function mapProposalForPublicPage(proposal: any) {
+  const items = Array.isArray(proposal.items) ? proposal.items : [];
+  const services = items.map((it: any) => ({
+    name: it?.name || 'Serviço',
+    description: it?.description,
+    price: Number(it?.price || 0),
+    quantity: Number(it?.quantity || 1),
+    features: it?.features,
+  }));
+
+  const total = Number(proposal.total_value || 0);
+  const subtotal = services.reduce((sum: number, s: any) => sum + (Number(s.price) * Number(s.quantity || 1)), 0) || total;
+
+  const validUntil = proposal.valid_until
+    ? new Date(proposal.valid_until).toISOString()
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  return {
+    client_name: proposal.client_name,
+    services,
+    subtotal,
+    discount_percent: 0,
+    discount_value: 0,
+    total: total || subtotal,
+    payment_terms: 'Mensal',
+    valid_until: validUntil,
+    notes: '',
+    status: proposal.status,
+  };
+}
+
 // POST - Cliente aceita proposta
 export async function POST(request: NextRequest) {
   const supabase = createRouteHandlerClient({ cookies })
   
   try {
-    const { magic_link_token, action } = await request.json()
+    const { magic_link_token, action, rejection_reason } = await request.json()
 
     if (!magic_link_token) {
       return NextResponse.json(
@@ -18,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     // Buscar proposta pelo token
     const { data: proposal, error: fetchError } = await supabase
-      .from('commercial_proposals')
+      .from('proposals')
       .select('*')
       .eq('magic_link_token', magic_link_token)
       .single()
@@ -39,11 +72,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar validade
-    const validUntil = new Date(proposal.valid_until)
-    if (validUntil < new Date()) {
+    const validUntil = proposal.valid_until ? new Date(proposal.valid_until) : null
+    if (validUntil && validUntil < new Date()) {
       await supabase
-        .from('commercial_proposals')
-        .update({ status: 'expired' })
+        .from('proposals')
+        .update({ status: 'expired', updated_at: new Date().toISOString() })
         .eq('id', proposal.id)
 
       return NextResponse.json(
@@ -55,49 +88,26 @@ export async function POST(request: NextRequest) {
     if (action === 'accept') {
       // Atualizar proposta como aceita
       const { error: updateError } = await supabase
-        .from('commercial_proposals')
+        .from('proposals')
         .update({
           status: 'accepted',
-          accepted_at: new Date().toISOString()
+          updated_at: new Date().toISOString()
         })
         .eq('id', proposal.id)
 
       if (updateError) throw updateError
 
-      // Criar workflow transition para Jurídico
-      await supabase.from('workflow_transitions').insert({
-        from_area: 'comercial',
-        to_area: 'juridico',
-        trigger_event: 'proposal_accepted',
-        data_payload: {
-          proposal_id: proposal.id,
-          client_id: proposal.client_id,
-          client_name: proposal.client_name,
-          client_email: proposal.client_email,
-          total: proposal.total,
-          services: proposal.services,
-          payment_terms: proposal.payment_terms
-        },
-        status: 'pending'
-      })
-
-      // Criar notificação para comercial
-      await supabase.from('notifications').insert({
-        user_id: proposal.created_by,
-        title: '🎉 Proposta Aceita!',
-        message: `${proposal.client_name} aceitou a proposta de R$ ${proposal.total.toLocaleString('pt-BR')}.`,
-        type: 'proposal_accepted',
-        link: `/colaborador/comercial`,
-        metadata: { proposal_id: proposal.id }
-      })
-
-      // Criar alerta inteligente
-      await supabase.from('smart_alerts').insert({
-        severity: 'info',
-        type: 'opportunity',
-        message: `Proposta aceita: ${proposal.client_name} - R$ ${proposal.total.toLocaleString('pt-BR')}. Contrato pendente no Jurídico.`,
-        user_id: proposal.created_by
-      })
+      const ownerId = proposal.sales_rep_id || proposal.created_by || proposal.user_id || null
+      if (ownerId) {
+        await supabase.from('notifications').insert({
+          user_id: ownerId,
+          title: '🎉 Proposta Aceita!',
+          message: `${proposal.client_name} aceitou a proposta.`,
+          type: 'proposal_accepted',
+          link: `/admin/comercial/propostas`,
+          metadata: { proposal_id: proposal.id }
+        })
+      }
 
       return NextResponse.json({
         success: true,
@@ -105,29 +115,28 @@ export async function POST(request: NextRequest) {
         next_step: 'contract'
       })
     } else if (action === 'reject') {
-      const { rejection_reason } = await request.json()
-
       // Atualizar proposta como rejeitada
       const { error: updateError } = await supabase
-        .from('commercial_proposals')
+        .from('proposals')
         .update({
           status: 'rejected',
-          rejected_at: new Date().toISOString(),
-          rejection_reason: rejection_reason || 'Não informado'
+          updated_at: new Date().toISOString()
         })
         .eq('id', proposal.id)
 
       if (updateError) throw updateError
 
-      // Criar notificação para comercial
-      await supabase.from('notifications').insert({
-        user_id: proposal.created_by,
-        title: 'Proposta Rejeitada',
-        message: `${proposal.client_name} rejeitou a proposta. Motivo: ${rejection_reason || 'Não informado'}`,
-        type: 'proposal_rejected',
-        link: `/colaborador/comercial`,
-        metadata: { proposal_id: proposal.id }
-      })
+      const ownerId = proposal.sales_rep_id || proposal.created_by || proposal.user_id || null
+      if (ownerId) {
+        await supabase.from('notifications').insert({
+          user_id: ownerId,
+          title: 'Proposta Rejeitada',
+          message: `${proposal.client_name} rejeitou a proposta. Motivo: ${rejection_reason || 'Não informado'}`,
+          type: 'proposal_rejected',
+          link: `/admin/comercial/propostas`,
+          metadata: { proposal_id: proposal.id }
+        })
+      }
 
       return NextResponse.json({
         success: true,
@@ -135,37 +144,17 @@ export async function POST(request: NextRequest) {
       })
     } else if (action === 'view') {
       // Apenas registrar visualização
-      if (!proposal.viewed_at) {
+      // Se estava como 'sent', marcar como 'viewed'
+      if (proposal.status === 'sent') {
         await supabase
-          .from('commercial_proposals')
-          .update({ viewed_at: new Date().toISOString() })
+          .from('proposals')
+          .update({ status: 'viewed', updated_at: new Date().toISOString() })
           .eq('id', proposal.id)
-
-        // Notificar comercial
-        await supabase.from('notifications').insert({
-          user_id: proposal.created_by,
-          title: 'Proposta Visualizada',
-          message: `${proposal.client_name} visualizou a proposta.`,
-          type: 'proposal_viewed',
-          link: `/colaborador/comercial`,
-          metadata: { proposal_id: proposal.id }
-        })
       }
 
       return NextResponse.json({
         success: true,
-        proposal: {
-          client_name: proposal.client_name,
-          services: proposal.services,
-          subtotal: proposal.subtotal,
-          discount_percent: proposal.discount_percent,
-          discount_value: proposal.discount_value,
-          total: proposal.total,
-          payment_terms: proposal.payment_terms,
-          valid_until: proposal.valid_until,
-          notes: proposal.notes,
-          status: proposal.status
-        }
+        proposal: mapProposalForPublicPage(proposal)
       })
     }
 

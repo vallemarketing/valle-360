@@ -3,7 +3,26 @@
  * Cálculo automático de metas com IA preditiva
  */
 
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error(
+    '❌ Goals Engine: variáveis NEXT_PUBLIC_SUPABASE_URL e/ou SUPABASE_SERVICE_ROLE_KEY não configuradas.'
+  );
+}
+
+// Goal Engine roda apenas no servidor (via Route Handlers).
+const supabase = createClient(
+  supabaseUrl || 'https://setup-missing.supabase.co',
+  supabaseServiceKey || 'setup-missing',
+  {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  }
+);
 
 // =====================================================
 // TIPOS

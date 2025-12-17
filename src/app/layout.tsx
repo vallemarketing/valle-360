@@ -2,6 +2,7 @@ import './globals.css';
 import '@/styles/colors.css';
 import type { Metadata, Viewport } from 'next';
 import { AppProvider } from '@/contexts/AppContext';
+import { ToasterProvider } from '@/components/providers/ToasterProvider';
 
 export const metadata: Metadata = {
   title: 'Valle 360 - Portal Integrado',
@@ -27,6 +28,7 @@ export default function RootLayout({
       <body>
         <AppProvider>
           {children}
+          <ToasterProvider />
         </AppProvider>
       </body>
     </html>

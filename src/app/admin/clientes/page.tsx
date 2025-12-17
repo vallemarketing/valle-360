@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 
 // =====================================================
 // TIPOS
@@ -636,20 +638,75 @@ export default function ClientsListPage() {
     })
   }
 
-  const confirmToggle = () => {
-    if (!toggleModal) return
-
-    setClients(prev => prev.map(c => 
-      c.id === toggleModal.client.id 
-        ? { ...c, status: toggleModal.action === 'activate' ? 'active' : 'inactive' }
-        : c
-    ))
-    setToggleModal(null)
+  const getAuthHeaders = async () => {
+    try {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      return token ? { Authorization: `Bearer ${token}` } : {}
+    } catch {
+      return {}
+    }
   }
 
-  const handleSaveServices = (clientId: string, features: Feature[]) => {
-    console.log('Salvando features para cliente:', clientId, features)
-    // TODO: Implementar chamada à API
+  const loadClientsReal = async () => {
+    try {
+      const authHeaders = await getAuthHeaders()
+      const res = await fetch('/api/admin/clients', { headers: { ...authHeaders } })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) return
+      if (Array.isArray(data?.clients) && data.clients.length > 0) {
+        setClients(data.clients)
+      }
+    } catch {
+      // mantém mock
+    }
+  }
+
+  useEffect(() => {
+    loadClientsReal()
+  }, [])
+
+  const confirmToggle = async () => {
+    if (!toggleModal) return
+
+    const nextStatus = toggleModal.action === 'activate' ? 'active' : 'inactive'
+    setClients(prev => prev.map(c => c.id === toggleModal.client.id ? { ...c, status: nextStatus } : c))
+    setToggleModal(null)
+
+    try {
+      const authHeaders = await getAuthHeaders()
+      const res = await fetch('/api/admin/clients', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({
+          userId: (toggleModal.client as any).userId || toggleModal.client.id,
+          status: nextStatus,
+        }),
+      })
+      if (!res.ok) {
+        toast.error('Falha ao atualizar status no banco')
+      } else {
+        toast.success(`Status atualizado: ${nextStatus === 'active' ? 'Ativo' : 'Inativo'}`)
+      }
+    } catch {
+      toast.error('Falha ao atualizar status no banco')
+    }
+  }
+
+  const handleSaveServices = async (clientId: string, features: Feature[]) => {
+    try {
+      const authHeaders = await getAuthHeaders()
+      const res = await fetch('/api/admin/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ clientId, features }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Erro ao salvar serviços')
+      toast.success('Serviços/Features atualizados!')
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao salvar serviços')
+    }
   }
 
   return (

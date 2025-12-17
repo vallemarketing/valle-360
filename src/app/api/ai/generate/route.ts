@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { 
   generateSocialContent, 
   generateEmail,
@@ -14,15 +15,38 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-// POST - Gerar conteúdo
-export async function POST(request: NextRequest) {
+async function getUserFromRequest(request: NextRequest) {
+  // 1) Cookie auth (auth-helpers)
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return { user };
+  } catch {
+    // ignore
+  }
 
-    // Verificar autenticação
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+  // 2) Bearer token (para quando o app está usando storage local e não cookies)
+  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+  if (!token) return { user: null as any };
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return { user: null as any };
+
+  const supabase = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  const { data: { user } } = await supabase.auth.getUser(token);
+  return { user };
+}
+
+// POST - Gerar conteúdo
+export async function POST(request: NextRequest) {
+  try {
+    const { user } = await getUserFromRequest(request);
+    if (!user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 

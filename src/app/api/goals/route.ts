@@ -5,18 +5,52 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { goalEngine } from '@/lib/goals/goal-engine';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const adminSupabase = createClient(
+  supabaseUrl || 'https://setup-missing.supabase.co',
+  supabaseServiceKey || 'setup-missing',
+  { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
+);
+
+async function getUserFromRequest(request: NextRequest) {
+  // Bearer token (compatível com login via supabase-js localStorage)
+  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+  if (!token) return null;
+
+  const { data: { user } } = await adminSupabase.auth.getUser(token);
+  return user || null;
+}
+
+function mapEmployeeAreaToSector(area?: string | null): string {
+  const a = (area || '').toLowerCase();
+  if (a.includes('social')) return 'social_media';
+  if (a.includes('trafego')) return 'trafego';
+  if (a.includes('video')) return 'video_maker';
+  if (a.includes('comercial')) return 'comercial';
+  if (a.includes('design')) return 'designer';
+  if (a.includes('web')) return 'designer';
+  return 'designer';
+}
+
 export async function GET(request: NextRequest) {
   try {
+    const user = await getUserFromRequest(request);
+    if (!user) return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 });
+
     const { searchParams } = new URL(request.url);
     const collaboratorId = searchParams.get('collaborator_id');
     const sector = searchParams.get('sector');
     const status = searchParams.get('status');
 
-    let query = supabase.from('collaborator_goals').select('*');
+    let query = adminSupabase.from('collaborator_goals').select('*');
 
     if (collaboratorId) {
       query = query.eq('collaborator_id', collaboratorId);
@@ -42,10 +76,43 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUserFromRequest(request);
+    if (!user) return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 });
+
     const body = await request.json();
     const { action, ...params } = body;
 
     switch (action) {
+      case 'generate_all': {
+        const period_type = (params.period_type || 'monthly') as 'weekly' | 'monthly' | 'quarterly';
+
+        const { data: employees, error } = await adminSupabase
+          .from('employees')
+          .select('user_id, first_name, last_name, areas')
+          .limit(500);
+
+        if (error) {
+          return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        }
+
+        let generated = 0;
+        const created: any[] = [];
+
+        for (const emp of employees || []) {
+          const name = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'Colaborador';
+          const firstArea = Array.isArray(emp.areas) ? emp.areas[0] : undefined;
+          const sector = mapEmployeeAreaToSector(firstArea);
+
+          const goal = await goalEngine.createGoal(emp.user_id, name, sector, period_type);
+          if (goal) {
+            generated += 1;
+            created.push(goal);
+          }
+        }
+
+        return NextResponse.json({ success: true, generated, data: created });
+      }
+
       case 'generate': {
         // Gerar metas automáticas com IA
         const { collaborator_id, collaborator_name, sector, period_type } = params;
@@ -107,6 +174,9 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const user = await getUserFromRequest(request);
+    if (!user) return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 });
+
     const body = await request.json();
     const { id, ...updates } = body;
 
@@ -117,7 +187,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from('collaborator_goals')
       .update({
         ...updates,

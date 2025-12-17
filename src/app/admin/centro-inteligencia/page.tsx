@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { useAI } from '@/hooks/useAI';
+import { toast } from 'sonner';
+import { trackEvent } from '@/lib/telemetry/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -218,6 +220,7 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
   const handleGenerateAnalysis = async () => {
     setIsGeneratingAnalysis(true);
     try {
+      toast.loading('Gerando análise com IA...');
       const insights = await generateInsights('strategic', { period: '30d' });
       setAiInsights(insights);
       setAnalysisGenerated(true);
@@ -227,9 +230,21 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
         insights: insights.slice(0, 5)
       });
       setShowResultModal(true);
+      toast.dismiss();
+      toast.success('Análise gerada com sucesso!');
+      trackEvent('ci_generate_analysis_success', { level: 'info', data: { insightsCount: insights.length } });
     } catch (error: any) {
       console.error('Erro ao gerar análise:', error);
-      alert('❌ Erro ao gerar análise. Verifique a configuração da API.');
+      toast.dismiss();
+      const msg = String(error?.message || 'Erro ao gerar análise');
+      if (msg.includes('[401]') || msg.toLowerCase().includes('não autorizado')) {
+        toast.error('Sessão inválida. Faça login novamente para usar a IA.');
+      } else if (msg.toLowerCase().includes('openai api key')) {
+        toast.error('OpenAI não configurada na Vercel. Configure OPENAI_API_KEY.');
+      } else {
+        toast.error(`Erro ao gerar análise: ${msg}`);
+      }
+      trackEvent('ci_generate_analysis_error', { level: 'error', message: msg });
     } finally {
       setIsGeneratingAnalysis(false);
     }
