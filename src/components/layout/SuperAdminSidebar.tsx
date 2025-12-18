@@ -35,6 +35,7 @@ import {
   ClipboardList,
   ToggleLeft,
   Building2,
+  Workflow,
   LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -159,6 +160,7 @@ const navGroups: NavGroup[] = [
     label: "Sistema",
     icon: Settings,
     items: [
+      { id: "flows", label: "Fluxos", href: "/admin/fluxos", icon: Workflow },
       { id: "feature-flags", label: "Feature Flags", href: "/admin/feature-flags", icon: ToggleLeft },
       { id: "integrations", label: "Integrações", href: "/admin/integracoes", icon: LinkIcon },
       { id: "n8n", label: "N8N Workflows", href: "/admin/integracoes/n8n", icon: Activity },

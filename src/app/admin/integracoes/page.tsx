@@ -36,6 +36,24 @@ interface IntegrationField {
 }
 
 const INTEGRATION_CONFIGS: Record<string, { fields: IntegrationField[] }> = {
+  openrouter: {
+    fields: [
+      { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'sk-or-...', required: true, helpText: 'Chave do OpenRouter (gateway de modelos)' },
+      { key: 'config.model', label: 'Modelo (opcional)', type: 'text', placeholder: 'openrouter/auto', helpText: 'Ex: openrouter/auto' }
+    ]
+  },
+  anthropic: {
+    fields: [
+      { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'sk-ant-...', required: true, helpText: 'Chave da Anthropic (Claude)' },
+      { key: 'config.model', label: 'Modelo (opcional)', type: 'text', placeholder: 'claude-3-5-sonnet-20241022' }
+    ]
+  },
+  gemini: {
+    fields: [
+      { key: 'apiKey', label: 'API Key', type: 'password', required: true, helpText: 'Chave Google Gemini/Cloud' },
+      { key: 'config.model', label: 'Modelo (opcional)', type: 'text', placeholder: 'gemini-1.5-flash' }
+    ]
+  },
   openai: {
     fields: [
       { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'sk-...', required: true, helpText: 'Encontre em platform.openai.com' }
@@ -118,6 +136,33 @@ const INTEGRATION_CONFIGS: Record<string, { fields: IntegrationField[] }> = {
 
 const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' | 'error'>[] = [
   // IA
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    description: 'Gateway de modelos (fallback automático e roteamento)',
+    icon: <IntegrationIcon integrationId="openrouter" className="w-6 h-6" fallback={<Zap className="w-6 h-6" />} />,
+    color: '#111827',
+    category: 'ai',
+    fields: INTEGRATION_CONFIGS.openrouter.fields
+  },
+  {
+    id: 'anthropic',
+    name: 'Claude (Anthropic)',
+    description: 'Fallback de IA (Claude) para tarefas críticas',
+    icon: <IntegrationIcon integrationId="anthropic" className="w-6 h-6" fallback={<Zap className="w-6 h-6" />} />,
+    color: '#7C3AED',
+    category: 'ai',
+    fields: INTEGRATION_CONFIGS.anthropic.fields
+  },
+  {
+    id: 'gemini',
+    name: 'Google Gemini',
+    description: 'Fallback de IA (Gemini) + NLP',
+    icon: <IntegrationIcon integrationId="gemini" className="w-6 h-6" fallback={<Zap className="w-6 h-6" />} />,
+    color: '#4285F4',
+    category: 'ai',
+    fields: INTEGRATION_CONFIGS.gemini.fields
+  },
   {
     id: 'openai',
     name: 'OpenAI / ChatGPT',

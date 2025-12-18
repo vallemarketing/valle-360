@@ -469,36 +469,91 @@ class PostSchedulerService {
 
   // Métodos de notificação
   private async notifyClientForApproval(post: ScheduledPost): Promise<void> {
-    await supabase.from('notifications').insert({
-      type: 'post_approval',
-      title: 'Post aguardando aprovação',
-      message: `Novo post "${post.title}" aguardando sua aprovação`,
-      target_user: post.client_id,
-      data: { post_id: post.id },
-      created_at: new Date().toISOString()
-    });
+    try {
+      const { data: client } = await supabase
+        .from('clients')
+        .select('user_id, company_name, contact_email, email')
+        .eq('id', post.client_id)
+        .maybeSingle();
+
+      const userId = client?.user_id ? String(client.user_id) : null;
+      if (!userId) return;
+
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        type: 'post_approval',
+        title: 'Post aguardando aprovação',
+        message: `Novo post "${post.title}" aguardando sua aprovação`,
+        link: '/cliente/aprovacoes',
+        metadata: { post_id: post.id, client_id: post.client_id },
+        is_read: false,
+        created_at: new Date().toISOString(),
+      });
+    } catch {
+      // best-effort
+    }
   }
 
   private async notifyPostApproved(postId: string): Promise<void> {
-    await supabase.from('notifications').insert({
-      type: 'post_approved',
-      title: 'Post aprovado',
-      message: `O post foi aprovado pelo cliente e será publicado no horário agendado`,
-      target_role: 'social_media',
-      data: { post_id: postId },
-      created_at: new Date().toISOString()
-    });
+    try {
+      const { data: admins } = await supabase
+        .from('user_profiles')
+        .select('user_id, user_type')
+        .in('user_type', ['super_admin', 'admin']);
+
+      const userIds = (admins || [])
+        .map((r: any) => r.user_id)
+        .filter(Boolean)
+        .map((id: any) => String(id));
+
+      if (userIds.length === 0) return;
+
+      await supabase.from('notifications').insert(
+        userIds.map((userId) => ({
+          user_id: userId,
+          type: 'post_approved',
+          title: 'Post aprovado',
+          message: `Um post foi aprovado e será publicado no horário agendado`,
+          link: '/admin',
+          metadata: { post_id: postId, target_role: 'social_media' },
+          is_read: false,
+          created_at: new Date().toISOString(),
+        }))
+      );
+    } catch {
+      // best-effort
+    }
   }
 
   private async notifyPostRejected(postId: string, reason: string): Promise<void> {
-    await supabase.from('notifications').insert({
-      type: 'post_rejected',
-      title: 'Post rejeitado',
-      message: `O post foi rejeitado. Motivo: ${reason}`,
-      target_role: 'social_media',
-      data: { post_id: postId, reason },
-      created_at: new Date().toISOString()
-    });
+    try {
+      const { data: admins } = await supabase
+        .from('user_profiles')
+        .select('user_id, user_type')
+        .in('user_type', ['super_admin', 'admin']);
+
+      const userIds = (admins || [])
+        .map((r: any) => r.user_id)
+        .filter(Boolean)
+        .map((id: any) => String(id));
+
+      if (userIds.length === 0) return;
+
+      await supabase.from('notifications').insert(
+        userIds.map((userId) => ({
+          user_id: userId,
+          type: 'post_rejected',
+          title: 'Post rejeitado',
+          message: `Um post foi rejeitado. Motivo: ${reason}`,
+          link: '/admin',
+          metadata: { post_id: postId, reason, target_role: 'social_media' },
+          is_read: false,
+          created_at: new Date().toISOString(),
+        }))
+      );
+    } catch {
+      // best-effort
+    }
   }
 }
 

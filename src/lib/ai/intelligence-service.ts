@@ -3,7 +3,7 @@
  * Conecta todas as funcionalidades do sistema com IAs reais
  */
 
-import { getOpenAIClient, OPENAI_MODELS } from '@/lib/integrations/openai/client';
+import { generateWithAI } from '@/lib/ai/aiRouter';
 import { googleNLP } from '@/lib/integrations/google/nlp';
 
 // =====================================================
@@ -84,8 +84,6 @@ export async function generateStrategicInsights(
     period?: string;
   }
 ): Promise<AIInsight[]> {
-  const client = getOpenAIClient();
-
   const systemPrompt = `Você é um consultor de negócios sênior especializado em agências de marketing digital.
 Analise os dados fornecidos e gere insights estratégicos ACIONÁVEIS.
 
@@ -117,20 +115,20 @@ Foque em:
 5. Otimização de receita`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: OPENAI_MODELS.analysis,
+    const result = await generateWithAI({
+      task: 'strategy',
+      json: true,
+      temperature: 0.7,
+      maxTokens: 1400,
+      entityType: 'ai_insights',
+      entityId: null,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Dados para análise:\n${JSON.stringify(data, null, 2)}` }
       ],
-      temperature: 0.7,
-      response_format: { type: 'json_object' }
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error('Resposta vazia');
-
-    const parsed = JSON.parse(content);
+    const parsed = result.json || {};
     return parsed.insights || [];
   } catch (error: any) {
     console.error('Erro ao gerar insights:', error);
@@ -150,8 +148,6 @@ export async function analyzeClientHealth(
   predictedChurn: number;
   recommendations: string[];
 }> {
-  const openai = getOpenAIClient();
-
   const systemPrompt = `Você é um especialista em Customer Success.
 Analise os dados do cliente e retorne um JSON com:
 {
@@ -175,20 +171,20 @@ Analise os dados do cliente e retorne um JSON com:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: OPENAI_MODELS.analysis,
+    const result = await generateWithAI({
+      task: 'analysis',
+      json: true,
+      temperature: 0.5,
+      maxTokens: 1200,
+      entityType: 'client_health',
+      entityId: client.clientId || null,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: JSON.stringify(client) }
       ],
-      temperature: 0.5,
-      response_format: { type: 'json_object' }
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error('Resposta vazia');
-
-    return JSON.parse(content);
+    return result.json;
   } catch (error: any) {
     console.error('Erro ao analisar cliente:', error);
     throw error;
@@ -206,8 +202,6 @@ export async function generateFinancialForecast(
   risks: string[];
   opportunities: string[];
 }> {
-  const client = getOpenAIClient();
-
   const systemPrompt = `Você é um analista financeiro especializado em agências.
 Analise os dados e gere previsões para os próximos 6 meses.
 
@@ -222,20 +216,20 @@ Retorne um JSON com:
 }`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: OPENAI_MODELS.analysis,
+    const result = await generateWithAI({
+      task: 'analysis',
+      json: true,
+      temperature: 0.5,
+      maxTokens: 1400,
+      entityType: 'financial_forecast',
+      entityId: null,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: JSON.stringify(data) }
       ],
-      temperature: 0.5,
-      response_format: { type: 'json_object' }
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error('Resposta vazia');
-
-    return JSON.parse(content);
+    return result.json;
   } catch (error: any) {
     console.error('Erro ao gerar previsão:', error);
     throw error;
@@ -258,8 +252,6 @@ export async function generateSocialContent(
     keywords?: string[];
   }
 ): Promise<GeneratedContent> {
-  const client = getOpenAIClient();
-
   const platformSpecs: Record<string, string> = {
     instagram: 'Post de Instagram com emojis, hashtags relevantes, max 2200 caracteres',
     linkedin: 'Post profissional para LinkedIn, tom corporativo, 1300 caracteres ideal',
@@ -281,20 +273,20 @@ Retorne um JSON:
 }`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: OPENAI_MODELS.chat,
+    const result = await generateWithAI({
+      task: 'copywriting',
+      json: true,
+      temperature: 0.8,
+      maxTokens: 1200,
+      entityType: 'social_content',
+      entityId: null,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Tema: ${params.topic}\nTom: ${params.tone}\nMarca: ${params.clientBrand || 'Genérico'}\nPalavras-chave: ${params.keywords?.join(', ') || 'Nenhuma'}` }
       ],
-      temperature: 0.8,
-      response_format: { type: 'json_object' }
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error('Resposta vazia');
-
-    return JSON.parse(content);
+    return result.json;
   } catch (error: any) {
     console.error('Erro ao gerar conteúdo:', error);
     throw error;
@@ -317,8 +309,6 @@ export async function generateEmail(
   body: string;
   followUpSuggestion?: string;
 }> {
-  const client = getOpenAIClient();
-
   const emailTypes: Record<string, string> = {
     cobranca: 'Email de cobrança educado mas firme',
     followup: 'Email de follow-up para manter relacionamento',
@@ -340,20 +330,20 @@ Retorne um JSON:
 }`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: OPENAI_MODELS.chat,
+    const result = await generateWithAI({
+      task: 'copywriting',
+      json: true,
+      temperature: 0.7,
+      maxTokens: 1100,
+      entityType: 'email_generate',
+      entityId: null,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Para: ${params.recipientName}${params.recipientCompany ? ` (${params.recipientCompany})` : ''}\nContexto: ${params.context}` }
       ],
-      temperature: 0.7,
-      response_format: { type: 'json_object' }
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error('Resposta vazia');
-
-    return JSON.parse(content);
+    return result.json;
   } catch (error: any) {
     console.error('Erro ao gerar email:', error);
     throw error;
@@ -381,8 +371,6 @@ export async function generateJobDescription(
   benefits: string[];
   callToAction: string;
 }> {
-  const client = getOpenAIClient();
-
   const systemPrompt = `Você é um especialista em RH e recrutamento.
 Crie uma descrição de vaga atraente e completa.
 
@@ -397,20 +385,20 @@ Retorne um JSON:
 }`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: OPENAI_MODELS.chat,
+    const result = await generateWithAI({
+      task: 'hr',
+      json: true,
+      temperature: 0.7,
+      maxTokens: 1400,
+      entityType: 'job_description',
+      entityId: null,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: JSON.stringify(params) }
       ],
-      temperature: 0.7,
-      response_format: { type: 'json_object' }
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error('Resposta vazia');
-
-    return JSON.parse(content);
+    return result.json;
   } catch (error: any) {
     console.error('Erro ao gerar vaga:', error);
     throw error;
@@ -490,8 +478,6 @@ export async function askAboutBusiness(
   sources?: string[];
   suggestedActions?: string[];
 }> {
-  const client = getOpenAIClient();
-
   const systemPrompt = `Você é a Val, assistente de IA da Valle 360.
 Responda perguntas sobre o negócio baseado nos dados fornecidos.
 Seja precisa, útil e proativa em sugerir ações.
@@ -505,20 +491,20 @@ Retorne um JSON:
 }`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: OPENAI_MODELS.analysis,
+    const result = await generateWithAI({
+      task: 'analysis',
+      json: true,
+      temperature: 0.5,
+      maxTokens: 1100,
+      entityType: 'ask_business',
+      entityId: null,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Contexto do negócio:\n${JSON.stringify(context, null, 2)}\n\nPergunta: ${question}` }
       ],
-      temperature: 0.5,
-      response_format: { type: 'json_object' }
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error('Resposta vazia');
-
-    return JSON.parse(content);
+    return result.json;
   } catch (error: any) {
     console.error('Erro ao responder pergunta:', error);
     throw error;

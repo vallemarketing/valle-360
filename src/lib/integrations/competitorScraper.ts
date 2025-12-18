@@ -5,7 +5,7 @@
  */
 
 import { tavilyClient } from '@/lib/integrations/tavily/client';
-import { getOpenAIClient, OPENAI_MODELS } from '@/lib/integrations/openai/client';
+import { generateWithAI } from '@/lib/ai/aiRouter';
 
 export interface Competitor {
   id: string;
@@ -103,10 +103,13 @@ class CompetitorScraperService {
       ]);
 
       // Processar com IA
-      const client = getOpenAIClient();
-
-      const response = await client.chat.completions.create({
-        model: OPENAI_MODELS.analysis,
+      const result = await generateWithAI({
+        task: 'analysis',
+        json: true,
+        temperature: 0.3,
+        maxTokens: 1800,
+        entityType: 'competitor_analysis',
+        entityId: null,
         messages: [
           {
             role: 'system',
@@ -152,17 +155,12 @@ Retorne JSON:
               aiSummary: companyInfo.answer
             })
           }
-        ],
-        temperature: 0.3,
-        response_format: { type: 'json_object' }
+        ]
       });
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) throw new Error('Resposta vazia da IA');
+      const analysis = result.json || {};
 
-      const analysis = JSON.parse(content);
-
-      return {
+    return {
         competitor: competitorName,
         website: analysis.website,
         socialMedia: analysis.socialMedia || {},
@@ -188,10 +186,10 @@ Retorne JSON:
     } catch (error: any) {
       console.error('Erro ao analisar concorrente:', error);
       throw error;
-    }
   }
+}
 
-  /**
+/**
    * Busca concorrentes de um setor
    */
   async findCompetitors(
@@ -203,10 +201,13 @@ Retorne JSON:
       const results = await tavilyClient.searchCompetitors(industry, location, excludeCompany);
 
       // Extrair nomes de empresas
-      const client = getOpenAIClient();
-
-      const response = await client.chat.completions.create({
-        model: OPENAI_MODELS.chat,
+      const result = await generateWithAI({
+        task: 'analysis',
+        json: true,
+        temperature: 0.3,
+        maxTokens: 900,
+        entityType: 'competitor_find',
+        entityId: null,
         messages: [
           {
             role: 'system',
@@ -223,33 +224,31 @@ Máximo 10 empresas, apenas nomes reais de empresas.`
               answer: results.answer
             })
           }
-        ],
-        temperature: 0.3,
-        response_format: { type: 'json_object' }
+        ]
       });
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) return [];
-
-      const parsed = JSON.parse(content);
+      const parsed = result.json || {};
       return parsed.competitors || [];
-    } catch (error) {
+  } catch (error) {
       console.error('Erro ao buscar concorrentes:', error);
       return [];
-    }
   }
+}
 
-  /**
+/**
    * Monitora atividades recentes de um concorrente
    */
   async monitorActivities(competitorName: string): Promise<CompetitorActivity[]> {
     try {
       const newsResults = await tavilyClient.searchNews(`${competitorName} novidade lançamento`, 10);
 
-      const client = getOpenAIClient();
-
-      const response = await client.chat.completions.create({
-        model: OPENAI_MODELS.chat,
+      const result = await generateWithAI({
+        task: 'analysis',
+        json: true,
+        temperature: 0.3,
+        maxTokens: 900,
+        entityType: 'competitor_monitor',
+        entityId: null,
         messages: [
           {
             role: 'system',
@@ -268,15 +267,10 @@ Retorne JSON: { "activities": [
             role: 'user',
             content: JSON.stringify(newsResults.results)
           }
-        ],
-        temperature: 0.3,
-        response_format: { type: 'json_object' }
+        ]
       });
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) return [];
-
-      const parsed = JSON.parse(content);
+      const parsed = result.json || {};
 
       return (parsed.activities || []).map((a: any, idx: number) => ({
         id: `activity_${Date.now()}_${idx}`,
@@ -308,10 +302,13 @@ Retorne JSON: { "activities": [
         competitors.map(c => this.analyzeCompetitor(c))
       );
 
-      const client = getOpenAIClient();
-
-      const response = await client.chat.completions.create({
-        model: OPENAI_MODELS.analysis,
+      const result = await generateWithAI({
+        task: 'analysis',
+        json: true,
+        temperature: 0.3,
+        maxTokens: 1400,
+        entityType: 'competitor_compare',
+        entityId: null,
         messages: [
           {
             role: 'system',
@@ -334,15 +331,10 @@ Retorne JSON:
             role: 'user',
             content: JSON.stringify(analyses)
           }
-        ],
-        temperature: 0.3,
-        response_format: { type: 'json_object' }
+        ]
       });
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) throw new Error('Resposta vazia');
-
-      return JSON.parse(content);
+      return result.json;
     } catch (error) {
       console.error('Erro ao comparar concorrentes:', error);
       throw error;

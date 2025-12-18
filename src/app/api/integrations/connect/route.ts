@@ -54,7 +54,8 @@ export async function POST(request: NextRequest) {
     // Atualizar configuração da integração
     const { data, error } = await supabase
       .from('integration_configs')
-      .update({
+      .upsert({
+        integration_id: integrationId,
         api_key: apiKey,
         api_secret: apiSecret,
         access_token: accessToken,
@@ -65,7 +66,6 @@ export async function POST(request: NextRequest) {
         last_sync: new Date().toISOString(),
         error_message: null
       })
-      .eq('integration_id', integrationId)
       .select()
       .single();
 
@@ -125,6 +125,35 @@ async function validateCredentials(
         }
       } catch {
         return { valid: false, error: 'Não foi possível validar a API Key' };
+      }
+      break;
+
+    case 'openrouter':
+      if (!apiKey || apiKey.length < 10) {
+        return { valid: false, error: 'API Key inválida', details: 'Informe a API Key do OpenRouter' };
+      }
+      // Opcional: validar chamando modelos (não bloquear se falhar por CORS/rede)
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/models', {
+          headers: { 'Authorization': `Bearer ${apiKey}` }
+        });
+        if (!response.ok) {
+          return { valid: false, error: 'API Key inválida ou sem permissões' };
+        }
+      } catch {
+        // não bloquear validação se rede falhar
+      }
+      break;
+
+    case 'anthropic':
+      if (!apiKey || apiKey.length < 10) {
+        return { valid: false, error: 'API Key inválida', details: 'Informe a API Key da Anthropic (Claude)' };
+      }
+      break;
+
+    case 'gemini':
+      if (!apiKey || apiKey.length < 10) {
+        return { valid: false, error: 'API Key inválida', details: 'Informe a API Key do Google Gemini/Cloud' };
       }
       break;
 

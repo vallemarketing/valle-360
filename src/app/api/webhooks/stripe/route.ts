@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { constructWebhookEvent } from '@/lib/integrations/stripe/client';
 import Stripe from 'stripe';
+import { emitEvent, markEventError, markEventProcessed } from '@/lib/admin/eventBus';
+import { handleEvent } from '@/lib/admin/eventHandlers';
 
 export const dynamic = 'force-dynamic';
 
@@ -187,28 +189,269 @@ async function processStripeEvent(
       // ========== FATURAS ==========
       case 'invoice.paid': {
         const invoice = event.data.object as Stripe.Invoice;
-        
-        await supabase.from('invoices').upsert({
-          stripe_invoice_id: invoice.id,
-          stripe_customer_id: invoice.customer,
-          stripe_subscription_id: invoice.subscription,
-          amount_paid: invoice.amount_paid,
-          currency: invoice.currency,
-          status: 'paid',
-          paid_at: new Date().toISOString()
-        }, { onConflict: 'stripe_invoice_id' });
+        const stripeCustomerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+        const stripeSubscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+        const customerEmail = (invoice.customer_email || invoice.customer_details?.email) as string | undefined;
+
+        // Tentar vincular ao client_id do sistema
+        let clientId: string | null = null;
+        if (stripeCustomerId) {
+          const { data: client } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('stripe_customer_id', stripeCustomerId)
+            .limit(1)
+            .single();
+          clientId = client?.id || null;
+        }
+        if (!clientId && customerEmail) {
+          const { data: client } = await supabase
+            .from('clients')
+            .select('id')
+            .or(`email.eq.${customerEmail},contact_email.eq.${customerEmail}`)
+            .limit(1)
+            .single();
+          clientId = client?.id || null;
+        }
+
+        if (!clientId) {
+          return { success: false, error: 'Não foi possível identificar client_id para invoice.paid' };
+        }
+
+        const stripeIssueDate = new Date((invoice.created || Date.now() / 1000) * 1000).toISOString().slice(0, 10);
+        const stripeDueDate = new Date((invoice.due_date || invoice.created || Date.now() / 1000) * 1000).toISOString().slice(0, 10);
+        const amountMoney = Math.round((invoice.amount_due || invoice.amount_paid || 0)) / 100;
+
+        // Evitar duplicar fatura interna: tentar casar por client_id + due_date + amount quando stripe_invoice_id ainda não existe
+        let dbInvoice: any = null;
+        const { data: existingByStripe } = await supabase
+          .from('invoices')
+          .select('id, client_id, contract_id, invoice_number, amount, due_date, status')
+          .eq('stripe_invoice_id', invoice.id)
+          .limit(1)
+          .maybeSingle();
+        dbInvoice = existingByStripe || null;
+
+        if (!dbInvoice) {
+          const { data: matchInternal } = await supabase
+            .from('invoices')
+            .select('id, client_id, contract_id, invoice_number, amount, due_date, status')
+            .eq('client_id', clientId)
+            .in('status', ['pending', 'payment_failed'])
+            .eq('due_date', stripeDueDate)
+            .eq('amount', amountMoney)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          dbInvoice = matchInternal || null;
+        }
+
+        if (dbInvoice?.id) {
+          const { data: updatedInvoice, error: updErr } = await supabase
+            .from('invoices')
+            .update({
+              stripe_invoice_id: invoice.id,
+              stripe_customer_id: stripeCustomerId,
+              stripe_subscription_id: stripeSubscriptionId,
+              payment_method: (invoice.collection_method as string) || null,
+              amount_paid: invoice.amount_paid || 0, // centavos
+              currency: invoice.currency,
+              status: 'paid',
+              paid_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', dbInvoice.id)
+            .select('id, client_id, contract_id, invoice_number')
+            .single();
+          if (updErr) throw updErr;
+          dbInvoice = updatedInvoice;
+        } else {
+          const { data: insertedInvoice, error: insErr } = await supabase
+            .from('invoices')
+            .insert({
+              client_id: clientId,
+              stripe_invoice_id: invoice.id,
+              stripe_customer_id: stripeCustomerId,
+              stripe_subscription_id: stripeSubscriptionId,
+              invoice_number: invoice.number || `STRIPE-${invoice.id}`,
+              amount: amountMoney,
+              amount_paid: invoice.amount_paid || 0,
+              currency: invoice.currency,
+              issue_date: stripeIssueDate,
+              due_date: stripeDueDate,
+              status: 'paid',
+              paid_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .select('id, client_id, contract_id, invoice_number')
+            .single();
+          if (insErr) throw insErr;
+          dbInvoice = insertedInvoice;
+        }
+
+        const emitted = await emitEvent(
+          {
+            eventType: 'invoice.paid',
+            entityType: 'invoice',
+            entityId: dbInvoice?.id,
+            actorUserId: null,
+            payload: {
+              stripe_event_id: event.id,
+              stripe_invoice_id: invoice.id,
+              stripe_customer_id: stripeCustomerId,
+              stripe_subscription_id: stripeSubscriptionId,
+              client_id: dbInvoice?.client_id || clientId,
+              contract_id: dbInvoice?.contract_id || null,
+              invoice_number: dbInvoice?.invoice_number || invoice.number,
+              amount: amountMoney,
+              amount_paid: invoice.amount_paid || 0,
+              currency: invoice.currency,
+              due_date: stripeDueDate,
+              customer_email: customerEmail || null,
+            },
+          },
+          supabase
+        );
+
+        // Processar imediatamente (best-effort) para manter áreas sincronizadas sem depender de cron.
+        try {
+          const r = await handleEvent(emitted as any);
+          if (r.ok) await markEventProcessed(emitted.id, supabase);
+          else await markEventError(emitted.id, r.error, supabase);
+        } catch (e: any) {
+          await markEventError(emitted.id, e?.message || 'Erro ao processar evento invoice.paid', supabase);
+        }
         
         return { success: true, action: 'invoice_paid' };
       }
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
+        const stripeCustomerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+        const stripeSubscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+        const customerEmail = (invoice.customer_email || invoice.customer_details?.email) as string | undefined;
+
+        // Tentar vincular ao client_id do sistema
+        let clientId: string | null = null;
+        if (stripeCustomerId) {
+          const { data: client } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('stripe_customer_id', stripeCustomerId)
+            .limit(1)
+            .single();
+          clientId = client?.id || null;
+        }
+        if (!clientId && customerEmail) {
+          const { data: client } = await supabase
+            .from('clients')
+            .select('id')
+            .or(`email.eq.${customerEmail},contact_email.eq.${customerEmail}`)
+            .limit(1)
+            .single();
+          clientId = client?.id || null;
+        }
+
+        if (!clientId) {
+          return { success: false, error: 'Não foi possível identificar client_id para invoice.payment_failed' };
+        }
+
+        const stripeDueDate = new Date((invoice.due_date || invoice.created || Date.now() / 1000) * 1000).toISOString().slice(0, 10);
+        const amountMoney = Math.round((invoice.amount_due || invoice.amount_paid || 0)) / 100;
+
+        let dbInvoice: any = null;
+        const { data: existingByStripe } = await supabase
+          .from('invoices')
+          .select('id, client_id, contract_id, invoice_number, amount, due_date, status')
+          .eq('stripe_invoice_id', invoice.id)
+          .limit(1)
+          .maybeSingle();
+        dbInvoice = existingByStripe || null;
+
+        if (!dbInvoice) {
+          const { data: matchInternal } = await supabase
+            .from('invoices')
+            .select('id, client_id, contract_id, invoice_number, amount, due_date, status')
+            .eq('client_id', clientId)
+            .in('status', ['pending', 'payment_failed'])
+            .eq('due_date', stripeDueDate)
+            .eq('amount', amountMoney)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          dbInvoice = matchInternal || null;
+        }
         
-        await supabase.from('invoices').upsert({
-          stripe_invoice_id: invoice.id,
-          status: 'payment_failed',
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'stripe_invoice_id' });
+        if (dbInvoice?.id) {
+          const { data: updatedInvoice, error: updErr } = await supabase
+            .from('invoices')
+            .update({
+              stripe_invoice_id: invoice.id,
+              stripe_customer_id: stripeCustomerId,
+              stripe_subscription_id: stripeSubscriptionId,
+              amount_paid: invoice.amount_paid || 0,
+              currency: invoice.currency,
+              status: 'payment_failed',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', dbInvoice.id)
+            .select('id, client_id, contract_id, invoice_number')
+            .single();
+          if (updErr) throw updErr;
+          dbInvoice = updatedInvoice;
+        } else {
+          const { data: insertedInvoice, error: insErr } = await supabase
+            .from('invoices')
+            .insert({
+              client_id: clientId,
+              stripe_invoice_id: invoice.id,
+              stripe_customer_id: stripeCustomerId,
+              stripe_subscription_id: stripeSubscriptionId,
+              invoice_number: invoice.number || `STRIPE-${invoice.id}`,
+              amount: amountMoney,
+              amount_paid: invoice.amount_paid || 0,
+              currency: invoice.currency,
+              issue_date: new Date((invoice.created || Date.now() / 1000) * 1000).toISOString().slice(0, 10),
+              due_date: stripeDueDate,
+              status: 'payment_failed',
+              updated_at: new Date().toISOString(),
+            })
+            .select('id, client_id, contract_id, invoice_number')
+            .single();
+          if (insErr) throw insErr;
+          dbInvoice = insertedInvoice;
+        }
+
+        const emitted = await emitEvent(
+          {
+            eventType: 'invoice.payment_failed',
+            entityType: 'invoice',
+            entityId: dbInvoice?.id,
+            actorUserId: null,
+            payload: {
+              stripe_event_id: event.id,
+              stripe_invoice_id: invoice.id,
+              stripe_customer_id: stripeCustomerId,
+              stripe_subscription_id: stripeSubscriptionId,
+              client_id: dbInvoice?.client_id || clientId,
+              contract_id: dbInvoice?.contract_id || null,
+              invoice_number: dbInvoice?.invoice_number || invoice.number,
+              amount: amountMoney,
+              currency: invoice.currency,
+              due_date: stripeDueDate,
+              customer_email: customerEmail || null,
+            },
+          },
+          supabase
+        );
+
+        try {
+          const r = await handleEvent(emitted as any);
+          if (r.ok) await markEventProcessed(emitted.id, supabase);
+          else await markEventError(emitted.id, r.error, supabase);
+        } catch (e: any) {
+          await markEventError(emitted.id, e?.message || 'Erro ao processar evento invoice.payment_failed', supabase);
+        }
         
         // Notificar sobre falha no pagamento
         // TODO: Enviar email/notificação
@@ -224,7 +467,7 @@ async function processStripeEvent(
         if (customer.email) {
           await supabase.from('clients').update({
             stripe_customer_id: customer.id
-          }).eq('email', customer.email);
+          }).or(`email.eq.${customer.email},contact_email.eq.${customer.email}`);
         }
         
         return { success: true, action: 'customer_created' };

@@ -1,0 +1,563 @@
+import { getSupabaseAdmin } from './supabaseAdmin';
+import type { DomainEventRow } from './eventBus';
+import { goalEngine } from '@/lib/goals/goal-engine';
+import { notifyAdmins as notifyAdminUsers } from '@/lib/admin/notifyAdmins';
+
+type HandlerResult = { ok: true } | { ok: false; error: string };
+
+function mapAreaToSector(area?: string | null): string {
+  const a = (area || '').toLowerCase();
+  if (a.includes('social')) return 'social_media';
+  if (a.includes('tráfego') || a.includes('trafego')) return 'trafego';
+  if (a.includes('video') || a.includes('vídeo')) return 'video_maker';
+  if (a.includes('comercial') || a.includes('vendas')) return 'comercial';
+  if (a.includes('rh') || a.includes('people')) return 'rh';
+  if (a.includes('web')) return 'designer';
+  if (a.includes('design')) return 'designer';
+  return 'designer';
+}
+
+async function insertWorkflowTransition(params: {
+  fromArea: string;
+  toArea: string;
+  triggerEvent: string;
+  payload?: Record<string, unknown>;
+  createdBy?: string | null;
+}) {
+  const supabase = getSupabaseAdmin();
+  await supabase.from('workflow_transitions').insert({
+    from_area: params.fromArea,
+    to_area: params.toArea,
+    status: 'pending',
+    trigger_event: params.triggerEvent,
+    data_payload: params.payload || {},
+    created_by: params.createdBy || null,
+  });
+}
+
+async function notifyAdmins(title: string, message: string, payload?: Record<string, unknown>) {
+  const supabase = getSupabaseAdmin();
+  await notifyAdminUsers(supabase as any, {
+    title,
+    message,
+    type: 'system',
+    is_read: false,
+    metadata: payload || {},
+  });
+}
+
+async function ensureClientFromProposal(clientName: string, clientEmail: string) {
+  const supabase = getSupabaseAdmin();
+
+  const { data: existing } = await supabase
+    .from('clients')
+    .select('id')
+    .or(`email.eq.${clientEmail},contact_email.eq.${clientEmail}`)
+    .limit(1);
+
+  if (existing && existing.length > 0) return existing[0].id as string;
+
+  const { data: inserted, error } = await supabase
+    .from('clients')
+    .insert({
+      company_name: clientName,
+      contact_name: clientName,
+      contact_email: clientEmail,
+      email: clientEmail, // compat
+      status: 'active',
+      created_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+
+  if (error) throw error;
+  return inserted.id as string;
+}
+
+async function createDefaultOnboardingKanban(clientId: string, createdBy?: string | null) {
+  const supabase = getSupabaseAdmin();
+
+  const { data: board, error: boardError } = await supabase
+    .from('kanban_boards')
+    .insert({
+      name: 'Onboarding',
+      description: 'Fluxo inicial automático',
+      client_id: clientId,
+      is_active: true,
+      created_by: createdBy || null,
+    })
+    .select('id')
+    .single();
+
+  if (boardError) throw boardError;
+
+  const columns = [
+    { name: 'Backlog', position: 1, color: '#64748b' },
+    { name: 'A Fazer', position: 2, color: '#3b82f6' },
+    { name: 'Em Progresso', position: 3, color: '#f59e0b' },
+    { name: 'Concluído', position: 4, color: '#22c55e' },
+  ];
+
+  const { data: insertedColumns, error: colErr } = await supabase
+    .from('kanban_columns')
+    .insert(columns.map((c) => ({ ...c, board_id: board.id })))
+    .select('id, position');
+
+  if (colErr) throw colErr;
+
+  const firstCol = (insertedColumns || []).slice().sort((a: any, b: any) => a.position - b.position)[0];
+  if (!firstCol) return;
+
+  const tasks = [
+    { title: 'Reunião de kickoff', description: 'Agendar kickoff com o cliente', priority: 'high' },
+    { title: 'Conectar integrações', description: 'Google/Meta/WhatsApp/Pixel etc.', priority: 'high' },
+    { title: 'Coletar acessos e briefing', description: 'Documentos, contas, ativos', priority: 'medium' },
+  ];
+
+  await supabase.from('kanban_tasks').insert(
+    tasks.map((t, idx) => ({
+      board_id: board.id,
+      column_id: firstCol.id,
+      title: t.title,
+      description: t.description,
+      priority: t.priority,
+      position: idx + 1,
+      client_id: clientId,
+      status: 'todo',
+      created_by: createdBy || null,
+    }))
+  );
+
+  return board.id as string;
+}
+
+async function getOrCreateOnboardingBoardId(clientId: string, createdBy?: string | null) {
+  const supabase = getSupabaseAdmin();
+  const { data: existing } = await supabase
+    .from('kanban_boards')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('name', 'Onboarding')
+    .limit(1)
+    .maybeSingle();
+
+  if (existing?.id) return existing.id as string;
+  return await createDefaultOnboardingKanban(clientId, createdBy);
+}
+
+function mapStatusToOnboardingColumnName(status: string) {
+  switch (status) {
+    case 'backlog':
+      return 'Backlog';
+    case 'in_progress':
+      return 'Em Progresso';
+    case 'done':
+      return 'Concluído';
+    case 'in_review':
+      return 'Em Progresso';
+    case 'todo':
+    default:
+      return 'A Fazer';
+  }
+}
+
+async function addOnboardingKanbanTask(params: {
+  clientId: string;
+  title: string;
+  description?: string;
+  status?: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'blocked' | 'cancelled';
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  area?: string | null;
+  createdBy?: string | null;
+  referenceLinks?: any;
+}) {
+  const supabase = getSupabaseAdmin();
+  const boardId = await getOrCreateOnboardingBoardId(params.clientId, params.createdBy);
+  const status = params.status || 'todo';
+  const priority = params.priority || 'medium';
+  const desiredColumnName = mapStatusToOnboardingColumnName(status);
+
+  const { data: col } = await supabase
+    .from('kanban_columns')
+    .select('id')
+    .eq('board_id', boardId)
+    .eq('name', desiredColumnName)
+    .limit(1)
+    .maybeSingle();
+
+  // fallback: primeira coluna
+  const columnId = col?.id
+    ? (col.id as string)
+    : (
+        (
+          await supabase
+            .from('kanban_columns')
+            .select('id')
+            .eq('board_id', boardId)
+            .order('position', { ascending: true })
+            .limit(1)
+            .maybeSingle()
+        ).data?.id as string | undefined
+      );
+
+  if (!columnId) return;
+
+  const { data: last } = await supabase
+    .from('kanban_tasks')
+    .select('position')
+    .eq('board_id', boardId)
+    .eq('column_id', columnId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const position = Number(last?.position || 0) + 1;
+
+  await supabase.from('kanban_tasks').insert({
+    board_id: boardId,
+    column_id: columnId,
+    title: params.title,
+    description: params.description || null,
+    priority,
+    status,
+    position,
+    client_id: params.clientId,
+    area: params.area || 'Operacao',
+    created_by: params.createdBy || null,
+    reference_links: params.referenceLinks || null,
+  });
+}
+
+export async function handleEvent(event: DomainEventRow): Promise<HandlerResult> {
+  try {
+    switch (event.event_type) {
+      case 'client.created': {
+        await insertWorkflowTransition({
+          fromArea: 'Admin',
+          toArea: 'Operacao',
+          triggerEvent: 'client.created',
+          payload: event.payload,
+          createdBy: event.actor_user_id,
+        });
+        if (event.entity_id) {
+          await createDefaultOnboardingKanban(event.entity_id, event.actor_user_id);
+        }
+        await notifyAdmins('Novo cliente cadastrado', 'Cliente criado e onboarding iniciado.', {
+          client_id: event.entity_id,
+          correlation_id: event.correlation_id,
+        });
+        return { ok: true };
+      }
+
+      case 'employee.created': {
+        await insertWorkflowTransition({
+          fromArea: 'Admin',
+          toArea: 'RH',
+          triggerEvent: 'employee.created',
+          payload: event.payload,
+          createdBy: event.actor_user_id,
+        });
+
+        // Auto: gerar primeira meta mensal para o colaborador (para o sistema já começar “rodando”)
+        try {
+          const supabase = getSupabaseAdmin();
+          const employeeId = event.entity_id;
+          const { data: emp } = await supabase
+            .from('employees')
+            .select('user_id, full_name, department, areas')
+            .eq('id', employeeId)
+            .single();
+
+          const userId = emp?.user_id as string | undefined;
+          if (userId) {
+            const firstArea = Array.isArray(emp?.areas) ? emp.areas[0] : emp?.department;
+            const sector = mapAreaToSector(firstArea);
+            await goalEngine.createGoal(userId, emp?.full_name || 'Colaborador', sector as any, 'monthly');
+          }
+        } catch {
+          // best-effort: não bloquear fluxo
+        }
+
+        await notifyAdmins('Novo colaborador cadastrado', 'Colaborador criado e pronto para receber metas/fluxos.', {
+          employee_id: event.entity_id,
+          correlation_id: event.correlation_id,
+        });
+        return { ok: true };
+      }
+
+      case 'proposal.sent': {
+        await insertWorkflowTransition({
+          fromArea: 'Comercial',
+          toArea: 'Jurídico',
+          triggerEvent: 'proposal.sent',
+          payload: event.payload,
+          createdBy: event.actor_user_id,
+        });
+        await notifyAdmins('Proposta enviada', 'Proposta enviada ao cliente. Aguardando aceite.', {
+          proposal_id: event.entity_id,
+          correlation_id: event.correlation_id,
+        });
+        return { ok: true };
+      }
+
+      case 'proposal.rejected': {
+        await insertWorkflowTransition({
+          fromArea: 'Comercial',
+          toArea: 'Comercial',
+          triggerEvent: 'proposal.rejected',
+          payload: event.payload,
+          createdBy: event.actor_user_id,
+        });
+        await notifyAdmins('Proposta rejeitada', 'O cliente rejeitou a proposta. Revisar abordagem e condições.', {
+          proposal_id: event.entity_id,
+          correlation_id: event.correlation_id,
+          ...(event.payload || {}),
+        });
+        return { ok: true };
+      }
+
+      case 'proposal.accepted': {
+        // Comercial -> Jurídico -> Contratos -> Financeiro
+        await insertWorkflowTransition({
+          fromArea: 'Comercial',
+          toArea: 'Contratos',
+          triggerEvent: 'proposal.accepted',
+          payload: event.payload,
+          createdBy: event.actor_user_id,
+        });
+
+        const supabase = getSupabaseAdmin();
+        const proposalId = event.entity_id;
+        if (proposalId) {
+          const { data: proposal } = await supabase
+            .from('proposals')
+            .select('id, client_name, client_email, total_value, status')
+            .eq('id', proposalId)
+            .single();
+
+          if (proposal?.client_email) {
+            const clientId = await ensureClientFromProposal(proposal.client_name || proposal.client_email, proposal.client_email);
+            // Criar contrato básico
+            const { data: contract, error: contractErr } = await supabase
+              .from('contracts')
+              .insert({
+              client_id: clientId,
+              proposal_id: proposalId,
+              status: 'active',
+              active: true,
+              start_date: new Date().toISOString().slice(0, 10),
+              end_date: null,
+              monthly_value: proposal.total_value || 0,
+              due_day: 5,
+              created_at: new Date().toISOString(),
+              })
+              .select('id, client_id, monthly_value, due_day, start_date')
+              .single();
+
+            if (contractErr) throw contractErr;
+
+            // Criar fatura inicial (Financeiro)
+            const today = new Date();
+            const issueDate = today.toISOString().slice(0, 10);
+            const dueDay = Number(contract?.due_day || 5);
+            const dueDateObj = new Date(today.getFullYear(), today.getMonth(), dueDay);
+            const dueDate = dueDateObj.toISOString().slice(0, 10);
+
+            const invoiceNumber = `INV-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+              Math.floor(Math.random() * 9000) + 1000
+            )}`;
+
+            const { data: invoice, error: invoiceErr } = await supabase
+              .from('invoices')
+              .insert({
+                contract_id: contract.id,
+                client_id: contract.client_id,
+                invoice_number: invoiceNumber,
+                amount: contract.monthly_value || 0,
+                issue_date: issueDate,
+                due_date: dueDate,
+                status: 'pending',
+                notes: 'Fatura inicial gerada automaticamente a partir do aceite da proposta.',
+                created_at: new Date().toISOString(),
+              })
+              .select('id')
+              .single();
+
+            if (invoiceErr) throw invoiceErr;
+
+            // Registrar transação prevista
+            await supabase.from('financial_transactions').insert({
+              transaction_type: 'income',
+              category: 'subscription',
+              amount: contract.monthly_value || 0,
+              description: 'Receita prevista - contrato ativo',
+              transaction_date: issueDate,
+              invoice_id: invoice.id,
+              client_id: contract.client_id,
+              payment_method: null,
+              reference_number: invoiceNumber,
+              status: 'pending',
+              created_by: event.actor_user_id,
+              created_at: new Date().toISOString(),
+            });
+
+            // Workflow: Contratos -> Financeiro -> Operacao
+            await insertWorkflowTransition({
+              fromArea: 'Contratos',
+              toArea: 'Financeiro',
+              triggerEvent: 'contract.created',
+              payload: { contract_id: contract.id, invoice_id: invoice.id, client_id: contract.client_id },
+              createdBy: event.actor_user_id,
+            });
+            await insertWorkflowTransition({
+              fromArea: 'Financeiro',
+              toArea: 'Operacao',
+              triggerEvent: 'invoice.created',
+              payload: { contract_id: contract.id, invoice_id: invoice.id, client_id: contract.client_id },
+              createdBy: event.actor_user_id,
+            });
+          }
+        }
+
+        await notifyAdmins('Proposta aceita', 'Aceite confirmado. Contrato básico criado.', {
+          proposal_id: proposalId,
+          correlation_id: event.correlation_id,
+        });
+        return { ok: true };
+      }
+
+      case 'invoice.paid': {
+        const supabase = getSupabaseAdmin();
+        const invoiceId = event.entity_id;
+        const payload = (event.payload || {}) as Record<string, any>;
+
+        if (invoiceId) {
+          await supabase
+            .from('invoices')
+            .update({
+              status: 'paid',
+              paid_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', invoiceId);
+
+          await supabase
+            .from('financial_transactions')
+            .update({
+              status: 'completed',
+              payment_method: payload.payment_method || payload.collection_method || null,
+              reference_number: payload.stripe_invoice_id || payload.invoice_number || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('invoice_id', invoiceId);
+        }
+
+        await insertWorkflowTransition({
+          fromArea: 'Financeiro',
+          toArea: 'Operacao',
+          triggerEvent: 'invoice.paid',
+          payload,
+          createdBy: event.actor_user_id,
+        });
+
+        await notifyAdmins('Fatura paga (Stripe)', 'Pagamento confirmado. Fluxo enviado para Operação.', {
+          invoice_id: invoiceId,
+          client_id: payload.client_id,
+          stripe_invoice_id: payload.stripe_invoice_id,
+          correlation_id: event.correlation_id,
+        });
+
+        if (payload.client_id) {
+          await addOnboardingKanbanTask({
+            clientId: payload.client_id,
+            title: 'Pagamento confirmado — iniciar operação',
+            description:
+              'Stripe confirmou o pagamento. Iniciar onboarding operacional (integrações, kickoff, setup de campanhas).',
+            status: 'todo',
+            priority: 'high',
+            area: 'Operacao',
+            referenceLinks: {
+              type: 'stripe',
+              stripe_invoice_id: payload.stripe_invoice_id,
+              invoice_id: invoiceId,
+              amount: payload.amount,
+              currency: payload.currency,
+            },
+            createdBy: event.actor_user_id,
+          });
+        }
+
+        return { ok: true };
+      }
+
+      case 'invoice.payment_failed': {
+        const supabase = getSupabaseAdmin();
+        const invoiceId = event.entity_id;
+        const payload = (event.payload || {}) as Record<string, any>;
+
+        if (invoiceId) {
+          await supabase
+            .from('invoices')
+            .update({
+              status: 'payment_failed',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', invoiceId);
+
+          await supabase
+            .from('financial_transactions')
+            .update({
+              status: 'failed',
+              reference_number: payload.stripe_invoice_id || payload.invoice_number || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('invoice_id', invoiceId);
+        }
+
+        await insertWorkflowTransition({
+          fromArea: 'Financeiro',
+          toArea: 'Comercial',
+          triggerEvent: 'invoice.payment_failed',
+          payload,
+          createdBy: event.actor_user_id,
+        });
+
+        await notifyAdmins('Falha de pagamento (Stripe)', 'Pagamento falhou. Ação necessária do Financeiro/Comercial.', {
+          invoice_id: invoiceId,
+          client_id: payload.client_id,
+          stripe_invoice_id: payload.stripe_invoice_id,
+          correlation_id: event.correlation_id,
+        });
+
+        if (payload.client_id) {
+          await addOnboardingKanbanTask({
+            clientId: payload.client_id,
+            title: 'Falha no pagamento — acionar Financeiro/Comercial',
+            description:
+              'Stripe informou falha no pagamento. Verificar motivo, contatar cliente e definir próximo passo.',
+            status: 'todo',
+            priority: 'urgent',
+            area: 'Financeiro',
+            referenceLinks: {
+              type: 'stripe',
+              stripe_invoice_id: payload.stripe_invoice_id,
+              invoice_id: invoiceId,
+              amount: payload.amount,
+              currency: payload.currency,
+            },
+            createdBy: event.actor_user_id,
+          });
+        }
+
+        return { ok: true };
+      }
+
+      default:
+        return { ok: true };
+    }
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'Falha ao processar evento' };
+  }
+}
+
+

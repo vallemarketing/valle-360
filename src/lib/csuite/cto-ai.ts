@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import OpenAI from 'openai';
+import { generateWithAI } from '@/lib/ai/aiRouter';
 
 // =====================================================
 // TIPOS
@@ -106,19 +106,6 @@ export interface CTOAlert {
   department?: string;
   recommendedAction: string;
   createdAt: string;
-}
-
-// =====================================================
-// CONFIGURAÇÃO
-// =====================================================
-
-let openaiClient: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (openaiClient) return openaiClient;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY ausente');
-  openaiClient = new OpenAI({ apiKey });
-  return openaiClient;
 }
 
 const CTO_SYSTEM_PROMPT = `Você é o CTO virtual da Valle 360, uma agência de marketing digital.
@@ -313,28 +300,30 @@ export async function analyzeAutomationPotential(processDescription: string): Pr
   estimatedSavings: number;
 }> {
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
+    const ai = await generateWithAI({
+      task: 'analysis',
+      json: true,
+      temperature: 0.7,
+      maxTokens: 500,
+      entityType: 'cto_automation',
+      entityId: null,
       messages: [
         { role: 'system', content: CTO_SYSTEM_PROMPT },
         {
           role: 'user',
           content: `Analise o potencial de automação deste processo:
-            "${processDescription}"
-            
-            Responda em JSON com:
-            - automationScore (0-100)
-            - recommendations (lista de 3 sugestões)
-            - tools (lista de ferramentas recomendadas)
-            - estimatedSavings (% de tempo que pode ser economizado)`
+"${processDescription}"
+
+Responda em JSON com:
+- automationScore (0-100)
+- recommendations (lista de 3 sugestões)
+- tools (lista de ferramentas recomendadas)
+- estimatedSavings (% de tempo que pode ser economizado)`
         }
       ],
-      max_tokens: 500,
-      temperature: 0.7,
-      response_format: { type: 'json_object' }
     });
 
-    const result = JSON.parse(response.choices[0].message.content || '{}');
+    const result = ai.json || {};
     return {
       automationScore: result.automationScore || 50,
       recommendations: result.recommendations || [],
@@ -634,18 +623,21 @@ ${dashboard.toolRecommendations.slice(0, 3).map(t =>
 `;
 
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o',
+    const ai = await generateWithAI({
+      task: 'analysis',
+      json: false,
+      temperature: 0.7,
+      maxTokens: 1000,
+      entityType: 'cto_chat',
+      entityId: null,
       messages: [
         { role: 'system', content: CTO_SYSTEM_PROMPT },
         { role: 'system', content: contextData },
         { role: 'user', content: message }
       ],
-      max_tokens: 1000,
-      temperature: 0.7
     });
 
-    return response.choices[0].message.content || 'Desculpe, não consegui processar sua solicitação.';
+    return ai.text || 'Desculpe, não consegui processar sua solicitação.';
   } catch (error) {
     console.error('Erro no chat CTO:', error);
     return 'Erro ao processar solicitação. Tente novamente.';

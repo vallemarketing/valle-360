@@ -358,16 +358,34 @@ Solicita-se início de procedimento de cobrança extrajudicial/judicial.`
         });
 
       // Notifica equipe jurídica
-      await supabase
-        .from('notifications')
-        .insert({
-          type: 'legal_case',
-          title: 'Novo caso de cobrança',
-          message: `Cliente ${invoice.client_name} escalado para cobrança jurídica. Valor: R$ ${invoice.amount.toLocaleString('pt-BR')}`,
-          target_role: 'juridico',
-          data: { invoice_id: invoice.id },
-          created_at: new Date().toISOString()
-        });
+      try {
+        const { data: admins } = await supabase
+          .from('user_profiles')
+          .select('user_id, user_type')
+          .in('user_type', ['super_admin', 'admin']);
+
+        const userIds = (admins || [])
+          .map((r: any) => r.user_id)
+          .filter(Boolean)
+          .map((id: any) => String(id));
+
+        if (userIds.length > 0) {
+          await supabase.from('notifications').insert(
+            userIds.map((userId) => ({
+              user_id: userId,
+              type: 'legal_case',
+              title: 'Novo caso de cobrança',
+              message: `Cliente ${invoice.client_name} escalado para cobrança jurídica.`,
+              link: '/admin/financeiro',
+              metadata: { invoice_id: invoice.id, target_role: 'juridico' },
+              is_read: false,
+              created_at: new Date().toISOString(),
+            }))
+          );
+        }
+      } catch {
+        // best-effort
+      }
 
     } catch (error) {
       console.error('Erro ao escalar para jurídico:', error);

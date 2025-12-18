@@ -40,7 +40,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { ValFloatingChat } from "@/components/val/ValFloatingChat";
-import { PushNotificationManager } from "@/components/notifications/PushNotifications";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { GuidedTour } from "@/components/tour/GuidedTour";
 
 // Mapa de breadcrumbs
@@ -57,6 +57,7 @@ const breadcrumbMap: Record<string, string> = {
   "/admin/financeiro": "Financeiro",
   "/admin/integracoes": "Integrações",
   "/admin/kanban-app": "Kanban",
+  "/admin/fluxos": "Fluxos",
   "/admin/performance": "Performance",
   "/admin/configuracoes": "Configurações",
   "/admin/agendas": "Agendas",
@@ -219,8 +220,8 @@ export default function AdminLayout({
                   {isDark ? <Sun className="size-5" /> : <Moon className="size-5" />}
                 </Button>
 
-                {/* Push Notifications */}
-                <PushNotificationManager />
+                {/* Notificações (reais) */}
+                <NotificationBell />
 
                 {/* Divider */}
                 <div className="w-px h-6 bg-[#001533]/10 dark:bg-white/10 mx-1" />

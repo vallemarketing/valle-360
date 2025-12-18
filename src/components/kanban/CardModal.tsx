@@ -16,7 +16,7 @@ interface KanbanCard {
   title: string
   description?: string
   column: string
-  priority: 'urgent' | 'high' | 'normal' | 'low'
+  priority: 'urgent' | 'high' | 'medium' | 'low'
   assignees: string[]
   tags: string[]
   dueDate?: Date
@@ -190,12 +190,12 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
                       editedCard.priority === 'urgent' ? 'bg-red-50 text-red-700 border-red-200' :
                       editedCard.priority === 'high' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                      editedCard.priority === 'normal' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      editedCard.priority === 'medium' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                       'bg-green-50 text-green-700 border-green-200'
                   }`}>
                     {editedCard.priority === 'urgent' && '🔴 Urgente'}
                     {editedCard.priority === 'high' && '🟡 Alta'}
-                    {editedCard.priority === 'normal' && '🔵 Normal'}
+                    {editedCard.priority === 'medium' && '🔵 Média'}
                     {editedCard.priority === 'low' && '🟢 Baixa'}
                   </span>
                 </div>
@@ -371,16 +371,21 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
                         >
                           <option value="backlog">Backlog</option>
                           <option value="todo">A Fazer</option>
-                          <option value="progress">Em Andamento</option>
-                          <option value="review">Em Revisão</option>
-                          <option value="testing">Em Teste</option>
+                          <option value="in_progress">Em Progresso</option>
+                          <option value="in_review">Em Revisão</option>
+                          <option value="blocked">Bloqueado</option>
+                          <option value="cancelled">Cancelado</option>
                           <option value="done">Concluído</option>
                         </select>
                       ) : (
                         <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${
                                 editedCard.column === 'done' ? 'bg-green-500' : 
-                                editedCard.column === 'progress' ? 'bg-blue-500' : 'bg-gray-400'
+                                editedCard.column === 'in_progress' ? 'bg-blue-500' : 
+                                editedCard.column === 'in_review' ? 'bg-purple-500' :
+                                editedCard.column === 'blocked' ? 'bg-red-500' :
+                                editedCard.column === 'cancelled' ? 'bg-gray-500' :
+                                'bg-gray-400'
                             }`}></div>
                             <span className="text-sm font-medium text-gray-700 capitalize">
                                 {editedCard.column}
@@ -402,7 +407,7 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
                         >
                           <option value="urgent">🔴 Urgente</option>
                           <option value="high">🟡 Alta</option>
-                          <option value="normal">🔵 Normal</option>
+                          <option value="medium">🔵 Média</option>
                           <option value="low">🟢 Baixa</option>
                         </select>
                       ) : (

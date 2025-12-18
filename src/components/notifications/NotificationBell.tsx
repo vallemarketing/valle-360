@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bell, Check, X, Trash2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -13,6 +14,7 @@ interface Notification {
   message: string
   read: boolean
   created_at: string
+  link?: string | null
   metadata?: any
 }
 
@@ -20,6 +22,7 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     loadNotifications()
@@ -50,7 +53,7 @@ export function NotificationBell() {
       await fetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationId, read: true })
+        body: JSON.stringify({ action: 'mark_read', notificationId })
       })
       
       setNotifications(prev => 
@@ -63,15 +66,11 @@ export function NotificationBell() {
 
   const markAllAsRead = async () => {
     try {
-      await Promise.all(
-        notifications.filter(n => !n.read).map(n => 
-          fetch('/api/notifications', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notificationId: n.id, read: true })
-          })
-        )
-      )
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_all_read' })
+      })
       
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
     } catch (error) {
@@ -93,6 +92,40 @@ export function NotificationBell() {
         return '⚙️'
       default:
         return '🔔'
+    }
+  }
+
+  const getNotificationTargetUrl = (notification: Notification) => {
+    const meta = notification.metadata || {}
+    const boardId = meta?.board_id as string | undefined
+    const taskId = meta?.task_id as string | undefined
+
+    if (boardId && taskId) {
+      return `/admin/meu-kanban?boardId=${encodeURIComponent(boardId)}&taskId=${encodeURIComponent(taskId)}`
+    }
+
+    if (notification.link) return notification.link
+
+    // Fallbacks úteis quando for evento do Hub
+    const transitionId = meta?.workflow_transition_id as string | undefined
+    if (transitionId) {
+      return `/admin/fluxos?tab=transitions&q=${encodeURIComponent(transitionId)}`
+    }
+
+    return null
+  }
+
+  const handleNotificationClick = async (notification: Notification) => {
+    try {
+      if (!notification.read) {
+        await markAsRead(notification.id)
+      }
+    } finally {
+      const url = getNotificationTargetUrl(notification)
+      if (url) {
+        setIsOpen(false)
+        router.push(url)
+      }
     }
   }
 
@@ -173,7 +206,7 @@ export function NotificationBell() {
                       borderColor: 'var(--border-light)',
                       backgroundColor: !notification.read ? 'var(--primary-50)' : 'transparent'
                     }}
-                    onClick={() => markAsRead(notification.id)}
+                    onClick={() => handleNotificationClick(notification)}
                   >
                     <div className="flex items-start gap-3">
                       <div className="text-2xl flex-shrink-0">
@@ -218,7 +251,7 @@ export function NotificationBell() {
               >
                 <button
                   onClick={() => {
-                    window.location.href = '/colaborador/notificacoes'
+                    router.push('/admin/fluxos')
                     setIsOpen(false)
                   }}
                   className="text-sm font-medium transition-colors"

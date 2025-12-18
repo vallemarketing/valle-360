@@ -131,9 +131,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           type: n.type,
           title: n.title,
           message: n.message,
-          read: n.read,
+          read: Boolean(n.is_read),
           createdAt: new Date(n.created_at),
-          actionUrl: n.action_url,
+          actionUrl: n.link,
           metadata: n.metadata
         })));
       }
@@ -163,9 +163,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             type: payload.new.type,
             title: payload.new.title,
             message: payload.new.message,
-            read: false,
+            read: Boolean(payload.new.is_read),
             createdAt: new Date(payload.new.created_at),
-            actionUrl: payload.new.action_url,
+            actionUrl: payload.new.link,
             metadata: payload.new.metadata
           };
           setNotifications(prev => [newNotification, ...prev]);
@@ -233,7 +233,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     await supabase
       .from('notifications')
-      .update({ read: true })
+      .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('id', id)
       .eq('user_id', user.id);
 
@@ -247,9 +247,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     await supabase
       .from('notifications')
-      .update({ read: true })
+      .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('user_id', user.id)
-      .eq('read', false);
+      .eq('is_read', false);
 
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   }, [user]);

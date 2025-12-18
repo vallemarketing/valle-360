@@ -398,22 +398,32 @@ async function flushAuditLog(): Promise<void> {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    await supabase
-      .from('audit_logs')
-      .insert(entries.map(e => ({
-        timestamp: e.timestamp.toISOString(),
-        action: e.action,
-        user_id: e.userId,
-        client_id: e.clientId,
-        api_key_id: e.apiKeyId,
-        ip_address: e.ip,
-        user_agent: e.userAgent,
-        endpoint: e.endpoint,
-        method: e.method,
-        status_code: e.statusCode,
-        response_time: e.responseTime,
-        details: e.details
-      })));
+    await supabase.from('audit_logs').insert(
+      entries.map((e) => ({
+        user_id: e.userId || null,
+        action: `api.${e.action}`,
+        entity_type: 'api',
+        entity_id: null,
+        old_values: null,
+        new_values: {
+          severity: e.statusCode >= 500 ? 'error' : e.statusCode >= 400 ? 'warning' : 'info',
+          success: e.statusCode < 400,
+          description: `${e.method} ${e.endpoint} (${e.statusCode})`,
+          metadata: {
+            client_id: e.clientId || null,
+            api_key_id: e.apiKeyId || null,
+            endpoint: e.endpoint,
+            method: e.method,
+            status_code: e.statusCode,
+            response_time_ms: e.responseTime,
+            details: e.details || null,
+          },
+        },
+        ip_address: e.ip || null,
+        user_agent: e.userAgent || null,
+        created_at: e.timestamp.toISOString(),
+      }))
+    );
   } catch (error) {
     console.error('Failed to flush audit log:', error);
     // Recolocar entries no buffer para tentar novamente

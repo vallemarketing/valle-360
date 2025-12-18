@@ -4,7 +4,7 @@
  */
 
 import { SendGridClient } from '@/lib/integrations/email/sendgrid';
-import { getOpenAIClient, OPENAI_MODELS } from '@/lib/integrations/openai/client';
+import { generateWithAI } from '@/lib/ai/aiRouter';
 
 // =====================================================
 // TIPOS
@@ -347,14 +347,18 @@ class EmailAutomationService {
     const template = EMAIL_TEMPLATES[type];
     if (!template) throw new Error(`Template não encontrado: ${type}`);
 
-    const client = getOpenAIClient();
-
-    const response = await client.chat.completions.create({
-      model: OPENAI_MODELS.chat,
-      messages: [
-        {
-          role: 'system',
-          content: `Você é um especialista em comunicação empresarial.
+    try {
+      const result = await generateWithAI({
+        task: 'copywriting',
+        json: true,
+        temperature: 0.7,
+        maxTokens: 900,
+        entityType: 'email_personalization',
+        entityId: null,
+        messages: [
+          {
+            role: 'system',
+            content: `Você é um especialista em comunicação empresarial.
 Personalize o email abaixo para ser mais humano e efetivo, mantendo o tom profissional.
 Adapte a mensagem ao contexto do destinatário.
 
@@ -363,34 +367,34 @@ Assunto: ${template.subject}
 Corpo: ${template.body}
 
 Retorne JSON: { "subject": "assunto personalizado", "body": "corpo personalizado em markdown" }`
-        },
-        {
-          role: 'user',
-          content: JSON.stringify({
-            recipient,
-            context,
-            type
-          })
-        }
-      ],
-      temperature: 0.7,
-      response_format: { type: 'json_object' }
-    });
+          },
+          {
+            role: 'user',
+            content: JSON.stringify({
+              recipient,
+              context,
+              type
+            })
+          }
+        ],
+      });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
+      const parsed = result.json || null;
+      if (!parsed?.subject || !parsed?.body) {
+        throw new Error('Resposta inválida');
+      }
+
+      return {
+        subject: this.renderTemplate(parsed.subject, { ...recipient, ...context }),
+        body: this.renderTemplate(parsed.body, { ...recipient, ...context })
+      };
+    } catch {
       // Fallback para template padrão
       return {
         subject: this.renderTemplate(template.subject, { ...recipient, ...context }),
         body: this.renderTemplate(template.body, { ...recipient, ...context })
       };
     }
-
-    const parsed = JSON.parse(content);
-    return {
-      subject: this.renderTemplate(parsed.subject, { ...recipient, ...context }),
-      body: this.renderTemplate(parsed.body, { ...recipient, ...context })
-    };
   }
 
   /**

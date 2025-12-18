@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { getOpenAIClient, OPENAI_MODELS } from '@/lib/integrations/openai/client';
+import { generateWithAI } from '@/lib/ai/aiRouter';
 import { getValPersona, buildValPrompt } from '@/lib/ai/val-personas';
 
 export const dynamic = 'force-dynamic';
@@ -149,27 +149,22 @@ export async function POST(request: NextRequest) {
     // Adicionar mensagem atual
     messages.push({ role: 'user', content: message });
 
-    const client = getOpenAIClient();
-
-    const response = await client.chat.completions.create({
-      model: OPENAI_MODELS.chat,
-      messages,
-      temperature: 0.7,
-      max_tokens: 1500,
-      response_format: { type: 'json_object' }
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Resposta vazia da IA');
-    }
-
     let parsedResponse;
     try {
-      parsedResponse = JSON.parse(content);
+      const result = await generateWithAI({
+        task: userType === 'comercial' ? 'sales' : userType === 'rh' ? 'hr' : 'general',
+        json: true,
+        temperature: 0.7,
+        maxTokens: 1500,
+        actorUserId: user.id,
+        entityType: 'val',
+        entityId: null,
+        messages
+      });
+      parsedResponse = result.json;
     } catch {
       parsedResponse = {
-        message: content,
+        message: 'Não consegui estruturar a resposta em JSON agora. Pode tentar novamente com uma pergunta mais direta?',
         suggestions: [],
         actions: [],
         mood: 'neutral'
@@ -251,15 +246,18 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const client = getOpenAIClient();
-
-    const response = await client.chat.completions.create({
-      model: OPENAI_MODELS.chat,
+    const result = await generateWithAI({
+      task: 'strategy',
+      json: true,
+      temperature: 0.8,
+      maxTokens: 400,
+      actorUserId: user.id,
+      entityType: 'val_suggestions',
+      entityId: null,
       messages: [
         { 
           role: 'system', 
-          content: `Você é a ${persona.name}. Gere 2-3 sugestões proativas curtas e relevantes para um ${userType}.
-Retorne JSON: { "suggestions": [{ "icon": "emoji", "text": "sugestão curta", "priority": "high/medium/low", "action": "ação_sugerida" }] }`
+          content: `Você é a ${persona.name}. Gere 2-3 sugestões proativas curtas e relevantes para um ${userType}.\nRetorne JSON: { "suggestions": [{ "icon": "emoji", "text": "sugestão curta", "priority": "high/medium/low", "action": "ação_sugerida" }] }`
         },
         { 
           role: 'user', 
@@ -269,14 +267,10 @@ Retorne JSON: { "suggestions": [{ "icon": "emoji", "text": "sugestão curta", "p
             dayOfWeek: new Date().toLocaleDateString('pt-BR', { weekday: 'long' })
           })
         }
-      ],
-      temperature: 0.8,
-      max_tokens: 400,
-      response_format: { type: 'json_object' }
+      ]
     });
 
-    const content = response.choices[0]?.message?.content;
-    const parsed = content ? JSON.parse(content) : { suggestions: [] };
+    const parsed = result.json || { suggestions: [] };
 
     return NextResponse.json({
       success: true,

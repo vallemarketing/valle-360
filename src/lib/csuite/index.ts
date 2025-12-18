@@ -12,7 +12,7 @@ import { getCFODashboard, chatWithCFO, CFODashboard, CFOAlert } from './cfo-ai';
 import { getCTODashboard, chatWithCTO, CTODashboard, CTOAlert } from './cto-ai';
 import { getCMODashboard, chatWithCMO, CMODashboard, CMOAlert } from './cmo-ai';
 import { getCHRODashboard, chatWithCHRO, CHRODashboard, CHROAlert } from './chro-ai';
-import OpenAI from 'openai';
+import { generateWithAI } from '@/lib/ai/aiRouter';
 
 // =====================================================
 // TIPOS CONSOLIDADOS
@@ -47,19 +47,6 @@ export interface CSuiteInsight {
   priority: 'low' | 'medium' | 'high';
   category: string;
   actionable: boolean;
-}
-
-// =====================================================
-// CONFIGURAÇÃO
-// =====================================================
-
-let openaiClient: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (openaiClient) return openaiClient;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY ausente');
-  openaiClient = new OpenAI({ apiKey });
-  return openaiClient;
 }
 
 const CSUITE_SYSTEM_PROMPT = `Você é a Diretoria Virtual da Valle 360, combinando as perspectivas de CFO, CTO, CMO e CHRO.
@@ -170,17 +157,20 @@ CHRO: ${data.chro ? `Performance ${data.chro.kpis.averagePerformance}%, Risco tu
 Alertas: ${data.alertsCount} total, ${data.criticalCount} críticos
 `;
 
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
+    const result = await generateWithAI({
+      task: 'strategy',
+      json: false,
+      temperature: 0.7,
+      maxTokens: 200,
+      entityType: 'csuite_summary',
+      entityId: null,
       messages: [
         { role: 'system', content: 'Você gera resumos executivos concisos (2-3 frases) para diretoria.' },
         { role: 'user', content: `Gere um resumo executivo da situação atual da empresa:\n${context}` }
       ],
-      max_tokens: 200,
-      temperature: 0.7
     });
 
-    return response.choices[0].message.content || 'Situação geral estável. Monitorando indicadores.';
+    return result.text || 'Situação geral estável. Monitorando indicadores.';
   } catch {
     return 'Dashboard da diretoria carregado. Verifique os alertas críticos.';
   }
@@ -246,15 +236,18 @@ MÉTRICAS PRINCIPAIS:
 `;
 
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o',
+    const result = await generateWithAI({
+      task: 'strategy',
+      json: false,
+      temperature: 0.7,
+      maxTokens: 1500,
+      entityType: 'csuite_chat',
+      entityId: null,
       messages: [
         { role: 'system', content: CSUITE_SYSTEM_PROMPT },
         { role: 'system', content: contextData },
         { role: 'user', content: message }
       ],
-      max_tokens: 1500,
-      temperature: 0.7
     });
 
     // Extrair insights relacionados
@@ -269,7 +262,7 @@ MÉTRICAS PRINCIPAIS:
       }));
 
     return {
-      response: response.choices[0].message.content || 'Erro ao processar.',
+      response: result.text || 'Erro ao processar.',
       executive: 'all',
       insights
     };

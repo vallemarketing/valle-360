@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
+import { emitEvent, markEventError, markEventProcessed } from '@/lib/admin/eventBus'
+import { handleEvent } from '@/lib/admin/eventHandlers'
+
 export const dynamic = 'force-dynamic';
 
 // POST - Enviar proposta para cliente
@@ -9,6 +12,12 @@ export async function POST(request: NextRequest) {
   const supabase = createRouteHandlerClient({ cookies })
   
   try {
+    const { data: authData } = await supabase.auth.getUser()
+    const actorUserId = authData.user?.id
+    if (!actorUserId) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
+
     const body = await request.json()
     const proposalId = body?.proposal_id || body?.proposalId || body?.id
 
@@ -41,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Gerar link da proposta
-    const origin = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin || 'http://localhost:3000'
+    const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin || 'http://localhost:3000'
     const proposalLink = `${origin}/proposta/${proposal.magic_link_token}`
 
     // Atualizar status para enviado
@@ -79,6 +88,23 @@ export async function POST(request: NextRequest) {
 
     // TODO: Integrar com SendGrid para enviar email real
     // Por enquanto, retornamos o link para cópia manual
+
+    // Event bus: proposal.sent (best-effort)
+    try {
+      const event = await emitEvent({
+        eventType: 'proposal.sent',
+        entityType: 'proposal',
+        entityId: proposalId,
+        actorUserId,
+        payload: { proposal_id: proposalId, client_email: proposal.client_email, client_name: proposal.client_name }
+      })
+
+      const handled = await handleEvent(event)
+      if (!handled.ok) await markEventError(event.id, handled.error)
+      else await markEventProcessed(event.id)
+    } catch {
+      // não bloqueia
+    }
 
     return NextResponse.json({
       success: true,

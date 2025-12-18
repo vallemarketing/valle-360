@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin'
+import { emitEvent, markEventError, markEventProcessed } from '@/lib/admin/eventBus'
+import { handleEvent } from '@/lib/admin/eventHandlers'
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const cookieStore = cookies()
+    const supabaseAuth = createRouteHandlerClient({ cookies: () => cookieStore })
+    const { data: sessionAuth } = await supabaseAuth.auth.getUser()
+    const actorUserId = sessionAuth.user?.id
+    if (!actorUserId) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
+
+    // Somente admin pode criar colaboradores (hub)
+    const { data: isAdmin, error: isAdminError } = await supabaseAuth.rpc('is_admin')
+    if (isAdminError || !isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { 
       nome, 
@@ -22,25 +41,17 @@ export async function POST(request: NextRequest) {
       nivelHierarquico
     } = body
 
-    // Criar cliente Supabase com Service Role (BYPASSA RLS)
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
+    // Service role (bypass RLS)
+    const supabaseAdmin = getSupabaseAdmin()
 
     // 1. Criar usuário no auth.users usando Admin API
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: createdAuth, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: senha,
       email_confirm: true,
       user_metadata: {
         full_name: `${nome} ${sobrenome}`,
+        user_type: 'employee',
         role: 'employee'
       }
     })
@@ -50,7 +61,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
-    const userId = authData.user.id
+    const userId = createdAuth.user.id
 
     // 2. Criar na tabela users (com Service Role bypassa RLS)
     const { data: userData, error: userError } = await supabaseAdmin
@@ -59,7 +70,12 @@ export async function POST(request: NextRequest) {
         id: userId,
         email,
         full_name: `${nome} ${sobrenome}`,
+        name: `${nome} ${sobrenome}`,
         role: 'employee',
+        user_type: 'employee',
+        phone: telefone || null,
+        account_status: 'active',
+        created_by: actorUserId,
         is_active: true,
         email_verified: true,
         two_factor_enabled: false,
@@ -92,7 +108,14 @@ export async function POST(request: NextRequest) {
         emergency_contact: contatoEmergencia || null,
         emergency_phone: telefoneEmergencia || null,
         pix_key: chavePix || null,
-        is_active: true
+        is_active: true,
+        // compat (telas antigas)
+        first_name: nome,
+        last_name: sobrenome,
+        whatsapp: telefone || null,
+        admission_date: new Date().toISOString().split('T')[0],
+        areas: Array.isArray(areas) ? areas : [],
+        photo_url: fotoUrl || null
       })
       .select()
       .single()
@@ -122,6 +145,33 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // 5. user_profiles (hub) - garantir
+    await supabaseAdmin.from('user_profiles').upsert({
+      id: userId,
+      user_id: userId,
+      email,
+      full_name: `${nome} ${sobrenome}`,
+      user_type: 'employee',
+      role: 'user',
+      is_active: true
+    })
+
+    // 6. Event bus: employee.created
+    const event = await emitEvent({
+      eventType: 'employee.created',
+      entityType: 'employee',
+      entityId: employeeData.id,
+      actorUserId,
+      payload: { employee_id: employeeData.id, user_id: userId, email }
+    }, supabaseAdmin)
+
+    const handled = await handleEvent(event)
+    if (!handled.ok) {
+      await markEventError(event.id, handled.error, supabaseAdmin)
+    } else {
+      await markEventProcessed(event.id, supabaseAdmin)
+    }
+
     console.log('✅ Colaborador criado com sucesso:', email)
 
     return NextResponse.json({
@@ -129,7 +179,8 @@ export async function POST(request: NextRequest) {
       userId,
       employeeId: employeeData.id,
       email,
-      emailPessoal
+      emailPessoal,
+      event_status: handled.ok ? 'processed' : 'error'
     })
 
   } catch (error: any) {

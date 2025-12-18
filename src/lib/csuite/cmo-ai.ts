@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import OpenAI from 'openai';
+import { generateWithAI } from '@/lib/ai/aiRouter';
 
 // =====================================================
 // TIPOS
@@ -113,19 +113,6 @@ export interface CMOAlert {
   createdAt: string;
 }
 
-// =====================================================
-// CONFIGURAÇÃO
-// =====================================================
-
-let openaiClient: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (openaiClient) return openaiClient;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY ausente');
-  openaiClient = new OpenAI({ apiKey });
-  return openaiClient;
-}
-
 const CMO_SYSTEM_PROMPT = `Você é o CMO virtual da Valle 360, uma agência de marketing digital.
 Seu papel é maximizar receita através de estratégias de aquisição, upsell e retenção.
 
@@ -215,25 +202,28 @@ function getGrowthPotential(segment: string): 'low' | 'medium' | 'high' | 'very_
 
 async function generateSegmentRecommendation(segment: SegmentAnalysis): Promise<string> {
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
+    const result = await generateWithAI({
+      task: 'strategy',
+      json: false,
+      temperature: 0.7,
+      maxTokens: 150,
+      entityType: 'cmo_segment_reco',
+      entityId: null,
       messages: [
         { role: 'system', content: CMO_SYSTEM_PROMPT },
         {
           role: 'user',
           content: `Gere 1 recomendação estratégica em 2 frases para este segmento:
-            Segmento: ${segment.segmentName}
-            Clientes: ${segment.clientCount}
-            Ticket médio: R$ ${segment.averageTicket.toFixed(0)}
-            Churn: ${segment.churnRate.toFixed(1)}%
-            Potencial: ${segment.growthPotential}`
+Segmento: ${segment.segmentName}
+Clientes: ${segment.clientCount}
+Ticket médio: R$ ${segment.averageTicket.toFixed(0)}
+Churn: ${segment.churnRate.toFixed(1)}%
+Potencial: ${segment.growthPotential}`
         }
       ],
-      max_tokens: 150,
-      temperature: 0.7
     });
 
-    return response.choices[0].message.content || 'Avaliar potencial de crescimento.';
+    return result.text || 'Avaliar potencial de crescimento.';
   } catch {
     return 'Avaliar potencial de crescimento e oportunidades de upsell.';
   }
@@ -380,26 +370,29 @@ async function generateApproachScript(
   service: string
 ): Promise<string> {
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
+    const result = await generateWithAI({
+      task: 'sales',
+      json: false,
+      temperature: 0.8,
+      maxTokens: 200,
+      entityType: 'cmo_upsell_script',
+      entityId: null,
       messages: [
         { role: 'system', content: CMO_SYSTEM_PROMPT },
         {
           role: 'user',
           content: `Crie um script de abordagem de upsell em 3-4 frases:
-            Cliente: ${client.name}
-            Setor: ${client.industry}
-            Serviços atuais: ${client.services?.join(', ') || 'Não informado'}
-            Serviço a oferecer: ${service}
-            
-            Seja natural e focado no valor para o cliente.`
+Cliente: ${client.name}
+Setor: ${client.industry}
+Serviços atuais: ${client.services?.join(', ') || 'Não informado'}
+Serviço a oferecer: ${service}
+
+Seja natural e focado no valor para o cliente.`
         }
       ],
-      max_tokens: 200,
-      temperature: 0.8
     });
 
-    return response.choices[0].message.content || 'Apresentar benefícios do serviço.';
+    return result.text || 'Apresentar benefícios do serviço.';
   } catch {
     return `Olá [Nome], notamos que você está tendo ótimos resultados com nossos serviços atuais. Tenho uma proposta que pode potencializar ainda mais: ${service}. Podemos conversar?`;
   }
@@ -631,23 +624,26 @@ export async function generateRetentionCampaign(
 
 async function generateRetentionMessage(clients: ChurnRisk[]): Promise<string> {
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
+    const result = await generateWithAI({
+      task: 'copywriting',
+      json: false,
+      temperature: 0.7,
+      maxTokens: 200,
+      entityType: 'cmo_retention_message',
+      entityId: null,
       messages: [
         { role: 'system', content: CMO_SYSTEM_PROMPT },
         {
           role: 'user',
           content: `Crie uma mensagem de retenção empática e profissional (3-4 frases) para clientes em risco de churn.
-            Principais problemas detectados: ${[...new Set(clients.flatMap(c => c.factors.map(f => f.factor)))].join(', ')}
-            
-            A mensagem deve reconhecer possíveis falhas e propor uma conversa.`
+Principais problemas detectados: ${[...new Set(clients.flatMap(c => c.factors.map(f => f.factor)))].join(', ')}
+
+A mensagem deve reconhecer possíveis falhas e propor uma conversa.`
         }
       ],
-      max_tokens: 200,
-      temperature: 0.7
     });
 
-    return response.choices[0].message.content || 'Gostaríamos de conversar sobre como podemos melhorar nossa parceria.';
+    return result.text || 'Gostaríamos de conversar sobre como podemos melhorar nossa parceria.';
   } catch {
     return 'Percebemos que podemos melhorar. Gostaríamos de agendar uma conversa para entender suas necessidades e garantir que estamos entregando o melhor para você.';
   }
@@ -772,18 +768,21 @@ ${dashboard.upsellOpportunities.slice(0, 3).map(o =>
 `;
 
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o',
+    const result = await generateWithAI({
+      task: 'strategy',
+      json: false,
+      temperature: 0.7,
+      maxTokens: 1000,
+      entityType: 'cmo_chat',
+      entityId: null,
       messages: [
         { role: 'system', content: CMO_SYSTEM_PROMPT },
         { role: 'system', content: contextData },
         { role: 'user', content: message }
       ],
-      max_tokens: 1000,
-      temperature: 0.7
     });
 
-    return response.choices[0].message.content || 'Desculpe, não consegui processar sua solicitação.';
+    return result.text || 'Desculpe, não consegui processar sua solicitação.';
   } catch (error) {
     console.error('Erro no chat CMO:', error);
     return 'Erro ao processar solicitação. Tente novamente.';

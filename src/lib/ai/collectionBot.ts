@@ -318,14 +318,35 @@ export async function sendCollection(target: CollectionTarget): Promise<boolean>
     
     for (const msg of messages) {
       if (msg.platform === 'internal') {
+        // notifications.user_id = auth.users.id (não é clients.id / employees.id)
+        let authUserId: string | null = null;
+        if (target.type === 'employee') {
+          const { data: employee } = await supabase
+            .from('employees')
+            .select('user_id')
+            .eq('id', target.id)
+            .maybeSingle();
+          authUserId = employee?.user_id ? String(employee.user_id) : null;
+        } else if (target.type === 'client') {
+          const { data: client } = await supabase
+            .from('clients')
+            .select('user_id')
+            .eq('id', target.id)
+            .maybeSingle();
+          authUserId = client?.user_id ? String(client.user_id) : null;
+        }
+
+        if (!authUserId) continue;
+
         // Criar notificação interna
         await supabase.from('notifications').insert({
-          user_id: target.id,
+          user_id: authUserId,
           type: 'reminder',
           title: 'Lembrete da Val',
           message: msg.message.substring(0, 200),
-          action_url: target.context.approvalLink || target.context.taskLink,
-          metadata: { actions: msg.actions }
+          link: target.context.approvalLink || target.context.taskLink || null,
+          is_read: false,
+          metadata: { actions: msg.actions, target_type: target.type, target_entity_id: target.id, reason: target.reason }
         });
       }
       

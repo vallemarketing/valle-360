@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import OpenAI from 'openai';
+import { generateWithAI } from '@/lib/ai/aiRouter';
 
 // =====================================================
 // TIPOS
@@ -153,19 +153,6 @@ export interface CHROAlert {
   department?: string;
   recommendedAction: string;
   createdAt: string;
-}
-
-// =====================================================
-// CONFIGURAÇÃO
-// =====================================================
-
-let openaiClient: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (openaiClient) return openaiClient;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY ausente');
-  openaiClient = new OpenAI({ apiKey });
-  return openaiClient;
 }
 
 const CHRO_SYSTEM_PROMPT = `Você é o CHRO virtual da Valle 360, uma agência de marketing digital.
@@ -847,18 +834,21 @@ ${dashboard.alerts.slice(0, 3).map(a => `- [${a.severity.toUpperCase()}] ${a.tit
 `;
 
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o',
+    const ai = await generateWithAI({
+      task: 'hr',
+      json: false,
+      temperature: 0.7,
+      maxTokens: 1000,
+      entityType: 'chro_chat',
+      entityId: null,
       messages: [
         { role: 'system', content: CHRO_SYSTEM_PROMPT },
         { role: 'system', content: contextData },
         { role: 'user', content: message }
       ],
-      max_tokens: 1000,
-      temperature: 0.7
     });
 
-    return response.choices[0].message.content || 'Desculpe, não consegui processar sua solicitação.';
+    return ai.text || 'Desculpe, não consegui processar sua solicitação.';
   } catch (error) {
     console.error('Erro no chat CHRO:', error);
     return 'Erro ao processar solicitação. Tente novamente.';

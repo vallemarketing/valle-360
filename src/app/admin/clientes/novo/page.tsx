@@ -191,93 +191,67 @@ export default function NovoClientePage() {
     setLoading(true)
 
     try {
-      // 1. Criar usuário no Supabase Auth
       const senhaProvisoria = gerarSenhaProvisoria()
-      
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: senhaProvisoria,
-      })
+      // 1) Criar cliente via API (bypassa RLS e evita trocar a sessão do admin)
+      const address = formData.cep || formData.logradouro || formData.cidade
+        ? {
+            cep: formData.cep,
+            logradouro: formData.logradouro,
+            numero: formData.numero,
+            complemento: formData.complemento,
+            bairro: formData.bairro,
+            cidade: formData.cidade,
+            estado: formData.estado,
+          }
+        : null
 
-      if (authError) throw authError
-
-      // 2. Criar registro na tabela users
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user?.id,
+      const res = await fetch('/api/admin/create-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           email: formData.email,
+          password: senhaProvisoria,
           full_name: formData.nome,
           phone: formData.telefone,
-          user_type: 'client',
-          account_status: 'pending',
-          created_by: (await supabase.auth.getUser()).data.user?.id
-        })
-        .select()
-        .single()
+          whatsapp: formData.whatsapp,
 
-      if (userError) throw userError
-
-      // 3. Criar registro de cliente completo
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .insert({
-          user_id: userData.id,
+          company_name: formData.nome_fantasia || formData.razao_social || formData.nome,
           nome_fantasia: formData.nome_fantasia,
           razao_social: formData.razao_social,
           tipo_pessoa: formData.tipo_pessoa,
           cpf_cnpj: formData.cpf_cnpj,
           data_nascimento: formData.data_nascimento || null,
-          whatsapp: formData.whatsapp,
-          cep: formData.cep,
-          logradouro: formData.logradouro,
-          numero: formData.numero,
-          complemento: formData.complemento,
-          bairro: formData.bairro,
-          cidade: formData.cidade,
-          estado: formData.estado,
-          profissao: formData.profissao,
-          area_atuacao: formData.area_atuacao,
-          site: formData.site,
-          numero_funcionarios: formData.numero_funcionarios ? parseInt(formData.numero_funcionarios) : null,
-          faturamento_estimado: formData.faturamento_estimado ? parseFloat(formData.faturamento_estimado) : null,
-          instagram: formData.instagram,
-          facebook: formData.facebook,
-          tiktok: formData.tiktok,
-          linkedin: formData.linkedin,
-          youtube: formData.youtube,
-          concorrentes: formData.concorrentes,
-          logo_url: formData.logo_url,
-          tags: formData.tags
-        })
-        .select()
-        .single()
+          industry: formData.area_atuacao || null,
+          website: formData.site || null,
+          address,
 
-      if (clientError) throw clientError
-
-      // 4. Criar contrato (se houver plano)
-      if (formData.plano_id) {
-        await supabase.from('contracts').insert({
-          client_id: clientData.id,
-          plan_id: formData.plano_id,
-          services: formData.servicos_contratados,
-          monthly_value: formData.valor_mensal ? parseFloat(formData.valor_mensal) : null,
-          due_day: formData.dia_vencimento ? parseInt(formData.dia_vencimento) : null,
-          start_date: formData.data_inicio,
-          status: 'active',
-          created_by: (await supabase.auth.getUser()).data.user?.id
+          monthly_value: formData.valor_mensal ? parseFloat(formData.valor_mensal) : 0,
+          plan_id: formData.plano_id || null,
+          servicos_contratados: formData.servicos_contratados,
+          dia_vencimento: formData.dia_vencimento ? parseInt(formData.dia_vencimento) : null,
+          data_inicio: formData.data_inicio || null,
         })
-      }
+      })
+
+      const apiData = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(apiData?.error || 'Falha ao criar cliente')
+
+      const clientData = apiData?.client
+      const userId = apiData?.user_id
 
       // 5. Registrar log de criação
-      await supabase.from('user_access_logs').insert({
-        user_id: userData.id,
-        action: 'client_created',
-        action_details: {
-          created_by: (await supabase.auth.getUser()).data.user?.id,
-          origin: 'admin_panel'
-        }
-      })
+      try {
+        await supabase.from('user_access_logs').insert({
+          user_id: userId,
+          action: 'client_created',
+          action_details: {
+            created_by: (await supabase.auth.getUser()).data.user?.id,
+            origin: 'admin_panel'
+          }
+        })
+      } catch {
+        // best-effort
+      }
 
       // 6. Enviar boas-vindas
       await enviarBoasVindas(clientData.id, formData.email, senhaProvisoria)

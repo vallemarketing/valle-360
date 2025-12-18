@@ -485,14 +485,19 @@ class AdsIntegrationService {
       if (!client) return false;
 
       // Cria notificação
-      await supabase.from('notifications').insert({
-        type: 'budget_recharge',
-        title: '💰 Recarga de Orçamento Necessária',
-        message: `Olá ${client.name}! O orçamento da sua conta de ${platform === 'meta' ? 'Meta Ads' : 'Google Ads'} está baixo. Recarregue para manter suas campanhas ativas.`,
-        target_user: clientId,
-        data: { account_id: accountId, platform },
-        created_at: new Date().toISOString()
-      });
+      const clientUserId = client.user_id ? String(client.user_id) : null;
+      if (clientUserId) {
+        await supabase.from('notifications').insert({
+          user_id: clientUserId,
+          type: 'budget_recharge',
+          title: '💰 Recarga de Orçamento Necessária',
+          message: `O orçamento da sua conta de ${platform === 'meta' ? 'Meta Ads' : 'Google Ads'} está baixo. Recarregue para manter suas campanhas ativas.`,
+          link: '/cliente/financeiro',
+          metadata: { client_id: clientId, account_id: accountId, platform },
+          is_read: false,
+          created_at: new Date().toISOString(),
+        });
+      }
 
       // Em produção, enviaria também por email/WhatsApp
       console.log(`[NOTIFICAÇÃO] Recarga enviada para ${client.email}`);

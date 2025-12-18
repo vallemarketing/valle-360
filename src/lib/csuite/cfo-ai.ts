@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import OpenAI from 'openai';
+import { generateWithAI } from '@/lib/ai/aiRouter';
 
 // =====================================================
 // TIPOS
@@ -81,19 +81,6 @@ export interface CFODashboard {
   worstClients: ClientProfitability[];
   forecasts: FinancialForecast[];
   pricingIssues: PricingRecommendation[];
-}
-
-// =====================================================
-// CONFIGURAÇÃO
-// =====================================================
-
-let openaiClient: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (openaiClient) return openaiClient;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY ausente');
-  openaiClient = new OpenAI({ apiKey });
-  return openaiClient;
 }
 
 const CFO_SYSTEM_PROMPT = `Você é o CFO virtual da Valle 360, uma agência de marketing digital.
@@ -217,29 +204,31 @@ async function generatePricingJustification(params: {
   marketComparison: string;
 }): Promise<string> {
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
+    const result = await generateWithAI({
+      task: 'analysis',
+      json: false,
+      temperature: 0.7,
+      maxTokens: 200,
+      entityType: 'cfo_pricing_justification',
+      entityId: null,
       messages: [
         { role: 'system', content: CFO_SYSTEM_PROMPT },
-        { 
-          role: 'user', 
+        {
+          role: 'user',
           content: `Gere uma justificativa de preço em 2-3 frases para:
-            Serviço: ${params.service}
-            Custo base: R$ ${params.cost.toFixed(2)}
-            Preço sugerido: R$ ${params.price.toFixed(2)}
-            Margem: ${(params.margin * 100).toFixed(0)}%
-            Benchmark de mercado: R$ ${params.benchmark.toFixed(2)}
-            Posição: ${params.marketComparison}
-            
-            Seja direto e focado no valor.`
+Serviço: ${params.service}
+Custo base: R$ ${params.cost.toFixed(2)}
+Preço sugerido: R$ ${params.price.toFixed(2)}
+Margem: ${(params.margin * 100).toFixed(0)}%
+Benchmark de mercado: R$ ${params.benchmark.toFixed(2)}
+Posição: ${params.marketComparison}
+
+Seja direto e focado no valor.`
         }
       ],
-      max_tokens: 200,
-      temperature: 0.7
     });
 
-    return response.choices[0].message.content || 
-      `Preço baseado em custo de R$ ${params.cost.toFixed(2)} com margem de ${(params.margin * 100).toFixed(0)}%.`;
+    return result.text || `Preço baseado em custo de R$ ${params.cost.toFixed(2)} com margem de ${(params.margin * 100).toFixed(0)}%.`;
   } catch {
     return `Preço calculado com base nos custos operacionais e margem alvo de ${(params.margin * 100).toFixed(0)}%.`;
   }
@@ -351,27 +340,30 @@ export async function generateProfitabilityInsights(clientId: string): Promise<s
 
   // Gerar insight com IA
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
+    const result = await generateWithAI({
+      task: 'analysis',
+      json: false,
+      temperature: 0.7,
+      maxTokens: 100,
+      entityType: 'cfo_profitability_insight',
+      entityId: latestMonth.client_id || null,
       messages: [
         { role: 'system', content: CFO_SYSTEM_PROMPT },
         { 
           role: 'user', 
           content: `Analise estes dados do cliente e dê 1 insight estratégico:
-            Receita: R$ ${latestMonth.revenue}
-            Custos: R$ ${latestMonth.direct_costs}
-            Horas gastas: ${latestMonth.hours_spent}h
-            Margem: ${latestMonth.margin_percentage?.toFixed(1)}%
-            
-            Responda em 1 frase direta com uma recomendação.`
+Receita: R$ ${latestMonth.revenue}
+Custos: R$ ${latestMonth.direct_costs}
+Horas gastas: ${latestMonth.hours_spent}h
+Margem: ${latestMonth.margin_percentage?.toFixed(1)}%
+
+Responda em 1 frase direta com uma recomendação.`
         }
       ],
-      max_tokens: 100,
-      temperature: 0.7
     });
 
-    if (response.choices[0].message.content) {
-      insights.push(`💡 ${response.choices[0].message.content}`);
+    if (result.text) {
+      insights.push(`💡 ${result.text}`);
     }
   } catch (e) {
     console.error('Erro ao gerar insight:', e);
@@ -619,18 +611,21 @@ PREVISÃO PRÓXIMO MÊS:
 `;
 
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o',
+    const result = await generateWithAI({
+      task: 'analysis',
+      json: false,
+      temperature: 0.7,
+      maxTokens: 1000,
+      entityType: 'cfo_chat',
+      entityId: null,
       messages: [
         { role: 'system', content: CFO_SYSTEM_PROMPT },
         { role: 'system', content: contextData },
         { role: 'user', content: message }
       ],
-      max_tokens: 1000,
-      temperature: 0.7
     });
 
-    return response.choices[0].message.content || 'Desculpe, não consegui processar sua solicitação.';
+    return result.text || 'Desculpe, não consegui processar sua solicitação.';
   } catch (error) {
     console.error('Erro no chat CFO:', error);
     return 'Erro ao processar solicitação. Tente novamente.';

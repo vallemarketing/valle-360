@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { motion } from 'framer-motion'
+import { useSearchParams } from 'next/navigation'
 import {
   Plus,
   Search,
@@ -31,19 +31,24 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { toast } from 'sonner'
 import ProfitabilityView from '@/components/dashboards/widgets/ProfitabilityView'
 
+type DbTaskStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'blocked' | 'cancelled'
+type DbTaskPriority = 'low' | 'medium' | 'high' | 'urgent'
+
 interface KanbanCard {
   id: string
   title: string
   description?: string
-  priority: 'low' | 'normal' | 'high' | 'urgent'
+  priority: DbTaskPriority
   dueDate?: Date
   assignees: string[]
   tags: string[]
   comments: number
   attachments: number
-  column: string
+  column: DbTaskStatus
   area?: string
   createdAt: Date
+  boardId?: string
+  clientId?: string
 }
 
 interface KanbanColumn {
@@ -53,12 +58,39 @@ interface KanbanColumn {
   cards: KanbanCard[]
 }
 
+function mapStatusForDb(status: string): DbTaskStatus {
+  if (status === 'review') return 'in_review'
+  if (status === 'in_review') return 'in_review'
+  if (status === 'todo') return 'todo'
+  if (status === 'in_progress') return 'in_progress'
+  if (status === 'done') return 'done'
+  if (status === 'backlog') return 'backlog'
+  if (status === 'blocked') return 'blocked'
+  if (status === 'cancelled') return 'cancelled'
+  return 'todo'
+}
+
+function mapPriorityForDb(priority: string): DbTaskPriority {
+  if (priority === 'normal') return 'medium'
+  if (priority === 'medium') return 'medium'
+  if (priority === 'low') return 'low'
+  if (priority === 'high') return 'high'
+  if (priority === 'urgent') return 'urgent'
+  return 'medium'
+}
+
 export default function AdminKanbanPage() {
+  const supabase = createClientComponentClient()
+  const searchParams = useSearchParams()
+  const deeplinkBoardId = searchParams.get('boardId')
+  const deeplinkTaskId = searchParams.get('taskId')
+  const [boardId, setBoardId] = useState<string | null>(null)
+  const [columnIdByStatus, setColumnIdByStatus] = useState<Partial<Record<DbTaskStatus, string>>>({})
   const [loading, setLoading] = useState(true)
   const [columns, setColumns] = useState<KanbanColumn[]>([
     { id: 'todo', title: 'A Fazer', color: '#F59E0B', cards: [] },
     { id: 'in_progress', title: 'Em Progresso', color: '#3B82F6', cards: [] },
-    { id: 'review', title: 'Revisão', color: '#8B5CF6', cards: [] },
+    { id: 'in_review', title: 'Revisão', color: '#8B5CF6', cards: [] },
     { id: 'done', title: 'Concluído', color: '#10B981', cards: [] }
   ])
   
@@ -77,39 +109,166 @@ export default function AdminKanbanPage() {
   })
 
   useEffect(() => {
-    loadTasks()
-  }, [])
+    loadTasks(deeplinkBoardId, deeplinkTaskId)
+  }, [deeplinkBoardId, deeplinkTaskId])
 
-  const loadTasks = async () => {
+  const ensureBoardAndColumns = async (preferredBoardId?: string | null) => {
+    const { data: auth } = await supabase.auth.getUser()
+    const userId = auth?.user?.id
+    if (!userId) throw new Error('Não autenticado')
+
+    // Board "Super Admin" (client_id null)
+    let { data: superBoard } = await supabase
+      .from('kanban_boards')
+      .select('id, name')
+      .is('client_id', null)
+      .eq('name', 'Super Admin')
+      .limit(1)
+      .maybeSingle()
+
+    if (!superBoard) {
+      const { data: created, error } = await supabase
+        .from('kanban_boards')
+        .insert({
+          name: 'Super Admin',
+          description: 'Quadro central do Admin',
+          client_id: null,
+          is_active: true,
+          created_by: userId
+        })
+        .select('id, name')
+        .single()
+      if (error) throw error
+      superBoard = created
+    }
+
+    let board = superBoard
+    if (preferredBoardId) {
+      const { data: preferred } = await supabase
+        .from('kanban_boards')
+        .select('id, name')
+        .eq('id', preferredBoardId)
+        .maybeSingle()
+
+      if (preferred?.id) {
+        board = preferred
+      }
+    }
+
+    // Columns do board
+    let { data: cols } = await supabase
+      .from('kanban_columns')
+      .select('id, name, position, color')
+      .eq('board_id', board.id)
+      .order('position', { ascending: true })
+
+    if (!cols || cols.length === 0) {
+      const defaults = [
+        { name: 'Backlog', position: 1, color: '#64748b' },
+        { name: 'A Fazer', position: 2, color: '#f59e0b' },
+        { name: 'Em Progresso', position: 3, color: '#3b82f6' },
+        { name: 'Em Revisão', position: 4, color: '#8b5cf6' },
+        { name: 'Concluído', position: 5, color: '#22c55e' },
+        { name: 'Bloqueado', position: 6, color: '#ef4444' },
+        { name: 'Cancelado', position: 7, color: '#9ca3af' }
+      ]
+
+      const { error: insErr } = await supabase
+        .from('kanban_columns')
+        .insert(defaults.map((c) => ({ ...c, board_id: board!.id })))
+      if (insErr) throw insErr
+
+      const reload = await supabase
+        .from('kanban_columns')
+        .select('id, name, position, color')
+        .eq('board_id', board.id)
+        .order('position', { ascending: true })
+      cols = reload.data || []
+    }
+
+    const nameToId: Record<string, string> = {}
+    ;(cols || []).forEach((c: any) => {
+      if (c?.name && c?.id) nameToId[String(c.name)] = String(c.id)
+    })
+
+    const fallbackColId = (cols || [])[0]?.id as string | undefined
+    const map: Partial<Record<DbTaskStatus, string>> = {
+      backlog: nameToId['Backlog'] || fallbackColId,
+      todo: nameToId['A Fazer'] || fallbackColId,
+      in_progress: nameToId['Em Progresso'] || fallbackColId,
+      in_review: (nameToId['Em Revisão'] || nameToId['Revisão']) || fallbackColId,
+      done: nameToId['Concluído'] || fallbackColId,
+      blocked: nameToId['Bloqueado'] || fallbackColId,
+      cancelled: nameToId['Cancelado'] || fallbackColId
+    }
+
+    setBoardId(board.id)
+    setColumnIdByStatus(map)
+    return { boardId: board.id as string, columnIdByStatus: map, userId }
+  }
+
+  const loadTasks = async (preferredBoardId?: string | null, preferredTaskId?: string | null) => {
     try {
-      // Carregar tarefas do admin
+      const init = await ensureBoardAndColumns(preferredBoardId)
       const { data: tasks, error } = await supabase
         .from('kanban_tasks')
         .select('*')
-        .eq('created_by_role', 'super_admin')
+        .eq('board_id', init.boardId)
+        .order('created_at', { ascending: false })
+        .limit(250)
 
       if (error) throw error
 
-      // Distribuir tasks nas colunas
-      const updatedColumns = columns.map(col => ({
-        ...col,
-        cards: tasks?.filter((task: any) => task.column === col.id).map((task: any) => ({
+      // Resolver nomes de responsáveis (assigned_to)
+      const assignedIds = Array.from(
+        new Set((tasks || []).map((t: any) => t.assigned_to).filter(Boolean))
+      ) as string[]
+
+      const assignedNameById: Record<string, string> = {}
+      if (assignedIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name, email')
+          .in('user_id', assignedIds)
+
+        ;(profiles || []).forEach((p: any) => {
+          assignedNameById[p.user_id] = p.full_name || p.email || p.user_id
+        })
+      }
+
+      const cardById: Record<string, KanbanCard> = {}
+      const cards = (tasks || []).map((task: any) => {
+        const card: KanbanCard = {
           id: task.id,
           title: task.title,
           description: task.description || '',
-          priority: task.priority || 'normal',
+          priority: mapPriorityForDb(task.priority || 'medium'),
           dueDate: task.due_date ? new Date(task.due_date) : undefined,
-          assignees: task.assignees || [],
+          assignees: task.assigned_to ? [assignedNameById[task.assigned_to] || task.assigned_to] : [],
           tags: task.tags || [],
           comments: 0,
-          attachments: 0,
-          column: task.column,
+          attachments: Array.isArray(task.attachment_urls) ? task.attachment_urls.length : (task.attachments ? 1 : 0),
+          column: mapStatusForDb(task.status),
           area: task.area || '',
-          createdAt: task.created_at ? new Date(task.created_at) : new Date()
-        })) || []
-      }))
+          createdAt: task.created_at ? new Date(task.created_at) : new Date(),
+          boardId: task.board_id,
+          clientId: task.client_id
+        }
+        cardById[card.id] = card
+        return card
+      })
 
-      setColumns(updatedColumns)
+      setColumns((prev) =>
+        prev.map((col) => ({
+          ...col,
+          cards: cards.filter((c) => c.column === col.id),
+        }))
+      )
+
+      if (preferredTaskId && cardById[preferredTaskId]) {
+        setSelectedCard(cardById[preferredTaskId])
+        setShowCardModal(true)
+      }
     } catch (error) {
       console.error('Erro ao carregar tarefas:', error)
     } finally {
@@ -133,7 +292,7 @@ export default function AdminKanbanPage() {
     const destCards = source.droppableId === destination.droppableId ? sourceCards : [...destColumn.cards]
 
     const [movedCard] = sourceCards.splice(source.index, 1)
-    movedCard.column = destination.droppableId
+    movedCard.column = mapStatusForDb(destination.droppableId)
     destCards.splice(destination.index, 0, movedCard)
 
     const sourceIndex = newColumns.findIndex(col => col.id === source.droppableId)
@@ -148,10 +307,43 @@ export default function AdminKanbanPage() {
 
     // Atualizar no banco
     try {
-      await supabase
-        .from('kanban_tasks')
-        .update({ column: movedCard.column })
-        .eq('id', movedCard.id)
+      const targetColumnId =
+        columnIdByStatus[movedCard.column] || columnIdByStatus.todo
+
+      if (!boardId || !targetColumnId) {
+        throw new Error('Board/colunas do Kanban não inicializados')
+      }
+
+      // Renumerar posições (source + destination) para manter ordenação consistente
+      const updates: Array<{ id: string; position: number; column_id: string; status: DbTaskStatus }> = []
+
+      const renumber = (col: KanbanColumn) => {
+        const colId = columnIdByStatus[(col.id as DbTaskStatus)] || columnIdByStatus.todo
+        ;(col.cards || []).forEach((c, idx) => {
+          updates.push({
+            id: c.id,
+            position: idx + 1,
+            column_id: colId as string,
+            status: c.column
+          })
+        })
+      }
+
+      renumber(newColumns[sourceIndex])
+      if (sourceIndex !== destIndex) renumber(newColumns[destIndex])
+
+      for (const u of updates) {
+        await supabase
+          .from('kanban_tasks')
+          .update({
+            status: u.status,
+            column_id: u.column_id,
+            position: u.position,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', u.id)
+          .eq('board_id', boardId)
+      }
     } catch (error) {
       console.error('Erro ao atualizar tarefa:', error)
     }
@@ -159,22 +351,69 @@ export default function AdminKanbanPage() {
 
   const handleNewTask = async (taskData: any) => {
     try {
+      const init =
+        boardId && Object.keys(columnIdByStatus || {}).length > 0
+          ? { boardId, columnIdByStatus }
+          : await ensureBoardAndColumns(deeplinkBoardId)
+
+      // Mapear coluna do formulário (pode vir como 'review' / 'briefing' etc) para status do DB
+      const rawColumn = taskData.column || 'todo'
+      const normalized =
+        rawColumn === 'review' ? 'in_review' :
+        rawColumn === 'done' || rawColumn === 'concluido' || rawColumn === 'concluído' ? 'done' :
+        rawColumn === 'in_progress' || rawColumn === 'em_execucao' || rawColumn === 'em_criacao' ? 'in_progress' :
+        rawColumn === 'backlog' || rawColumn === 'briefing' ? 'backlog' :
+        'todo'
+
+      const status = mapStatusForDb(normalized)
+      const priority = mapPriorityForDb(taskData.priority)
+
+      const links = typeof taskData.referenceLinks === 'string'
+        ? taskData.referenceLinks
+            .split(/[\n,; ]+/g)
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        : []
+
+      const clientHint = typeof taskData.client === 'string' ? taskData.client.trim() : ''
+      const baseDesc = (taskData.description || '').toString()
+      const description =
+        clientHint ? `Cliente: ${clientHint}\n\n${baseDesc}`.trim() : baseDesc || null
+
+      const columnId =
+        (init.columnIdByStatus as any)?.[status] ||
+        (init.columnIdByStatus as any)?.todo
+
+      if (!columnId) throw new Error('Coluna alvo não encontrada no board')
+
+      const { data: last } = await supabase
+        .from('kanban_tasks')
+        .select('position')
+        .eq('board_id', init.boardId)
+        .eq('column_id', columnId)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const position = Number(last?.position || 0) + 1
+
       const { data, error } = await supabase
         .from('kanban_tasks')
         .insert({
+          board_id: init.boardId,
+          column_id: columnId,
           title: taskData.title,
-          description: taskData.description,
-          priority: taskData.priority,
+          description,
+          priority,
+          status,
           due_date: taskData.dueDate,
-          column: taskData.column || 'todo',
           area: taskData.area,
-          assignees: taskData.assignees,
           tags: taskData.tags,
-          client: taskData.client,
-          reference_links: taskData.referenceLinks,
+          // Compat: salvar referências em jsonb
+          reference_links: links.length ? { links, raw: taskData.referenceLinks } : null,
           drive_link: taskData.driveLink,
-          estimated_hours: taskData.estimatedHours,
-          created_by_role: 'super_admin'
+          estimated_hours: taskData.estimatedHours ? Number(taskData.estimatedHours) : null,
+          position
         })
         .select()
 
@@ -195,6 +434,29 @@ export default function AdminKanbanPage() {
 
   const handleSaveCard = async (updatedCard: KanbanCard) => {
     try {
+      const init =
+        boardId && Object.keys(columnIdByStatus || {}).length > 0
+          ? { boardId, columnIdByStatus }
+          : await ensureAdminBoardAndColumns()
+
+      const status = mapStatusForDb(updatedCard.column)
+      const colId =
+        (init.columnIdByStatus as any)?.[status] ||
+        (init.columnIdByStatus as any)?.todo
+
+      if (!colId) throw new Error('Coluna alvo não encontrada no board')
+
+      const { data: last } = await supabase
+        .from('kanban_tasks')
+        .select('position')
+        .eq('board_id', init.boardId)
+        .eq('column_id', colId)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const position = Number(last?.position || 0) + 1
+
       await supabase
         .from('kanban_tasks')
         .update({
@@ -202,8 +464,11 @@ export default function AdminKanbanPage() {
           description: updatedCard.description,
           priority: updatedCard.priority,
           due_date: updatedCard.dueDate,
-          assignees: updatedCard.assignees,
-          tags: updatedCard.tags
+          tags: updatedCard.tags,
+          status,
+          column_id: colId,
+          position,
+          updated_at: new Date().toISOString()
         })
         .eq('id', updatedCard.id)
 
@@ -405,7 +670,7 @@ export default function AdminKanbanPage() {
                                       'px-2 py-1 rounded text-xs font-medium',
                                       card.priority === 'urgent' ? 'bg-red-100 text-red-700' :
                                       card.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                                      card.priority === 'normal' ? 'bg-blue-100 text-blue-700' :
+                                      card.priority === 'medium' ? 'bg-blue-100 text-blue-700' :
                                       'bg-gray-100 text-gray-700'
                                     )}>
                                       {card.priority}
@@ -481,7 +746,7 @@ export default function AdminKanbanPage() {
                         'px-2 py-1 rounded text-xs font-medium',
                         card.priority === 'urgent' ? 'bg-red-100 text-red-700' :
                         card.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                        card.priority === 'normal' ? 'bg-blue-100 text-blue-700' :
+                        card.priority === 'medium' ? 'bg-blue-100 text-blue-700' :
                         'bg-gray-100 text-gray-700'
                       )}>
                         {card.priority}

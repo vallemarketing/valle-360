@@ -553,14 +553,35 @@ class ContractGeneratorService {
 
   // Métodos auxiliares
   private async notifyLegalTeam(contract: Contract): Promise<void> {
-    await supabase.from('notifications').insert({
-      type: 'contract_review',
-      title: 'Novo contrato para revisão',
-      message: `Contrato de ${contract.client_company} aguardando revisão jurídica`,
-      target_role: 'juridico',
-      data: { contract_id: contract.id },
-      created_at: new Date().toISOString()
-    });
+    try {
+      // No schema atual, notifications é por usuário (auth.users). Em modo teste, avisamos admins.
+      const { data: admins } = await supabase
+        .from('user_profiles')
+        .select('user_id, user_type')
+        .in('user_type', ['super_admin', 'admin']);
+
+      const userIds = (admins || [])
+        .map((r: any) => r.user_id)
+        .filter(Boolean)
+        .map((id: any) => String(id));
+
+      if (userIds.length === 0) return;
+
+      await supabase.from('notifications').insert(
+        userIds.map((userId) => ({
+          user_id: userId,
+          type: 'contract_review',
+          title: 'Novo contrato para revisão',
+          message: `Contrato de ${contract.client_company} aguardando revisão jurídica`,
+          link: '/admin/contratos',
+          metadata: { contract_id: contract.id, target_role: 'juridico' },
+          is_read: false,
+          created_at: new Date().toISOString(),
+        }))
+      );
+    } catch {
+      // best-effort
+    }
   }
 
   private async notifyFinanceTeam(contractId: string): Promise<void> {
@@ -571,14 +592,34 @@ class ContractGeneratorService {
       .single();
 
     if (contract) {
-      await supabase.from('notifications').insert({
-        type: 'contract_signed',
-        title: 'Contrato assinado - Iniciar faturamento',
-        message: `Contrato de ${contract.client_company} assinado. Valor: R$ ${contract.total_value.toLocaleString('pt-BR')}`,
-        target_role: 'financeiro',
-        data: { contract_id: contractId },
-        created_at: new Date().toISOString()
-      });
+      try {
+        const { data: financeUsers } = await supabase
+          .from('user_profiles')
+          .select('user_id, user_type')
+          .in('user_type', ['finance', 'super_admin', 'admin']);
+
+        const userIds = (financeUsers || [])
+          .map((r: any) => r.user_id)
+          .filter(Boolean)
+          .map((id: any) => String(id));
+
+        if (userIds.length === 0) return;
+
+        await supabase.from('notifications').insert(
+          userIds.map((userId) => ({
+            user_id: userId,
+            type: 'contract_signed',
+            title: 'Contrato assinado - Iniciar faturamento',
+            message: `Contrato de ${contract.client_company} assinado.`,
+            link: '/admin/financeiro',
+            metadata: { contract_id: contractId, target_role: 'financeiro' },
+            is_read: false,
+            created_at: new Date().toISOString(),
+          }))
+        );
+      } catch {
+        // best-effort
+      }
     }
   }
 

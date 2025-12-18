@@ -5,7 +5,7 @@
  */
 
 import { tavilyClient } from '@/lib/integrations/tavily/client';
-import { getOpenAIClient, OPENAI_MODELS } from '@/lib/integrations/openai/client';
+import { generateWithAI } from '@/lib/ai/aiRouter';
 
 export interface Lead {
   id?: string;
@@ -107,8 +107,6 @@ class LeadScraperService {
     results: any[],
     config: ScrapingConfig
   ): Promise<Lead[]> {
-    const client = getOpenAIClient();
-
     const systemPrompt = `Você é um especialista em qualificação de leads B2B.
 Analise os resultados de busca e extraia informações de empresas potenciais.
 
@@ -134,8 +132,13 @@ Critérios de qualificação:
 - Empresas em ${config.location || 'Brasil'} = maior score`;
 
     try {
-      const response = await client.chat.completions.create({
-        model: OPENAI_MODELS.analysis,
+      const result = await generateWithAI({
+        task: 'sales',
+        json: true,
+        temperature: 0.3,
+        maxTokens: 1400,
+        entityType: 'lead_scraper',
+        entityId: null,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: JSON.stringify(results.map(r => ({
@@ -144,14 +147,9 @@ Critérios de qualificação:
             content: r.content
           }))) }
         ],
-        temperature: 0.3,
-        response_format: { type: 'json_object' }
       });
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) return [];
-
-      const parsed = JSON.parse(content);
+      const parsed = result.json || {};
       
       return (parsed.leads || []).map((lead: any) => ({
         company_name: lead.company_name,
@@ -187,10 +185,13 @@ Critérios de qualificação:
       ]);
 
       // Processar com IA
-      const client = getOpenAIClient();
-      
-      const response = await client.chat.completions.create({
-        model: OPENAI_MODELS.analysis,
+      const result = await generateWithAI({
+        task: 'sales',
+        json: true,
+        temperature: 0.3,
+        maxTokens: 1400,
+        entityType: 'lead_enrich',
+        entityId: null,
         messages: [
           { 
             role: 'system', 
@@ -225,14 +226,9 @@ Retorne JSON:
             })
           }
         ],
-        temperature: 0.3,
-        response_format: { type: 'json_object' }
       });
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) return lead;
-
-      const enrichment = JSON.parse(content);
+      const enrichment = result.json || {};
 
       return {
         ...lead,

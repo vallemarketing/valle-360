@@ -155,6 +155,29 @@ async function checkIntegrationHealth(
 
   try {
     switch (integrationId) {
+      case 'openrouter':
+        if (!config.api_key) return { healthy: false, error: 'API Key não configurada' };
+        try {
+          const r = await fetch('https://openrouter.ai/api/v1/models', {
+            headers: { Authorization: `Bearer ${config.api_key}` },
+          });
+          return {
+            healthy: r.ok,
+            error: r.ok ? undefined : 'Falha na autenticação',
+            responseTime: Date.now() - startTime,
+          };
+        } catch (e: any) {
+          return { healthy: false, error: e?.message || 'Falha no health check', responseTime: Date.now() - startTime };
+        }
+
+      case 'anthropic':
+        // Anthropic não tem endpoint simples de models público; validar apenas presença da key.
+        return { healthy: !!config.api_key, error: config.api_key ? undefined : 'API Key não configurada', responseTime: Date.now() - startTime };
+
+      case 'gemini':
+        // Validar apenas presença da key para evitar custos/chamadas.
+        return { healthy: !!config.api_key, error: config.api_key ? undefined : 'API Key não configurada', responseTime: Date.now() - startTime };
+
       case 'openai':
         if (!config.api_key) return { healthy: false, error: 'API Key não configurada' };
         const openaiResponse = await fetch('https://api.openai.com/v1/models', {

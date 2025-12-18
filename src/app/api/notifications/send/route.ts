@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
     
-    const { userId, type, title, message, metadata } = await request.json()
+    const { userId, type, title, message, metadata, link } = await request.json()
 
     if (!userId || !type || !title || !message) {
       return NextResponse.json(
@@ -24,12 +24,13 @@ export async function POST(request: NextRequest) {
       .from('notifications')
       .insert({
         user_id: userId,
-        type, // 'task_completed', 'task_assigned', 'mention', 'system'
+        type, // ex: 'system', 'task_assigned', etc
         title,
         message,
         metadata: metadata || {},
-        read: false,
-        created_at: new Date().toISOString()
+        link: link || null,
+        is_read: false,
+        created_at: new Date().toISOString(),
       })
       .select()
       .single()

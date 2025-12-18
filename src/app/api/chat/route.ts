@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import { generateWithAI } from '@/lib/ai/aiRouter'
 
 export const dynamic = 'force-dynamic';
-
-// OpenAI será inicializado sob demanda dentro das funções
 
 // Interface para mensagem
 interface Message {
@@ -107,19 +105,6 @@ Você ajuda colaboradores e gestores com:
 
 export async function POST(request: NextRequest) {
   try {
-    // Verificar se a API key está configurada
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: 'OpenAI API key não configurada' },
-        { status: 500 }
-      )
-    }
-
-    // Inicializar OpenAI sob demanda
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    })
-
     // Parse do body
     const body = await request.json()
     const { 
@@ -149,24 +134,23 @@ export async function POST(request: NextRequest) {
       }
     ]
 
-    // Chamar OpenAI
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview', // ou 'gpt-3.5-turbo' para mais velocidade/economia
-      messages: messages,
+    const result = await generateWithAI({
+      messages,
+      task: area === 'Comercial' ? 'sales' : area === 'RH' ? 'hr' : 'general',
       temperature: 0.7,
-      max_tokens: 800,
-      top_p: 1,
-      frequency_penalty: 0,
-      presence_penalty: 0
+      maxTokens: 800,
+      json: false,
+      entityType: 'chat',
+      entityId: null,
+      actorUserId: null
     })
-
-    const assistantMessage = completion.choices[0].message.content
 
     return NextResponse.json({
       success: true,
-      message: assistantMessage,
-      model: completion.model,
-      usage: completion.usage
+      message: result.text,
+      model: result.model,
+      provider: result.provider,
+      usage: result.usage
     })
 
   } catch (error: any) {
@@ -196,11 +180,13 @@ export async function POST(request: NextRequest) {
 
 // Health check endpoint
 export async function GET() {
+  const { getProviderStatus } = await import('@/lib/ai/aiRouter')
+  const providers = getProviderStatus()
   return NextResponse.json({
     status: 'ok',
     service: 'Valle 360 AI Chat API',
     timestamp: new Date().toISOString(),
-    openai_configured: !!process.env.OPENAI_API_KEY
+    providers
   })
 }
 

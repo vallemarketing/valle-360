@@ -379,16 +379,34 @@ class ProposalAutomationService {
         });
 
       // Notifica Jurídico
-      await supabase
-        .from('notifications')
-        .insert({
-          type: 'contract_pending',
-          title: 'Nova proposta aceita - Contrato pendente',
-          message: `A proposta para ${proposal.client_company} foi aceita. Valor: R$ ${proposal.total.toLocaleString('pt-BR')}`,
-          target_role: 'juridico',
-          data: { proposal_id: proposal.id },
-          created_at: new Date().toISOString()
-        });
+      try {
+        const { data: admins } = await supabase
+          .from('user_profiles')
+          .select('user_id, user_type')
+          .in('user_type', ['super_admin', 'admin']);
+
+        const userIds = (admins || [])
+          .map((r: any) => r.user_id)
+          .filter(Boolean)
+          .map((id: any) => String(id));
+
+        if (userIds.length > 0) {
+          await supabase.from('notifications').insert(
+            userIds.map((userId) => ({
+              user_id: userId,
+              type: 'contract_pending',
+              title: 'Nova proposta aceita - Contrato pendente',
+              message: `Proposta para ${proposal.client_company} foi aceita.`,
+              link: '/admin/contratos',
+              metadata: { proposal_id: proposal.id, target_role: 'juridico' },
+              is_read: false,
+              created_at: new Date().toISOString(),
+            }))
+          );
+        }
+      } catch {
+        // best-effort
+      }
 
     } catch (error) {
       console.error('Erro ao disparar criação de contrato:', error);

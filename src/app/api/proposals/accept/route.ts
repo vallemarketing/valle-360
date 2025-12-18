@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
+import { emitEvent, markEventError, markEventProcessed } from '@/lib/admin/eventBus'
+import { handleEvent } from '@/lib/admin/eventHandlers'
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin'
+
 export const dynamic = 'force-dynamic';
 
 function mapProposalForPublicPage(proposal: any) {
@@ -109,6 +113,23 @@ export async function POST(request: NextRequest) {
         })
       }
 
+      // Event bus: proposal.accepted (best-effort)
+      try {
+        const admin = getSupabaseAdmin()
+        const event = await emitEvent({
+          eventType: 'proposal.accepted',
+          entityType: 'proposal',
+          entityId: proposal.id,
+          actorUserId: null,
+          payload: { proposal_id: proposal.id, client_email: proposal.client_email, client_name: proposal.client_name }
+        }, admin)
+        const handled = await handleEvent(event)
+        if (!handled.ok) await markEventError(event.id, handled.error, admin)
+        else await markEventProcessed(event.id, admin)
+      } catch {
+        // não bloqueia o aceite
+      }
+
       return NextResponse.json({
         success: true,
         message: 'Proposta aceita com sucesso! Em breve você receberá o contrato.',
@@ -136,6 +157,23 @@ export async function POST(request: NextRequest) {
           link: `/admin/comercial/propostas`,
           metadata: { proposal_id: proposal.id }
         })
+      }
+
+      // Event bus: proposal.rejected (best-effort)
+      try {
+        const admin = getSupabaseAdmin()
+        const event = await emitEvent({
+          eventType: 'proposal.rejected',
+          entityType: 'proposal',
+          entityId: proposal.id,
+          actorUserId: null,
+          payload: { proposal_id: proposal.id, client_email: proposal.client_email, client_name: proposal.client_name, reason: rejection_reason || null }
+        }, admin)
+        const handled = await handleEvent(event)
+        if (!handled.ok) await markEventError(event.id, handled.error, admin)
+        else await markEventProcessed(event.id, admin)
+      } catch {
+        // não bloqueia
       }
 
       return NextResponse.json({

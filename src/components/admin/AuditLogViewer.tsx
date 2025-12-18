@@ -152,6 +152,32 @@ export default function AuditLogViewer() {
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const loadRealLogs = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/admin/audit-logs?limit=300');
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `Falha ao carregar logs [${res.status}]`);
+
+      const parsed = (data?.logs || []).map((l: any) => ({
+        ...l,
+        timestamp: new Date(l.timestamp),
+      }));
+
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setLogs(parsed);
+      } else {
+        // Sem logs ainda (modo teste) -> mantém mock
+        setLogs(mockLogs);
+      }
+    } catch (e) {
+      // fallback para mock
+      setLogs(mockLogs);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Filtrar logs
   useEffect(() => {
     let filtered = logs;
@@ -220,11 +246,14 @@ export default function AuditLogViewer() {
   };
 
   const handleRefresh = async () => {
-    setIsLoading(true);
-    // Simular refresh
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsLoading(false);
+    await loadRealLogs();
   };
+
+  // Load inicial
+  useEffect(() => {
+    loadRealLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleExport = () => {
     const csv = [

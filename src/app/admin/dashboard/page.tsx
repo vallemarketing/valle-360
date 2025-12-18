@@ -45,6 +45,7 @@ import IntegrationsOrbit from '@/components/valle-ui/IntegrationsOrbit'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { trackEvent } from '@/lib/telemetry/client'
+import { supabase } from '@/lib/supabase'
 
 interface DashboardStats {
   totalClients: number
@@ -64,6 +65,7 @@ interface RecentActivity {
   description: string
   time: string
   icon: 'user' | 'task' | 'money' | 'alert'
+  link?: string
 }
 
 interface ActiveClient {
@@ -110,7 +112,7 @@ export default function AdminDashboard() {
   const [selectedClient, setSelectedClient] = useState<ActiveClient | null>(null)
   const [showClientModal, setShowClientModal] = useState(false)
 
-  const activeClients: ActiveClient[] = [
+  const [activeClients, setActiveClients] = useState<ActiveClient[]>([
     {
       id: '1',
       name: 'João Silva',
@@ -166,7 +168,40 @@ export default function AdminDashboard() {
       nextDelivery: 'Contínuo',
       contractValue: 'R$ 15.000,00/mês'
     }
-  ]
+  ])
+
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    try {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      return token ? { Authorization: `Bearer ${token}` } : {}
+    } catch {
+      return {}
+    }
+  }
+
+  const [hubPendingLink, setHubPendingLink] = useState<string>('/admin/fluxos?tab=transitions&status=pending')
+
+  const loadDashboardReal = async () => {
+    try {
+      const authHeaders = await getAuthHeaders()
+      const res = await fetch('/api/admin/dashboard', { headers: authHeaders })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) return
+
+      if (data?.stats) setStats((prev) => ({ ...prev, ...data.stats }))
+      if (Array.isArray(data?.recentActivity) && data.recentActivity.length > 0) setRecentActivity(data.recentActivity)
+      if (Array.isArray(data?.activeClients) && data.activeClients.length > 0) setActiveClients(data.activeClients)
+      if (data?.hub?.links?.pending) setHubPendingLink(String(data.hub.links.pending))
+    } catch {
+      // mantém mock (modo teste)
+    }
+  }
+
+  useEffect(() => {
+    loadDashboardReal()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleClientClick = (client: ActiveClient) => {
     setSelectedClient(client)
@@ -284,9 +319,11 @@ export default function AdminDashboard() {
       value: stats.pendingTasks.toString(),
       change: { value: `${stats.completedTasksToday} concluídas hoje`, type: 'neutral' as const },
       icon: <Target className="w-5 h-5" />,
-      description: 'Aguardando execução'
+      description: 'Kanban + Fluxos + Eventos'
     }
   ]
+
+  const pendingLink = hubPendingLink
 
   const getActivityIcon = (type: 'user' | 'task' | 'money' | 'alert') => {
     const icons = {
@@ -344,6 +381,12 @@ export default function AdminDashboard() {
                 <Activity className="w-3 h-3 mr-1" />
                 Sistema Online
               </Badge>
+              <Link href={pendingLink}>
+                <Button variant="outline" className="border-[#1672d6]/30 text-[#1672d6] hover:bg-[#1672d6]/5">
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  Pendências do Hub
+                </Button>
+              </Link>
               <Button onClick={handleScrollToQuickActions} className="bg-[#1672d6] hover:bg-[#1672d6]/90">
                 <Zap className="w-4 h-4 mr-2" />
                 Ações Rápidas
@@ -359,7 +402,9 @@ export default function AdminDashboard() {
           transition={{ delay: 0.1 }}
           className="mb-8"
         >
-          <StatsCards stats={statsCards} columns={4} />
+          <Link href={pendingLink} className="block">
+            <StatsCards stats={statsCards} columns={4} />
+          </Link>
         </motion.div>
 
         {/* Main Grid */}
@@ -440,7 +485,7 @@ export default function AdminDashboard() {
                 <div className="space-y-4">
                   {recentActivity.map((activity) => {
                     const Icon = getActivityIcon(activity.icon)
-                    return (
+                    const Row = (
                       <motion.div
                         key={activity.id}
                         initial={{ opacity: 0, x: -10 }}
@@ -464,6 +509,16 @@ export default function AdminDashboard() {
                         </div>
                       </motion.div>
                     )
+
+                    if (activity.link) {
+                      return (
+                        <Link key={activity.id} href={activity.link} className="block">
+                          {Row}
+                        </Link>
+                      )
+                    }
+
+                    return Row
                   })}
                 </div>
               </CardContent>

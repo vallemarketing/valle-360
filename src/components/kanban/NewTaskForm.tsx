@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { X, Save, Calendar, Tag, User, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -15,15 +15,17 @@ interface NewTaskFormProps {
 }
 
 export function NewTaskForm({ isOpen, onClose, onSave, userArea }: NewTaskFormProps) {
-  const [selectedColumn, setSelectedColumn] = useState('briefing')
+  const availableColumns = getColumnsByArea(userArea)
+  const defaultColumn = availableColumns?.[0]?.id || 'todo'
+  const [selectedColumn, setSelectedColumn] = useState(defaultColumn)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    priority: 'normal',
+    priority: 'medium',
     dueDate: '',
     assignees: [],
     tags: [],
-    column: 'briefing',
+    column: 'todo',
     // Campos obrigatórios
     client: '',
     area: userArea || '',
@@ -36,8 +38,20 @@ export function NewTaskForm({ isOpen, onClose, onSave, userArea }: NewTaskFormPr
     dynamicFields: {} as Record<string, any>
   })
 
-  const availableColumns = getColumnsByArea(userArea)
   const columnFields = getFieldsByAreaAndColumn(userArea, selectedColumn)
+
+  // Se a área mudar, garantir que a coluna selecionada exista para evitar "value fora da lista"
+  useEffect(() => {
+    const cols = getColumnsByArea(userArea)
+    const first = cols?.[0]?.id || 'todo'
+    setSelectedColumn(first)
+    setFormData((prev) => ({
+      ...prev,
+      column: first,
+      area: userArea || prev.area
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userArea])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,15 +65,15 @@ export function NewTaskForm({ isOpen, onClose, onSave, userArea }: NewTaskFormPr
   }
 
   const resetForm = () => {
-    setSelectedColumn('briefing')
+    setSelectedColumn('todo')
     setFormData({
       title: '',
       description: '',
-      priority: 'normal',
+      priority: 'medium',
       dueDate: '',
       assignees: [],
       tags: [],
-      column: 'briefing',
+      column: 'todo',
       client: '',
       area: userArea || '',
       referenceLinks: '',
@@ -338,10 +352,10 @@ export function NewTaskForm({ isOpen, onClose, onSave, userArea }: NewTaskFormPr
                     color: 'var(--text-primary)'
                   }}
                 >
-                  <option value="baixa">Baixa</option>
-                  <option value="normal">Normal</option>
-                  <option value="alta">Alta</option>
-                  <option value="urgente">Urgente</option>
+                  <option value="low">Baixa</option>
+                  <option value="medium">Média</option>
+                  <option value="high">Alta</option>
+                  <option value="urgent">Urgente</option>
                 </select>
               </div>
 

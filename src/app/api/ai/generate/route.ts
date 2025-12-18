@@ -12,6 +12,7 @@ import {
   generateEmail,
   generateJobDescription 
 } from '@/lib/ai/intelligence-service';
+import { generateWithAI } from '@/lib/ai/aiRouter';
 
 export const dynamic = 'force-dynamic';
 
@@ -135,9 +136,6 @@ export async function POST(request: NextRequest) {
 
 // Função auxiliar para gerar proposta
 async function generateProposal(params: any) {
-  const { getOpenAIClient, OPENAI_MODELS } = await import('@/lib/integrations/openai/client');
-  const client = getOpenAIClient();
-
   const systemPrompt = `Você é um especialista em vendas de serviços de marketing digital.
 Crie uma proposta comercial profissional e persuasiva.
 
@@ -155,25 +153,24 @@ Retorne um JSON:
   "closing": "Parágrafo de fechamento"
 }`;
 
-  const response = await client.chat.completions.create({
-    model: OPENAI_MODELS.chat,
+  const result = await generateWithAI({
+    task: 'sales',
+    json: true,
+    temperature: 0.7,
+    maxTokens: 1400,
+    entityType: 'proposal_generate',
+    entityId: null,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: JSON.stringify(params) }
     ],
-    temperature: 0.7,
-    response_format: { type: 'json_object' }
   });
 
-  const content = response.choices[0]?.message?.content;
-  return content ? JSON.parse(content) : null;
+  return result.json || null;
 }
 
 // Função auxiliar para gerar relatório
 async function generateReport(params: any) {
-  const { getOpenAIClient, OPENAI_MODELS } = await import('@/lib/integrations/openai/client');
-  const client = getOpenAIClient();
-
   const systemPrompt = `Você é um analista de dados de marketing.
 Crie um relatório executivo baseado nos dados fornecidos.
 
@@ -188,17 +185,19 @@ Retorne um JSON:
   "conclusion": "Conclusão"
 }`;
 
-  const response = await client.chat.completions.create({
-    model: OPENAI_MODELS.analysis,
+  const result = await generateWithAI({
+    task: 'analysis',
+    json: true,
+    temperature: 0.5,
+    maxTokens: 1600,
+    entityType: 'report_generate',
+    entityId: null,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: JSON.stringify(params) }
     ],
-    temperature: 0.5,
-    response_format: { type: 'json_object' }
   });
 
-  const content = response.choices[0]?.message?.content;
-  return content ? JSON.parse(content) : null;
+  return result.json || null;
 }
 

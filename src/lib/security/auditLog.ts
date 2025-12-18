@@ -89,6 +89,11 @@ export interface AuditLogEntry {
   errorMessage?: string;
 }
 
+function isUuid(v?: string) {
+  if (!v) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+}
+
 // Buffer para batch insert (performance)
 let logBuffer: AuditLogEntry[] = [];
 let flushTimeout: NodeJS.Timeout | null = null;
@@ -147,34 +152,35 @@ async function flushLogs(): Promise<void> {
   }
 
   try {
-    // Em produção, salvar no Supabase
-    if (process.env.NODE_ENV === 'production') {
-      const { error } = await supabase
-        .from('audit_logs')
-        .insert(logsToFlush.map(log => ({
-          action: log.action,
+    // Salvar no schema atual (audit_logs)
+    const { error } = await supabase.from('audit_logs').insert(
+      logsToFlush.map((log) => ({
+        user_id: log.userId || null,
+        action: log.action,
+        entity_type: log.targetType || 'system',
+        entity_id: isUuid(log.targetId) ? log.targetId : null,
+        old_values: null,
+        new_values: {
           severity: log.severity,
-          user_id: log.userId,
+          success: log.success,
+          description: log.description,
+          metadata: log.metadata || null,
           user_email: log.userEmail,
           user_name: log.userName,
           user_role: log.userRole,
-          target_type: log.targetType,
-          target_id: log.targetId,
           target_name: log.targetName,
-          description: log.description,
-          metadata: log.metadata,
-          ip_address: log.ipAddress,
-          user_agent: log.userAgent,
           request_id: log.requestId,
-          duration: log.duration,
-          success: log.success,
-          error_message: log.errorMessage,
-          created_at: log.timestamp.toISOString()
-        })));
+          duration_ms: log.duration,
+          error_message: log.errorMessage || null,
+        },
+        ip_address: log.ipAddress || null,
+        user_agent: log.userAgent || null,
+        created_at: log.timestamp.toISOString(),
+      }))
+    );
 
-      if (error) {
-        console.error('Erro ao salvar audit logs:', error);
-      }
+    if (error) {
+      console.error('Erro ao salvar audit logs:', error);
     }
   } catch (error) {
     console.error('Erro ao flush audit logs:', error);
