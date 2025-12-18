@@ -390,7 +390,7 @@ export default function MetasPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showNewGoalModal, setShowNewGoalModal] = useState(false);
 
-  const getAuthHeaders = async () => {
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
@@ -445,7 +445,7 @@ export default function MetasPage() {
 
   const refreshGoalsFromApi = async () => {
     const authHeaders = await getAuthHeaders();
-    const res = await fetch('/api/goals', { headers: { ...authHeaders } });
+    const res = await fetch('/api/goals', { headers: authHeaders });
     const json = await res.json().catch(() => null);
     if (!res.ok || !json?.success) return;
     const rows = Array.isArray(json.data) ? json.data : [];
@@ -457,9 +457,9 @@ export default function MetasPage() {
     // Ranking simples baseado em pontos
     const rankingComputed: RankingEntry[] = mapped
       .slice()
-      .sort((a, b) => (b.points || 0) - (a.points || 0))
+      .sort((a: Goal, b: Goal) => (b.points || 0) - (a.points || 0))
       .slice(0, 10)
-      .map((g, idx) => ({
+      .map((g: Goal, idx: number) => ({
         position: idx + 1,
         collaborator: g.collaborator,
         points: g.points || 0,

@@ -638,7 +638,7 @@ export default function ClientsListPage() {
     })
   }
 
-  const getAuthHeaders = async () => {
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
       const { data } = await supabase.auth.getSession()
       const token = data.session?.access_token
@@ -651,7 +651,7 @@ export default function ClientsListPage() {
   const loadClientsReal = async () => {
     try {
       const authHeaders = await getAuthHeaders()
-      const res = await fetch('/api/admin/clients', { headers: { ...authHeaders } })
+      const res = await fetch('/api/admin/clients', { headers: authHeaders })
       const data = await res.json().catch(() => null)
       if (!res.ok) return
       if (Array.isArray(data?.clients) && data.clients.length > 0) {

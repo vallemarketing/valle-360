@@ -75,7 +75,7 @@ export function useAI(): UseAIReturn {
     }
   };
 
-  const getAuthHeaders = async () => {
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;

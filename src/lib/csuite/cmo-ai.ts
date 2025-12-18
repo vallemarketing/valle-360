@@ -117,9 +117,14 @@ export interface CMOAlert {
 // CONFIGURAÇÃO
 // =====================================================
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openaiClient: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (openaiClient) return openaiClient;
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY ausente');
+  openaiClient = new OpenAI({ apiKey });
+  return openaiClient;
+}
 
 const CMO_SYSTEM_PROMPT = `Você é o CMO virtual da Valle 360, uma agência de marketing digital.
 Seu papel é maximizar receita através de estratégias de aquisição, upsell e retenção.
@@ -210,7 +215,7 @@ function getGrowthPotential(segment: string): 'low' | 'medium' | 'high' | 'very_
 
 async function generateSegmentRecommendation(segment: SegmentAnalysis): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: CMO_SYSTEM_PROMPT },
@@ -375,7 +380,7 @@ async function generateApproachScript(
   service: string
 ): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: CMO_SYSTEM_PROMPT },
@@ -626,7 +631,7 @@ export async function generateRetentionCampaign(
 
 async function generateRetentionMessage(clients: ChurnRisk[]): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: CMO_SYSTEM_PROMPT },
@@ -767,7 +772,7 @@ ${dashboard.upsellOpportunities.slice(0, 3).map(o =>
 `;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: CMO_SYSTEM_PROMPT },

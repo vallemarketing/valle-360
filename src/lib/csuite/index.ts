@@ -53,9 +53,14 @@ export interface CSuiteInsight {
 // CONFIGURAÇÃO
 // =====================================================
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openaiClient: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (openaiClient) return openaiClient;
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY ausente');
+  openaiClient = new OpenAI({ apiKey });
+  return openaiClient;
+}
 
 const CSUITE_SYSTEM_PROMPT = `Você é a Diretoria Virtual da Valle 360, combinando as perspectivas de CFO, CTO, CMO e CHRO.
 Quando responder, considere todas as áreas de forma integrada e estratégica.
@@ -165,7 +170,7 @@ CHRO: ${data.chro ? `Performance ${data.chro.kpis.averagePerformance}%, Risco tu
 Alertas: ${data.alertsCount} total, ${data.criticalCount} críticos
 `;
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: 'Você gera resumos executivos concisos (2-3 frases) para diretoria.' },
@@ -241,7 +246,7 @@ MÉTRICAS PRINCIPAIS:
 `;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: CSUITE_SYSTEM_PROMPT },

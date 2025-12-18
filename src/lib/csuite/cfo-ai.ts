@@ -87,9 +87,14 @@ export interface CFODashboard {
 // CONFIGURAÇÃO
 // =====================================================
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openaiClient: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (openaiClient) return openaiClient;
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY ausente');
+  openaiClient = new OpenAI({ apiKey });
+  return openaiClient;
+}
 
 const CFO_SYSTEM_PROMPT = `Você é o CFO virtual da Valle 360, uma agência de marketing digital.
 Seu papel é analisar dados financeiros e fornecer insights estratégicos como um diretor financeiro experiente.
@@ -212,7 +217,7 @@ async function generatePricingJustification(params: {
   marketComparison: string;
 }): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: CFO_SYSTEM_PROMPT },
@@ -346,7 +351,7 @@ export async function generateProfitabilityInsights(clientId: string): Promise<s
 
   // Gerar insight com IA
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: CFO_SYSTEM_PROMPT },
@@ -614,7 +619,7 @@ PREVISÃO PRÓXIMO MÊS:
 `;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: CFO_SYSTEM_PROMPT },

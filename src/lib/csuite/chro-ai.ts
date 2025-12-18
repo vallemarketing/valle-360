@@ -159,9 +159,14 @@ export interface CHROAlert {
 // CONFIGURAÇÃO
 // =====================================================
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openaiClient: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (openaiClient) return openaiClient;
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY ausente');
+  openaiClient = new OpenAI({ apiKey });
+  return openaiClient;
+}
 
 const CHRO_SYSTEM_PROMPT = `Você é o CHRO virtual da Valle 360, uma agência de marketing digital.
 Seu papel é desenvolver pessoas, prever turnover e fortalecer a cultura organizacional.
@@ -842,7 +847,7 @@ ${dashboard.alerts.slice(0, 3).map(a => `- [${a.severity.toUpperCase()}] ${a.tit
 `;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: CHRO_SYSTEM_PROMPT },

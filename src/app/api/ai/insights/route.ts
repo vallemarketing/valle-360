@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
           supabase.from('contracts').select('value, status, start_date, end_date').eq('status', 'active')
         ]);
 
-        const clients = (clientsData.data || []).map(c => ({
+        const clients = (clientsData.data || []).map((c: any) => ({
           clientId: c.id,
           clientName: c.full_name || c.email,
           revenue: 0,
@@ -74,7 +74,10 @@ export async function POST(request: NextRequest) {
           supportTickets: 0
         }));
 
-        const totalRevenue = (financialData.data || []).reduce((sum, c) => sum + (c.value || 0), 0);
+        const totalRevenue = (financialData.data || []).reduce(
+          (sum: number, c: any) => sum + (c.value || 0),
+          0
+        );
 
         result = await generateStrategicInsights({
           clients,
@@ -129,7 +132,7 @@ export async function POST(request: NextRequest) {
           .select('value, start_date, status')
           .eq('status', 'active');
 
-        const revenue = (contracts || []).reduce((sum, c) => sum + (c.value || 0), 0);
+        const revenue = (contracts || []).reduce((sum: number, c: any) => sum + (c.value || 0), 0);
 
         result = await generateFinancialForecast({
           totalRevenue: revenue,

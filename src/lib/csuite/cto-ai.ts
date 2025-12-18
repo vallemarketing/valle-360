@@ -112,9 +112,14 @@ export interface CTOAlert {
 // CONFIGURAÇÃO
 // =====================================================
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openaiClient: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (openaiClient) return openaiClient;
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY ausente');
+  openaiClient = new OpenAI({ apiKey });
+  return openaiClient;
+}
 
 const CTO_SYSTEM_PROMPT = `Você é o CTO virtual da Valle 360, uma agência de marketing digital.
 Seu papel é otimizar operações, gerenciar capacidade produtiva e recomendar ferramentas e automações.
@@ -308,7 +313,7 @@ export async function analyzeAutomationPotential(processDescription: string): Pr
   estimatedSavings: number;
 }> {
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: CTO_SYSTEM_PROMPT },
@@ -629,7 +634,7 @@ ${dashboard.toolRecommendations.slice(0, 3).map(t =>
 `;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: CTO_SYSTEM_PROMPT },
