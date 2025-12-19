@@ -87,6 +87,9 @@ function extractIdsFromPayload(payload: any) {
     error_resolved_note: p.error_resolved_note || null,
     error_resolved_at: p.error_resolved_at || null,
     error_resolved_by: p.error_resolved_by || null,
+    marked_error_note: p.marked_error_note || null,
+    marked_error_at: p.marked_error_at || null,
+    marked_error_by: p.marked_error_by || null,
   };
 }
 
@@ -105,6 +108,7 @@ function FluxosContent() {
   const [completeDialog, setCompleteDialog] = useState<{ id: string; note: string } | null>(null);
   const [reopenDialog, setReopenDialog] = useState<{ id: string; note: string } | null>(null);
   const [resolveErrorDialog, setResolveErrorDialog] = useState<{ id: string; note: string } | null>(null);
+  const [markErrorDialog, setMarkErrorDialog] = useState<{ id: string; note: string } | null>(null);
 
   const filteredTransitions = useMemo(() => {
     const t = filterText.trim().toLowerCase();
@@ -288,6 +292,22 @@ function FluxosContent() {
       await loadTransitions();
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao resolver erro');
+    }
+  };
+
+  const markErrorWithNote = async (id: string, note: string) => {
+    try {
+      const res = await fetch('/api/admin/workflow-transitions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'error', action: 'mark_error', note }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || `Falha ao marcar erro [${res.status}]`);
+      toast.success('Transição marcada como erro');
+      await loadTransitions();
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao marcar erro');
     }
   };
 
@@ -475,6 +495,12 @@ function FluxosContent() {
                                 ids.error_resolved_by ? ` por ${String(ids.error_resolved_by).slice(0, 8)}…` : ''
                               }`
                             : null;
+                        const markedErrorLabel =
+                          ids.marked_error_at || ids.marked_error_by
+                            ? `Marcado erro${ids.marked_error_at ? ` em ${new Date(ids.marked_error_at).toLocaleString('pt-BR')}` : ''}${
+                                ids.marked_error_by ? ` por ${String(ids.marked_error_by).slice(0, 8)}…` : ''
+                              }`
+                            : null;
                         return (
                       <div
                         key={t.id}
@@ -501,6 +527,8 @@ function FluxosContent() {
                             {ids.reopened_note ? ` • Motivo: ${String(ids.reopened_note).slice(0, 120)}` : ''}
                             {resolvedLabel ? ` • ${resolvedLabel}` : ''}
                             {ids.error_resolved_note ? ` • Motivo: ${String(ids.error_resolved_note).slice(0, 120)}` : ''}
+                            {markedErrorLabel ? ` • ${markedErrorLabel}` : ''}
+                            {ids.marked_error_note ? ` • Motivo: ${String(ids.marked_error_note).slice(0, 120)}` : ''}
                           </div>
                           {(ids.client_id || ids.proposal_id || ids.contract_id || ids.invoice_id || ids.correlation_id) ? (
                             <div className="text-[11px] text-[#001533]/50 dark:text-white/50 space-x-2">
@@ -559,7 +587,7 @@ function FluxosContent() {
                           </Button>
                           <Button
                             variant="outline"
-                            onClick={() => updateTransitionStatus(t.id, 'error', 'Marcado como erro no Admin')}
+                            onClick={() => setMarkErrorDialog({ id: t.id, note: String(ids.marked_error_note || '') })}
                             disabled={String(t.status).toLowerCase() === 'error'}
                           >
                             <XCircle className="w-4 h-4 mr-2" />
@@ -736,6 +764,40 @@ function FluxosContent() {
                   }}
                 >
                   Voltar para pendente
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!markErrorDialog} onOpenChange={(o) => (!o ? setMarkErrorDialog(null) : null)}>
+          <DialogContent className="sm:max-w-[700px]">
+            <DialogHeader>
+              <DialogTitle>Marcar como erro</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-[#001533]/70 dark:text-white/70">
+                Informe o motivo do erro (fica salvo no Hub e vira o <b>error_message</b> da transição).
+              </p>
+              <textarea
+                value={markErrorDialog?.note || ''}
+                onChange={(e) => setMarkErrorDialog((prev) => (prev ? { ...prev, note: e.target.value } : prev))}
+                className="w-full min-h-[120px] px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-white/5 dark:border-white/10"
+                placeholder="Ex.: faltou client_id no payload, erro na criação de contrato, dados inválidos."
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setMarkErrorDialog(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!markErrorDialog) return;
+                    const { id, note } = markErrorDialog;
+                    setMarkErrorDialog(null);
+                    await markErrorWithNote(id, note || '');
+                  }}
+                >
+                  Marcar erro
                 </Button>
               </div>
             </div>

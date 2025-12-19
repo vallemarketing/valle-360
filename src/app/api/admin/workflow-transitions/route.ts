@@ -98,6 +98,20 @@ export async function PATCH(request: NextRequest) {
       completed_at: status === 'completed' ? now : null,
     };
 
+    // Marcar como erro (manual): registra nota/auditoria em data_payload e usa nota como error_message (se não vier error_message explícito)
+    if (status === 'error') {
+      const trimmed = note && String(note).trim() ? String(note).trim() : null;
+      if (trimmed) {
+        patch.data_payload = {
+          ...(prevPayload || {}),
+          marked_error_note: trimmed,
+          marked_error_by: actorUserId,
+          marked_error_at: now,
+        };
+        patch.error_message = errorMessage || trimmed;
+      }
+    }
+
     // Persistir notas/auditoria no data_payload (best-effort + merge)
     if (status === 'completed' && note && String(note).trim()) {
       patch.data_payload = {
