@@ -23,27 +23,65 @@ async function insertWorkflowTransition(params: {
   triggerEvent: string;
   payload?: Record<string, unknown>;
   createdBy?: string | null;
+  sourceEventId?: string | null;
+  correlationId?: string | null;
 }) {
   const supabase = getSupabaseAdmin();
+  const enrichedPayload = {
+    ...(params.payload || {}),
+    source_event_id: params.sourceEventId || null,
+    correlation_id: params.correlationId || null,
+  };
+
+  // Idempotência: evita duplicar transições caso o mesmo evento seja processado mais de uma vez.
+  if (params.sourceEventId) {
+    const { data: existing } = await supabase
+      .from('workflow_transitions')
+      .select('id')
+      .eq('from_area', params.fromArea)
+      .eq('to_area', params.toArea)
+      .eq('trigger_event', params.triggerEvent)
+      .eq('data_payload->>source_event_id', String(params.sourceEventId))
+      .limit(1)
+      .maybeSingle();
+
+    if (existing?.id) return;
+  }
+
   await supabase.from('workflow_transitions').insert({
     from_area: params.fromArea,
     to_area: params.toArea,
     status: 'pending',
     trigger_event: params.triggerEvent,
-    data_payload: params.payload || {},
+    data_payload: enrichedPayload,
     created_by: params.createdBy || null,
   });
 }
 
-async function notifyAdmins(title: string, message: string, payload?: Record<string, unknown>) {
+async function notifyAdmins(
+  title: string,
+  message: string,
+  payload?: Record<string, unknown>,
+  link?: string | null
+) {
   const supabase = getSupabaseAdmin();
   await notifyAdminUsers(supabase as any, {
     title,
     message,
     type: 'system',
     is_read: false,
+    link: link ?? null,
     metadata: payload || {},
   });
+}
+
+function hubLinkFor(params: { tab?: 'events' | 'transitions'; status?: string; q?: string }) {
+  const usp = new URLSearchParams();
+  if (params.tab) usp.set('tab', params.tab);
+  if (params.status) usp.set('status', params.status);
+  if (params.q) usp.set('q', params.q);
+  const qs = usp.toString();
+  return `/admin/fluxos${qs ? `?${qs}` : ''}`;
 }
 
 async function ensureClientFromProposal(clientName: string, clientEmail: string) {
@@ -238,14 +276,21 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
           triggerEvent: 'client.created',
           payload: event.payload,
           createdBy: event.actor_user_id,
+          sourceEventId: event.id,
+          correlationId: event.correlation_id,
         });
         if (event.entity_id) {
-          await createDefaultOnboardingKanban(event.entity_id, event.actor_user_id);
+          await getOrCreateOnboardingBoardId(event.entity_id, event.actor_user_id);
         }
-        await notifyAdmins('Novo cliente cadastrado', 'Cliente criado e onboarding iniciado.', {
+        await notifyAdmins(
+          'Novo cliente cadastrado',
+          'Cliente criado e onboarding iniciado.',
+          {
           client_id: event.entity_id,
           correlation_id: event.correlation_id,
-        });
+          },
+          hubLinkFor({ tab: 'transitions', status: 'pending', q: event.entity_id || event.correlation_id || 'client.created' })
+        );
         return { ok: true };
       }
 
@@ -256,6 +301,8 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
           triggerEvent: 'employee.created',
           payload: event.payload,
           createdBy: event.actor_user_id,
+          sourceEventId: event.id,
+          correlationId: event.correlation_id,
         });
 
         // Auto: gerar primeira meta mensal para o colaborador (para o sistema já começar “rodando”)
@@ -278,10 +325,15 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
           // best-effort: não bloquear fluxo
         }
 
-        await notifyAdmins('Novo colaborador cadastrado', 'Colaborador criado e pronto para receber metas/fluxos.', {
+        await notifyAdmins(
+          'Novo colaborador cadastrado',
+          'Colaborador criado e pronto para receber metas/fluxos.',
+          {
           employee_id: event.entity_id,
           correlation_id: event.correlation_id,
-        });
+          },
+          hubLinkFor({ tab: 'transitions', status: 'pending', q: event.entity_id || event.correlation_id || 'employee.created' })
+        );
         return { ok: true };
       }
 
@@ -290,13 +342,20 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
           fromArea: 'Comercial',
           toArea: 'Jurídico',
           triggerEvent: 'proposal.sent',
-          payload: event.payload,
+          payload: { ...(event.payload || {}), proposal_id: event.entity_id },
           createdBy: event.actor_user_id,
+          sourceEventId: event.id,
+          correlationId: event.correlation_id,
         });
-        await notifyAdmins('Proposta enviada', 'Proposta enviada ao cliente. Aguardando aceite.', {
+        await notifyAdmins(
+          'Proposta enviada',
+          'Proposta enviada ao cliente. Aguardando aceite.',
+          {
           proposal_id: event.entity_id,
           correlation_id: event.correlation_id,
-        });
+          },
+          hubLinkFor({ tab: 'transitions', status: 'pending', q: event.entity_id || event.correlation_id || 'proposal.sent' })
+        );
         return { ok: true };
       }
 
@@ -305,29 +364,50 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
           fromArea: 'Comercial',
           toArea: 'Comercial',
           triggerEvent: 'proposal.rejected',
-          payload: event.payload,
+          payload: { ...(event.payload || {}), proposal_id: event.entity_id },
           createdBy: event.actor_user_id,
+          sourceEventId: event.id,
+          correlationId: event.correlation_id,
         });
-        await notifyAdmins('Proposta rejeitada', 'O cliente rejeitou a proposta. Revisar abordagem e condições.', {
+        await notifyAdmins(
+          'Proposta rejeitada',
+          'O cliente rejeitou a proposta. Revisar abordagem e condições.',
+          {
           proposal_id: event.entity_id,
           correlation_id: event.correlation_id,
           ...(event.payload || {}),
-        });
+          },
+          hubLinkFor({ tab: 'transitions', status: 'pending', q: event.entity_id || event.correlation_id || 'proposal.rejected' })
+        );
         return { ok: true };
       }
 
       case 'proposal.accepted': {
-        // Comercial -> Jurídico -> Contratos -> Financeiro
+        // Comercial -> Jurídico -> Contratos -> Financeiro -> Operacao
+        const proposalId = event.entity_id;
+
+        // Se existir transição "proposal.sent" pendente para essa proposta, marcar como concluída (cadeia visível no Hub)
+        if (proposalId) {
+          await getSupabaseAdmin()
+            .from('workflow_transitions')
+            .update({ status: 'completed', completed_at: new Date().toISOString(), error_message: null })
+            .eq('trigger_event', 'proposal.sent')
+            .eq('status', 'pending')
+            .eq('data_payload->>proposal_id', String(proposalId));
+        }
+
+        // Próximo passo explícito: Jurídico -> Contratos
         await insertWorkflowTransition({
-          fromArea: 'Comercial',
+          fromArea: 'Jurídico',
           toArea: 'Contratos',
           triggerEvent: 'proposal.accepted',
-          payload: event.payload,
+          payload: { ...(event.payload || {}), proposal_id: proposalId },
           createdBy: event.actor_user_id,
+          sourceEventId: event.id,
+          correlationId: event.correlation_id,
         });
 
         const supabase = getSupabaseAdmin();
-        const proposalId = event.entity_id;
         if (proposalId) {
           const { data: proposal } = await supabase
             .from('proposals')
@@ -337,24 +417,38 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
 
           if (proposal?.client_email) {
             const clientId = await ensureClientFromProposal(proposal.client_name || proposal.client_email, proposal.client_email);
-            // Criar contrato básico
-            const { data: contract, error: contractErr } = await supabase
+            // garantir onboarding (idempotente)
+            await getOrCreateOnboardingBoardId(clientId, event.actor_user_id);
+            // Criar contrato básico (idempotente por proposal_id)
+            const { data: existingContract } = await supabase
               .from('contracts')
-              .insert({
-              client_id: clientId,
-              proposal_id: proposalId,
-              status: 'active',
-              active: true,
-              start_date: new Date().toISOString().slice(0, 10),
-              end_date: null,
-              monthly_value: proposal.total_value || 0,
-              due_day: 5,
-              created_at: new Date().toISOString(),
-              })
               .select('id, client_id, monthly_value, due_day, start_date')
-              .single();
+              .eq('proposal_id', proposalId)
+              .limit(1)
+              .maybeSingle();
 
-            if (contractErr) throw contractErr;
+            const contract =
+              existingContract?.id
+                ? existingContract
+                : (
+                    await supabase
+                      .from('contracts')
+                      .insert({
+                        client_id: clientId,
+                        proposal_id: proposalId,
+                        status: 'active',
+                        active: true,
+                        start_date: new Date().toISOString().slice(0, 10),
+                        end_date: null,
+                        monthly_value: proposal.total_value || 0,
+                        due_day: 5,
+                        created_at: new Date().toISOString(),
+                      })
+                      .select('id, client_id, monthly_value, due_day, start_date')
+                      .single()
+                  ).data;
+
+            if (!contract?.id) throw new Error('Falha ao obter/criar contrato');
 
             // Criar fatura inicial (Financeiro)
             const today = new Date();
@@ -363,66 +457,100 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
             const dueDateObj = new Date(today.getFullYear(), today.getMonth(), dueDay);
             const dueDate = dueDateObj.toISOString().slice(0, 10);
 
-            const invoiceNumber = `INV-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}-${String(
-              Math.floor(Math.random() * 9000) + 1000
-            )}`;
-
-            const { data: invoice, error: invoiceErr } = await supabase
+            // Fatura idempotente (por contract_id + issue_date)
+            const { data: existingInvoice } = await supabase
               .from('invoices')
-              .insert({
-                contract_id: contract.id,
-                client_id: contract.client_id,
-                invoice_number: invoiceNumber,
-                amount: contract.monthly_value || 0,
-                issue_date: issueDate,
-                due_date: dueDate,
-                status: 'pending',
-                notes: 'Fatura inicial gerada automaticamente a partir do aceite da proposta.',
-                created_at: new Date().toISOString(),
-              })
-              .select('id')
-              .single();
+              .select('id, invoice_number')
+              .eq('contract_id', contract.id)
+              .eq('issue_date', issueDate)
+              .limit(1)
+              .maybeSingle();
 
-            if (invoiceErr) throw invoiceErr;
+            const invoiceNumber =
+              existingInvoice?.invoice_number ||
+              `INV-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+                Math.floor(Math.random() * 9000) + 1000
+              )}`;
+
+            const invoice =
+              existingInvoice?.id
+                ? existingInvoice
+                : (
+                    await supabase
+                      .from('invoices')
+                      .insert({
+                        contract_id: contract.id,
+                        client_id: contract.client_id,
+                        invoice_number: invoiceNumber,
+                        amount: contract.monthly_value || 0,
+                        issue_date: issueDate,
+                        due_date: dueDate,
+                        status: 'pending',
+                        notes: 'Fatura inicial gerada automaticamente a partir do aceite da proposta.',
+                        created_at: new Date().toISOString(),
+                      })
+                      .select('id, invoice_number')
+                      .single()
+                  ).data;
+
+            if (!invoice?.id) throw new Error('Falha ao obter/criar fatura');
 
             // Registrar transação prevista
-            await supabase.from('financial_transactions').insert({
-              transaction_type: 'income',
-              category: 'subscription',
-              amount: contract.monthly_value || 0,
-              description: 'Receita prevista - contrato ativo',
-              transaction_date: issueDate,
-              invoice_id: invoice.id,
-              client_id: contract.client_id,
-              payment_method: null,
-              reference_number: invoiceNumber,
-              status: 'pending',
-              created_by: event.actor_user_id,
-              created_at: new Date().toISOString(),
-            });
+            const { data: existingTx } = await supabase
+              .from('financial_transactions')
+              .select('id')
+              .eq('invoice_id', invoice.id)
+              .limit(1)
+              .maybeSingle();
+
+            if (!existingTx?.id) {
+              await supabase.from('financial_transactions').insert({
+                transaction_type: 'income',
+                category: 'subscription',
+                amount: contract.monthly_value || 0,
+                description: 'Receita prevista - contrato ativo',
+                transaction_date: issueDate,
+                invoice_id: invoice.id,
+                client_id: contract.client_id,
+                payment_method: null,
+                reference_number: invoiceNumber,
+                status: 'pending',
+                created_by: event.actor_user_id,
+                created_at: new Date().toISOString(),
+              });
+            }
 
             // Workflow: Contratos -> Financeiro -> Operacao
             await insertWorkflowTransition({
               fromArea: 'Contratos',
               toArea: 'Financeiro',
               triggerEvent: 'contract.created',
-              payload: { contract_id: contract.id, invoice_id: invoice.id, client_id: contract.client_id },
+              payload: { proposal_id: proposalId, contract_id: contract.id, invoice_id: invoice.id, client_id: contract.client_id },
               createdBy: event.actor_user_id,
+              sourceEventId: event.id,
+              correlationId: event.correlation_id,
             });
             await insertWorkflowTransition({
               fromArea: 'Financeiro',
               toArea: 'Operacao',
               triggerEvent: 'invoice.created',
-              payload: { contract_id: contract.id, invoice_id: invoice.id, client_id: contract.client_id },
+              payload: { proposal_id: proposalId, contract_id: contract.id, invoice_id: invoice.id, client_id: contract.client_id },
               createdBy: event.actor_user_id,
+              sourceEventId: event.id,
+              correlationId: event.correlation_id,
             });
           }
         }
 
-        await notifyAdmins('Proposta aceita', 'Aceite confirmado. Contrato básico criado.', {
-          proposal_id: proposalId,
-          correlation_id: event.correlation_id,
-        });
+        await notifyAdmins(
+          'Proposta aceita',
+          'Aceite confirmado. Próximo passo: Jurídico → Contratos (e geração automática de contrato/fatura quando possível).',
+          {
+            proposal_id: proposalId,
+            correlation_id: event.correlation_id,
+          },
+          hubLinkFor({ tab: 'transitions', status: 'pending', q: proposalId || event.correlation_id || 'proposal.accepted' })
+        );
         return { ok: true };
       }
 
@@ -458,14 +586,21 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
           triggerEvent: 'invoice.paid',
           payload,
           createdBy: event.actor_user_id,
+          sourceEventId: event.id,
+          correlationId: event.correlation_id,
         });
 
-        await notifyAdmins('Fatura paga (Stripe)', 'Pagamento confirmado. Fluxo enviado para Operação.', {
+        await notifyAdmins(
+          'Fatura paga (Stripe)',
+          'Pagamento confirmado. Fluxo enviado para Operação.',
+          {
           invoice_id: invoiceId,
           client_id: payload.client_id,
           stripe_invoice_id: payload.stripe_invoice_id,
           correlation_id: event.correlation_id,
-        });
+          },
+          hubLinkFor({ tab: 'transitions', status: 'pending', q: invoiceId || String(payload.stripe_invoice_id || '') || event.correlation_id || 'invoice.paid' })
+        );
 
         if (payload.client_id) {
           await addOnboardingKanbanTask({
@@ -520,14 +655,25 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
           triggerEvent: 'invoice.payment_failed',
           payload,
           createdBy: event.actor_user_id,
+          sourceEventId: event.id,
+          correlationId: event.correlation_id,
         });
 
-        await notifyAdmins('Falha de pagamento (Stripe)', 'Pagamento falhou. Ação necessária do Financeiro/Comercial.', {
+        await notifyAdmins(
+          'Falha de pagamento (Stripe)',
+          'Pagamento falhou. Ação necessária do Financeiro/Comercial.',
+          {
           invoice_id: invoiceId,
           client_id: payload.client_id,
           stripe_invoice_id: payload.stripe_invoice_id,
           correlation_id: event.correlation_id,
-        });
+          },
+          hubLinkFor({
+            tab: 'transitions',
+            status: 'pending',
+            q: invoiceId || String(payload.stripe_invoice_id || '') || event.correlation_id || 'invoice.payment_failed',
+          })
+        );
 
         if (payload.client_id) {
           await addOnboardingKanbanTask({

@@ -12,6 +12,25 @@ async function resolveClientIdFromPayload(supabase: any, payload: any): Promise<
   if (payload.client_id) return String(payload.client_id);
   if (payload.clientId) return String(payload.clientId);
 
+  // proposal_id -> proposals.client_email -> clients
+  if (payload.proposal_id) {
+    const { data: proposal } = await supabase
+      .from('proposals')
+      .select('client_email')
+      .eq('id', payload.proposal_id)
+      .maybeSingle();
+    const email = proposal?.client_email ? String(proposal.client_email) : null;
+    if (email) {
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .or(`email.eq.${email},contact_email.eq.${email}`)
+        .limit(1)
+        .maybeSingle();
+      if (client?.id) return String(client.id);
+    }
+  }
+
   // invoice_id -> invoices.client_id
   if (payload.invoice_id) {
     const { data } = await supabase.from('invoices').select('client_id').eq('id', payload.invoice_id).maybeSingle();

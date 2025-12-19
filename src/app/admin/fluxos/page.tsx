@@ -81,11 +81,19 @@ function FluxosContent() {
       .filter((r) => (filterStatus === 'all' ? true : String(r.status).toLowerCase() === filterStatus))
       .filter((r) => {
         if (!t) return true;
+        const payloadStr = (() => {
+          try {
+            return JSON.stringify(r.data_payload || {}).toLowerCase();
+          } catch {
+            return '';
+          }
+        })();
         return (
           String(r.from_area || '').toLowerCase().includes(t) ||
           String(r.to_area || '').toLowerCase().includes(t) ||
           String(r.trigger_event || '').toLowerCase().includes(t) ||
-          String(r.error_message || '').toLowerCase().includes(t)
+          String(r.error_message || '').toLowerCase().includes(t) ||
+          payloadStr.includes(t)
         );
       });
   }, [transitions, filterStatus, filterText]);
@@ -96,10 +104,18 @@ function FluxosContent() {
       .filter((r) => (filterStatus === 'all' ? true : String(r.status).toLowerCase() === filterStatus))
       .filter((r) => {
         if (!t) return true;
+        const payloadStr = (() => {
+          try {
+            return JSON.stringify(r.payload || {}).toLowerCase();
+          } catch {
+            return '';
+          }
+        })();
         return (
           String(r.event_type || '').toLowerCase().includes(t) ||
           String(r.entity_type || '').toLowerCase().includes(t) ||
-          String(r.error_message || '').toLowerCase().includes(t)
+          String(r.error_message || '').toLowerCase().includes(t) ||
+          payloadStr.includes(t)
         );
       });
   }, [events, filterStatus, filterText]);
