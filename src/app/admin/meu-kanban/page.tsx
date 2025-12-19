@@ -437,7 +437,7 @@ export default function AdminKanbanPage() {
       const init =
         boardId && Object.keys(columnIdByStatus || {}).length > 0
           ? { boardId, columnIdByStatus }
-          : await ensureAdminBoardAndColumns()
+          : await ensureBoardAndColumns()
 
       const status = mapStatusForDb(updatedCard.column)
       const colId =
