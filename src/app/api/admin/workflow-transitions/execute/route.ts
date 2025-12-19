@@ -7,6 +7,46 @@ import { notifyAdmins } from '@/lib/admin/notifyAdmins';
 
 export const dynamic = 'force-dynamic';
 
+function extractExistingKanbanIds(payload: any): { boardId: string | null; taskId: string | null } {
+  if (!payload) return { boardId: null, taskId: null };
+  const p = payload as any;
+  const boardId = p.kanban_board_id || p.board_id || null;
+  const taskId = p.kanban_task_id || p.task_id || null;
+  return {
+    boardId: boardId ? String(boardId) : null,
+    taskId: taskId ? String(taskId) : null,
+  };
+}
+
+async function findExistingKanbanTaskForTransition(supabase: any, transitionId: string) {
+  // best-effort: schema pode variar (reference_links vs metadata)
+  try {
+    const { data } = await supabase
+      .from('kanban_tasks')
+      .select('id, board_id, client_id')
+      .eq('reference_links->>workflow_transition_id', transitionId)
+      .limit(1)
+      .maybeSingle();
+    if (data?.id && data?.board_id) return data as { id: string; board_id: string; client_id?: string | null };
+  } catch {
+    // ignore
+  }
+
+  try {
+    const { data } = await supabase
+      .from('kanban_tasks')
+      .select('id, board_id, client_id')
+      .eq('metadata->>workflow_transition_id', transitionId)
+      .limit(1)
+      .maybeSingle();
+    if (data?.id && data?.board_id) return data as { id: string; board_id: string; client_id?: string | null };
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
+
 async function resolveClientIdFromPayload(supabase: any, payload: any): Promise<string | null> {
   if (!payload) return null;
   if (payload.client_id) return String(payload.client_id);
@@ -82,11 +122,67 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error || !transition) return NextResponse.json({ error: 'Transição não encontrada' }, { status: 404 });
-    if (String(transition.status).toLowerCase() !== 'pending') {
+    const payload = transition.data_payload || {};
+    const status = String(transition.status || '').toLowerCase();
+    const existingIds = extractExistingKanbanIds(payload);
+
+    // Idempotência: se já foi executada e temos ids, só retorna.
+    if (status === 'completed' && existingIds.boardId && existingIds.taskId) {
+      return NextResponse.json({
+        success: true,
+        task_id: existingIds.taskId,
+        board_id: existingIds.boardId,
+        client_id: payload?.client_id ?? null,
+        already_executed: true,
+      });
+    }
+
+    // Idempotência: tentar achar tarefa já criada por reference_links/metadata (mesmo que payload não tenha ids)
+    const foundTask = await findExistingKanbanTaskForTransition(supabase, transition.id);
+    if (foundTask?.id && foundTask?.board_id) {
+      const executedAt = new Date().toISOString();
+      const mergedPayload = {
+        ...(payload || {}),
+        kanban_task_id: String(foundTask.id),
+        kanban_board_id: String(foundTask.board_id),
+        executed_at: (payload as any)?.executed_at || executedAt,
+        executed_by: (payload as any)?.executed_by || actorUserId,
+        client_id: (payload as any)?.client_id ?? (foundTask as any)?.client_id ?? null,
+      };
+
+      // Se ainda estava pendente, "fecha" como concluída.
+      if (status === 'pending') {
+        await supabase
+          .from('workflow_transitions')
+          .update({
+            status: 'completed',
+            completed_at: executedAt,
+            error_message: null,
+            data_payload: mergedPayload,
+          })
+          .eq('id', transition.id);
+      } else {
+        // status já completed/error, só garantir payload atualizado (best-effort)
+        try {
+          await supabase.from('workflow_transitions').update({ data_payload: mergedPayload }).eq('id', transition.id);
+        } catch {
+          // ignore
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        task_id: String(foundTask.id),
+        board_id: String(foundTask.board_id),
+        client_id: mergedPayload.client_id ?? null,
+        already_executed: true,
+      });
+    }
+
+    if (status !== 'pending') {
       return NextResponse.json({ error: 'Apenas transições pendentes podem ser executadas' }, { status: 400 });
     }
 
-    const payload = transition.data_payload || {};
     const clientId = await resolveClientIdFromPayload(supabase, payload);
 
     const boardId = clientId
