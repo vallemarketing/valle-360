@@ -191,10 +191,15 @@ async function processStripeEvent(
         const invoice = event.data.object as Stripe.Invoice;
         const stripeCustomerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
         const stripeSubscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
-        const customerEmail =
-          (invoice.customer_email ||
-            (typeof invoice.customer !== 'string' ? invoice.customer?.email : undefined)) ??
-          undefined;
+        const expandedCustomerEmail =
+          typeof invoice.customer !== 'string' &&
+          invoice.customer &&
+          'email' in invoice.customer &&
+          typeof invoice.customer.email === 'string'
+            ? invoice.customer.email
+            : undefined;
+
+        const customerEmail = invoice.customer_email ?? expandedCustomerEmail ?? undefined;
 
         // Tentar vincular ao client_id do sistema
         let clientId: string | null = null;
@@ -332,10 +337,15 @@ async function processStripeEvent(
         const invoice = event.data.object as Stripe.Invoice;
         const stripeCustomerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
         const stripeSubscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
-        const customerEmail =
-          (invoice.customer_email ||
-            (typeof invoice.customer !== 'string' ? invoice.customer?.email : undefined)) ??
-          undefined;
+        const expandedCustomerEmail =
+          typeof invoice.customer !== 'string' &&
+          invoice.customer &&
+          'email' in invoice.customer &&
+          typeof invoice.customer.email === 'string'
+            ? invoice.customer.email
+            : undefined;
+
+        const customerEmail = invoice.customer_email ?? expandedCustomerEmail ?? undefined;
 
         // Tentar vincular ao client_id do sistema
         let clientId: string | null = null;
