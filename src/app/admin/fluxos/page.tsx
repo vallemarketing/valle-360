@@ -70,6 +70,20 @@ function getKanbanLinkFromTransition(t: WorkflowTransitionRow): string | null {
   return `/admin/meu-kanban?boardId=${encodeURIComponent(String(boardId))}&taskId=${encodeURIComponent(String(taskId))}`;
 }
 
+function extractIdsFromPayload(payload: any) {
+  const p: any = payload || {};
+  return {
+    client_id: p.client_id || p.clientId || null,
+    proposal_id: p.proposal_id || null,
+    contract_id: p.contract_id || null,
+    invoice_id: p.invoice_id || null,
+    correlation_id: p.correlation_id || null,
+    executed_at: p.executed_at || null,
+    executed_by: p.executed_by || null,
+    completed_note: p.completed_note || null,
+  };
+}
+
 function FluxosContent() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<'transitions' | 'events'>('transitions');
@@ -82,6 +96,7 @@ function FluxosContent() {
   const [filterText, setFilterText] = useState('');
 
   const [openPayload, setOpenPayload] = useState<{ title: string; json: any } | null>(null);
+  const [completeDialog, setCompleteDialog] = useState<{ id: string; note: string } | null>(null);
 
   const filteredTransitions = useMemo(() => {
     const t = filterText.trim().toLowerCase();
@@ -217,6 +232,22 @@ function FluxosContent() {
       await loadTransitions();
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao atualizar fluxo');
+    }
+  };
+
+  const completeTransitionWithNote = async (id: string, note: string) => {
+    try {
+      const res = await fetch('/api/admin/workflow-transitions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'completed', note }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || `Falha ao concluir [${res.status}]`);
+      toast.success('Transição concluída');
+      await loadTransitions();
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao concluir transição');
     }
   };
 
@@ -385,6 +416,13 @@ function FluxosContent() {
                     {filteredTransitions.map((t) => (
                       (() => {
                         const kanbanLink = getKanbanLinkFromTransition(t);
+                        const ids = extractIdsFromPayload(t.data_payload);
+                        const execLabel =
+                          ids.executed_at || ids.executed_by
+                            ? `Executado${ids.executed_at ? ` em ${new Date(ids.executed_at).toLocaleString('pt-BR')}` : ''}${
+                                ids.executed_by ? ` por ${String(ids.executed_by).slice(0, 8)}…` : ''
+                              }`
+                            : null;
                         return (
                       <div
                         key={t.id}
@@ -397,11 +435,26 @@ function FluxosContent() {
                             </span>
                             {statusBadge(String(t.status))}
                             <Badge variant="outline">{t.trigger_event}</Badge>
+                            {ids.client_id ? <Badge variant="outline">Cliente</Badge> : null}
+                            {ids.proposal_id ? <Badge variant="outline">Proposta</Badge> : null}
+                            {ids.contract_id ? <Badge variant="outline">Contrato</Badge> : null}
+                            {ids.invoice_id ? <Badge variant="outline">Fatura</Badge> : null}
                           </div>
                           <div className="text-xs text-[#001533]/60 dark:text-white/60">
                             {new Date(t.created_at).toLocaleString('pt-BR')}
                             {t.error_message ? ` • ${t.error_message}` : ''}
+                            {execLabel ? ` • ${execLabel}` : ''}
+                            {ids.completed_note ? ` • Nota: ${String(ids.completed_note).slice(0, 120)}` : ''}
                           </div>
+                          {(ids.client_id || ids.proposal_id || ids.contract_id || ids.invoice_id || ids.correlation_id) ? (
+                            <div className="text-[11px] text-[#001533]/50 dark:text-white/50 space-x-2">
+                              {ids.client_id ? <span>client_id: {String(ids.client_id).slice(0, 10)}…</span> : null}
+                              {ids.proposal_id ? <span>proposal_id: {String(ids.proposal_id).slice(0, 10)}…</span> : null}
+                              {ids.contract_id ? <span>contract_id: {String(ids.contract_id).slice(0, 10)}…</span> : null}
+                              {ids.invoice_id ? <span>invoice_id: {String(ids.invoice_id).slice(0, 10)}…</span> : null}
+                              {ids.correlation_id ? <span>corr: {String(ids.correlation_id).slice(0, 10)}…</span> : null}
+                            </div>
+                          ) : null}
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -428,7 +481,7 @@ function FluxosContent() {
                           </Button>
                           <Button
                             variant="outline"
-                            onClick={() => updateTransitionStatus(t.id, 'completed')}
+                            onClick={() => setCompleteDialog({ id: t.id, note: String(ids.completed_note || '') })}
                             disabled={String(t.status).toLowerCase() === 'completed'}
                           >
                             <CheckCircle2 className="w-4 h-4 mr-2" />
@@ -514,6 +567,40 @@ function FluxosContent() {
             <pre className="text-xs bg-black/5 dark:bg-white/5 rounded-lg p-4 overflow-auto max-h-[70vh]">
 {JSON.stringify(openPayload?.json ?? {}, null, 2)}
             </pre>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!completeDialog} onOpenChange={(o) => (!o ? setCompleteDialog(null) : null)}>
+          <DialogContent className="sm:max-w-[700px]">
+            <DialogHeader>
+              <DialogTitle>Concluir transição</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-[#001533]/70 dark:text-white/70">
+                Escreva uma nota curta explicando a resolução (fica salva no Hub).
+              </p>
+              <textarea
+                value={completeDialog?.note || ''}
+                onChange={(e) => setCompleteDialog((prev) => (prev ? { ...prev, note: e.target.value } : prev))}
+                className="w-full min-h-[120px] px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-white/5 dark:border-white/10"
+                placeholder="Ex.: revisado com cliente, cláusulas ajustadas e enviado para assinatura."
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCompleteDialog(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!completeDialog) return;
+                    const { id, note } = completeDialog;
+                    setCompleteDialog(null);
+                    await completeTransitionWithNote(id, note || '');
+                  }}
+                >
+                  Concluir
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

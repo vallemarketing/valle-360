@@ -65,6 +65,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user?.id) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  const actorUserId = authData.user.id;
 
   const { data: isAdmin, error: isAdminError } = await supabase.rpc('is_admin');
   if (isAdminError || !isAdmin) return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
@@ -74,16 +75,34 @@ export async function PATCH(request: NextRequest) {
     const id = body?.id as string | undefined;
     const status = asWorkflowStatus(body?.status);
     const errorMessage = (body?.error_message ?? body?.errorMessage) as string | null | undefined;
+    const note = (body?.note ?? body?.completed_note ?? body?.completion_note) as string | null | undefined;
 
     if (!id || !status) {
       return NextResponse.json({ error: 'id e status são obrigatórios' }, { status: 400 });
     }
 
+    const now = new Date().toISOString();
     const patch: Record<string, any> = {
       status,
       error_message: status === 'error' ? (errorMessage || 'Erro informado pelo admin') : null,
-      completed_at: status === 'completed' ? new Date().toISOString() : null,
+      completed_at: status === 'completed' ? now : null,
     };
+
+    // Persistir notas/auditoria no data_payload (best-effort + merge)
+    if (status === 'completed' && note && String(note).trim()) {
+      const { data: existing } = await supabase
+        .from('workflow_transitions')
+        .select('data_payload')
+        .eq('id', id)
+        .maybeSingle();
+      const prev = (existing as any)?.data_payload || {};
+      patch.data_payload = {
+        ...(prev || {}),
+        completed_note: String(note),
+        completed_by: actorUserId,
+        completed_at: now,
+      };
+    }
 
     const { data, error } = await supabase
       .from('workflow_transitions')
