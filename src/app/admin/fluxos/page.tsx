@@ -62,6 +62,14 @@ function normalizeStatusForTab(tab: 'transitions' | 'events', status: string) {
   return s;
 }
 
+function getKanbanLinkFromTransition(t: WorkflowTransitionRow): string | null {
+  const p: any = t?.data_payload || {};
+  const boardId = p.kanban_board_id || p.board_id;
+  const taskId = p.kanban_task_id || p.task_id;
+  if (!boardId || !taskId) return null;
+  return `/admin/meu-kanban?boardId=${encodeURIComponent(String(boardId))}&taskId=${encodeURIComponent(String(taskId))}`;
+}
+
 function FluxosContent() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<'transitions' | 'events'>('transitions');
@@ -375,6 +383,9 @@ function FluxosContent() {
                 ) : (
                   <div className="space-y-2">
                     {filteredTransitions.map((t) => (
+                      (() => {
+                        const kanbanLink = getKanbanLinkFromTransition(t);
+                        return (
                       <div
                         key={t.id}
                         className="p-4 rounded-xl border border-[#001533]/10 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3"
@@ -401,6 +412,12 @@ function FluxosContent() {
                             <Eye className="w-4 h-4 mr-2" />
                             Payload
                           </Button>
+                          {kanbanLink ? (
+                            <Button variant="outline" onClick={() => window.location.assign(kanbanLink)}>
+                              <KanbanSquare className="w-4 h-4 mr-2" />
+                              Abrir no Kanban
+                            </Button>
+                          ) : null}
                           <Button
                             variant="outline"
                             onClick={() => sendTransitionToKanban(t.id)}
@@ -427,6 +444,8 @@ function FluxosContent() {
                           </Button>
                         </div>
                       </div>
+                        );
+                      })()
                     ))}
                   </div>
                 )}

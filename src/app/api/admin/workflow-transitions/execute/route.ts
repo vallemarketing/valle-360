@@ -115,10 +115,25 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Marcar transição como concluída (já virou execução)
+    const executedAt = new Date().toISOString();
+    const mergedPayload = {
+      ...(payload || {}),
+      kanban_task_id: task.id,
+      kanban_board_id: task.board_id,
+      executed_at: executedAt,
+      executed_by: actorUserId,
+      client_id: clientId ?? (payload as any)?.client_id ?? null,
+    };
+
+    // Marcar transição como concluída (já virou execução) + persistir ids do Kanban no payload
     await supabase
       .from('workflow_transitions')
-      .update({ status: 'completed', completed_at: new Date().toISOString(), error_message: null })
+      .update({
+        status: 'completed',
+        completed_at: executedAt,
+        error_message: null,
+        data_payload: mergedPayload,
+      })
       .eq('id', transition.id);
 
     // Notificar admins (broadcast)
