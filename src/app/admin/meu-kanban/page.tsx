@@ -27,29 +27,10 @@ import { cn } from '@/lib/utils'
 import { NewTaskForm } from '@/components/kanban/NewTaskForm'
 import { CardModal } from '@/components/kanban/CardModal'
 import { availableAreas, columnsByArea } from '@/lib/kanban/columnsByArea'
+import type { DbTaskPriority, DbTaskStatus, KanbanCard } from '@/lib/kanban/types'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { toast } from 'sonner'
 import ProfitabilityView from '@/components/dashboards/widgets/ProfitabilityView'
-
-type DbTaskStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'blocked' | 'cancelled'
-type DbTaskPriority = 'low' | 'medium' | 'high' | 'urgent'
-
-interface KanbanCard {
-  id: string
-  title: string
-  description?: string
-  priority: DbTaskPriority
-  dueDate?: Date
-  assignees: string[]
-  tags: string[]
-  comments: number
-  attachments: number
-  column: DbTaskStatus
-  area?: string
-  createdAt: Date
-  boardId?: string
-  clientId?: string
-}
 
 interface KanbanColumn {
   id: string

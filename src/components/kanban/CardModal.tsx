@@ -10,28 +10,13 @@ import {
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-
-interface KanbanCard {
-  id: string
-  title: string
-  description?: string
-  column: string
-  priority: 'urgent' | 'high' | 'medium' | 'low'
-  assignees: string[]
-  tags: string[]
-  dueDate?: Date
-  attachments: number
-  comments: number
-  createdAt: Date
-  area?: string
-  columnEnteredAt?: Date // Timestamp de quando entrou na coluna atual
-}
+import type { KanbanCard } from '@/lib/kanban/types'
 
 interface CardModalProps {
   card: KanbanCard | null
   isOpen: boolean
   onClose: () => void
-  onSave: (card: KanbanCard) => void
+  onSave: (card: KanbanCard) => void | Promise<void>
   onDelete: (cardId: string) => void
   isSuperAdmin?: boolean
 }
@@ -92,7 +77,7 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
   // Lógica de validação para movimentação
   const validateMove = (targetColumn: string) => {
     // Regras de Negócio
-    if (targetColumn === 'done' || targetColumn === 'concluido') {
+    if (targetColumn === 'done') {
         // Exemplo: Para mover para Done, precisa ter anexo ou link se for tarefa de Design
         if (editedCard.area === 'Design' && editedCard.attachments === 0 && !editedCard.description?.includes('http')) {
             return 'Para concluir tarefas de Design, é obrigatório anexar o arquivo ou link do projeto.'
@@ -106,7 +91,7 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
     return null
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editedCard) return
 
     // Validar mudança de coluna
@@ -121,7 +106,13 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
         editedCard.columnEnteredAt = new Date();
     }
 
-    onSave(editedCard)
+    try {
+      await onSave(editedCard)
+    } catch (e) {
+      console.error('Erro ao salvar card:', e)
+      toast.error('Erro ao salvar tarefa')
+      return
+    }
     setIsEditing(false)
     setValidationError(null)
   }
