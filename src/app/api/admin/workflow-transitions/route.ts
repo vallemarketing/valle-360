@@ -104,6 +104,29 @@ export async function PATCH(request: NextRequest) {
       };
     }
 
+    // Reabrir (manual): status pending + nota auditável
+    if (status === 'pending') {
+      // Se está reabrindo, limpar completed_at e também limpar error_message
+      patch.completed_at = null;
+      patch.error_message = null;
+
+      const reopenNote = note && String(note).trim() ? String(note) : null;
+      if (reopenNote) {
+        const { data: existing } = await supabase
+          .from('workflow_transitions')
+          .select('data_payload')
+          .eq('id', id)
+          .maybeSingle();
+        const prev = (existing as any)?.data_payload || {};
+        patch.data_payload = {
+          ...(prev || {}),
+          reopened_note: reopenNote,
+          reopened_by: actorUserId,
+          reopened_at: now,
+        };
+      }
+    }
+
     const { data, error } = await supabase
       .from('workflow_transitions')
       .update(patch)
