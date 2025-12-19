@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { motion } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
@@ -60,7 +60,7 @@ function mapPriorityForDb(priority: string): DbTaskPriority {
   return 'medium'
 }
 
-export default function AdminKanbanPage() {
+function AdminKanbanContent() {
   const supabase = createClientComponentClient()
   const searchParams = useSearchParams()
   const deeplinkBoardId = searchParams.get('boardId')
@@ -795,5 +795,13 @@ export default function AdminKanbanPage() {
         />
       )}
     </div>
+  )
+}
+
+export default function AdminKanbanPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-[#001533]/60 dark:text-white/60">Carregando…</div>}>
+      <AdminKanbanContent />
+    </Suspense>
   )
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,7 +62,7 @@ function normalizeStatusForTab(tab: 'transitions' | 'events', status: string) {
   return s;
 }
 
-export default function FluxosPage() {
+function FluxosContent() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<'transitions' | 'events'>('transitions');
   const [loading, setLoading] = useState(false);
@@ -483,6 +483,14 @@ export default function FluxosPage() {
         </Dialog>
       </div>
     </div>
+  );
+}
+
+export default function FluxosPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-[#001533]/60 dark:text-white/60">Carregando…</div>}>
+      <FluxosContent />
+    </Suspense>
   );
 }
 
