@@ -8,16 +8,25 @@ interface TabsContextValue {
 
 const TabsContext = React.createContext<TabsContextValue | undefined>(undefined);
 
-interface TabsProps {
-  defaultValue: string;
+type TabsProps = {
+  /**
+   * Use `value` for a controlled tabs component OR `defaultValue` for uncontrolled.
+   * At least one of them must be provided.
+   */
+  defaultValue?: string;
   value?: string;
   onValueChange?: (value: string) => void;
   children: React.ReactNode;
   className?: string;
-}
+};
 
 export function Tabs({ defaultValue, value, onValueChange, children, className }: TabsProps) {
-  const [activeTab, setActiveTab] = React.useState(value || defaultValue);
+  if (value === undefined && defaultValue === undefined) {
+    throw new Error('Tabs requires either `value` (controlled) or `defaultValue` (uncontrolled).');
+  }
+
+  const initialTab = value ?? defaultValue ?? '';
+  const [activeTab, setActiveTab] = React.useState(initialTab);
 
   React.useEffect(() => {
     if (value !== undefined) {

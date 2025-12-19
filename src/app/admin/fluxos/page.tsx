@@ -338,7 +338,11 @@ export default function FluxosPage() {
           />
         </div>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+        <Tabs
+          value={tab}
+          defaultValue={tab}
+          onValueChange={(v) => setTab(v as 'events' | 'transitions')}
+        >
           <TabsList>
             <TabsTrigger value="transitions">Transições</TabsTrigger>
             <TabsTrigger value="events">Eventos</TabsTrigger>
