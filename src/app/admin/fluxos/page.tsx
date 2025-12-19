@@ -90,6 +90,11 @@ function extractIdsFromPayload(payload: any) {
     marked_error_note: p.marked_error_note || null,
     marked_error_at: p.marked_error_at || null,
     marked_error_by: p.marked_error_by || null,
+    rerouted_note: p.rerouted_note || null,
+    rerouted_at: p.rerouted_at || null,
+    rerouted_by: p.rerouted_by || null,
+    rerouted_from_area: p.rerouted_from_area || null,
+    rerouted_to_area: p.rerouted_to_area || null,
   };
 }
 
@@ -109,6 +114,7 @@ function FluxosContent() {
   const [reopenDialog, setReopenDialog] = useState<{ id: string; note: string } | null>(null);
   const [resolveErrorDialog, setResolveErrorDialog] = useState<{ id: string; note: string } | null>(null);
   const [markErrorDialog, setMarkErrorDialog] = useState<{ id: string; note: string } | null>(null);
+  const [rerouteDialog, setRerouteDialog] = useState<{ id: string; toArea: string; note: string } | null>(null);
 
   const filteredTransitions = useMemo(() => {
     const t = filterText.trim().toLowerCase();
@@ -311,6 +317,22 @@ function FluxosContent() {
     }
   };
 
+  const rerouteTransition = async (id: string, toArea: string, note: string) => {
+    try {
+      const res = await fetch('/api/admin/workflow-transitions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'pending', action: 'reroute', to_area: toArea, note }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || `Falha ao encaminhar [${res.status}]`);
+      toast.success('Transição encaminhada');
+      await loadTransitions();
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao encaminhar');
+    }
+  };
+
   const processPendingEvents = async () => {
     try {
       const res = await fetch('/api/admin/events/process', {
@@ -501,6 +523,12 @@ function FluxosContent() {
                                 ids.marked_error_by ? ` por ${String(ids.marked_error_by).slice(0, 8)}…` : ''
                               }`
                             : null;
+                        const reroutedLabel =
+                          ids.rerouted_at || ids.rerouted_by
+                            ? `Encaminhado${ids.rerouted_at ? ` em ${new Date(ids.rerouted_at).toLocaleString('pt-BR')}` : ''}${
+                                ids.rerouted_by ? ` por ${String(ids.rerouted_by).slice(0, 8)}…` : ''
+                              }`
+                            : null;
                         return (
                       <div
                         key={t.id}
@@ -529,6 +557,9 @@ function FluxosContent() {
                             {ids.error_resolved_note ? ` • Motivo: ${String(ids.error_resolved_note).slice(0, 120)}` : ''}
                             {markedErrorLabel ? ` • ${markedErrorLabel}` : ''}
                             {ids.marked_error_note ? ` • Motivo: ${String(ids.marked_error_note).slice(0, 120)}` : ''}
+                            {reroutedLabel ? ` • ${reroutedLabel}` : ''}
+                            {ids.rerouted_to_area ? ` • Para: ${String(ids.rerouted_to_area)}` : ''}
+                            {ids.rerouted_note ? ` • Motivo: ${String(ids.rerouted_note).slice(0, 120)}` : ''}
                           </div>
                           {(ids.client_id || ids.proposal_id || ids.contract_id || ids.invoice_id || ids.correlation_id) ? (
                             <div className="text-[11px] text-[#001533]/50 dark:text-white/50 space-x-2">
@@ -584,6 +615,15 @@ function FluxosContent() {
                             disabled={String(t.status).toLowerCase() !== 'error'}
                           >
                             Resolver erro
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              setRerouteDialog({ id: t.id, toArea: String(t.to_area || ''), note: String(ids.rerouted_note || '') })
+                            }
+                            disabled={String(t.status).toLowerCase() !== 'pending'}
+                          >
+                            Encaminhar
                           </Button>
                           <Button
                             variant="outline"
@@ -798,6 +838,66 @@ function FluxosContent() {
                   }}
                 >
                   Marcar erro
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!rerouteDialog} onOpenChange={(o) => (!o ? setRerouteDialog(null) : null)}>
+          <DialogContent className="sm:max-w-[700px]">
+            <DialogHeader>
+              <DialogTitle>Encaminhar transição</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-[#001533]/70 dark:text-white/70">
+                Selecione a área destino e descreva o motivo. A transição permanece <b>pendente</b>.
+              </p>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-500 block uppercase tracking-wider">Área destino</label>
+                <select
+                  value={rerouteDialog?.toArea || ''}
+                  onChange={(e) => setRerouteDialog((prev) => (prev ? { ...prev, toArea: e.target.value } : prev))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-white/5 dark:border-white/10"
+                >
+                  {[
+                    'Comercial',
+                    'Jurídico',
+                    'Contratos',
+                    'Financeiro',
+                    'Operacao',
+                    'RH',
+                    'Admin',
+                    'Social Media',
+                    'Tráfego',
+                    'Design',
+                    'Vídeo',
+                  ].map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <textarea
+                value={rerouteDialog?.note || ''}
+                onChange={(e) => setRerouteDialog((prev) => (prev ? { ...prev, note: e.target.value } : prev))}
+                className="w-full min-h-[120px] px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-white/5 dark:border-white/10"
+                placeholder="Ex.: análise indica que pertence ao Financeiro, precisa validar cobrança antes de seguir."
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setRerouteDialog(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!rerouteDialog) return;
+                    const { id, toArea, note } = rerouteDialog;
+                    setRerouteDialog(null);
+                    await rerouteTransition(id, toArea, note || '');
+                  }}
+                >
+                  Encaminhar
                 </Button>
               </div>
             </div>

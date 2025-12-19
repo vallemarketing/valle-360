@@ -76,7 +76,9 @@ export async function PATCH(request: NextRequest) {
     const status = asWorkflowStatus(body?.status);
     const errorMessage = (body?.error_message ?? body?.errorMessage) as string | null | undefined;
     const note = (body?.note ?? body?.completed_note ?? body?.completion_note) as string | null | undefined;
-    const action = String(body?.action || '').toLowerCase() || null; // reopen | resolve_error | null
+    const action = String(body?.action || '').toLowerCase() || null; // reopen | resolve_error | reroute | mark_error | null
+    const nextToArea =
+      (body?.to_area ?? body?.toArea ?? body?.new_to_area ?? body?.newToArea ?? null) as string | null | undefined;
 
     if (!id || !status) {
       return NextResponse.json({ error: 'id e status são obrigatórios' }, { status: 400 });
@@ -84,11 +86,12 @@ export async function PATCH(request: NextRequest) {
 
     const { data: existingRow } = await supabase
       .from('workflow_transitions')
-      .select('status,data_payload')
+      .select('status,to_area,data_payload')
       .eq('id', id)
       .maybeSingle();
 
     const prevStatus = String((existingRow as any)?.status || '').toLowerCase();
+    const prevToArea = String((existingRow as any)?.to_area || '');
     const prevPayload = ((existingRow as any)?.data_payload || {}) as Record<string, any>;
 
     const now = new Date().toISOString();
@@ -159,12 +162,57 @@ export async function PATCH(request: NextRequest) {
           nextPayload.error_resolved_note = trimmedNote;
           nextPayload.error_resolved_by = actorUserId;
           nextPayload.error_resolved_at = now;
+        } else if (action === 'reroute') {
+          // Encaminhar (pending -> pending): muda to_area e registra histórico
+          if (!nextToArea || !String(nextToArea).trim()) {
+            return NextResponse.json({ error: 'to_area é obrigatório para encaminhar' }, { status: 400 });
+          }
+
+          const toArea = String(nextToArea).trim();
+          patch.to_area = toArea;
+
+          const history = Array.isArray(nextPayload.reroute_history) ? nextPayload.reroute_history : [];
+          history.push({
+            from_area: prevToArea,
+            to_area: toArea,
+            note: trimmedNote,
+            rerouted_at: now,
+            rerouted_by: actorUserId,
+          });
+          nextPayload.reroute_history = history;
+
+          nextPayload.rerouted_from_area = prevToArea;
+          nextPayload.rerouted_to_area = toArea;
+          nextPayload.rerouted_note = trimmedNote;
+          nextPayload.rerouted_by = actorUserId;
+          nextPayload.rerouted_at = now;
         } else {
           // default: reopen
           nextPayload.reopened_note = trimmedNote;
           nextPayload.reopened_by = actorUserId;
           nextPayload.reopened_at = now;
         }
+      } else if (action === 'reroute') {
+        // Encaminhar sem nota: permitido, mas exige to_area
+        if (!nextToArea || !String(nextToArea).trim()) {
+          return NextResponse.json({ error: 'to_area é obrigatório para encaminhar' }, { status: 400 });
+        }
+        const toArea = String(nextToArea).trim();
+        patch.to_area = toArea;
+        const history = Array.isArray(nextPayload.reroute_history) ? nextPayload.reroute_history : [];
+        history.push({
+          from_area: prevToArea,
+          to_area: toArea,
+          note: null,
+          rerouted_at: now,
+          rerouted_by: actorUserId,
+        });
+        nextPayload.reroute_history = history;
+        nextPayload.rerouted_from_area = prevToArea;
+        nextPayload.rerouted_to_area = toArea;
+        nextPayload.rerouted_note = null;
+        nextPayload.rerouted_by = actorUserId;
+        nextPayload.rerouted_at = now;
       }
 
       patch.data_payload = nextPayload;
