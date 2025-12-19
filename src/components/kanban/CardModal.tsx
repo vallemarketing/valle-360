@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-import type { KanbanCard } from '@/lib/kanban/types'
+import type { DbTaskPriority, DbTaskStatus, KanbanCard } from '@/lib/kanban/types'
 
 interface CardModalProps {
   card: KanbanCard | null
@@ -357,7 +357,9 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
                       {isEditing ? (
                         <select
                           value={editedCard.column}
-                          onChange={(e) => setEditedCard({ ...editedCard, column: e.target.value })}
+                          onChange={(e) =>
+                            setEditedCard({ ...editedCard, column: e.target.value as DbTaskStatus })
+                          }
                           className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                           <option value="backlog">Backlog</option>
@@ -393,7 +395,9 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
                       {isEditing ? (
                         <select
                           value={editedCard.priority}
-                          onChange={(e) => setEditedCard({ ...editedCard, priority: e.target.value as any })}
+                          onChange={(e) =>
+                            setEditedCard({ ...editedCard, priority: e.target.value as DbTaskPriority })
+                          }
                           className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                           <option value="urgent">🔴 Urgente</option>
