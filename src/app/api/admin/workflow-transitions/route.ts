@@ -76,10 +76,20 @@ export async function PATCH(request: NextRequest) {
     const status = asWorkflowStatus(body?.status);
     const errorMessage = (body?.error_message ?? body?.errorMessage) as string | null | undefined;
     const note = (body?.note ?? body?.completed_note ?? body?.completion_note) as string | null | undefined;
+    const action = String(body?.action || '').toLowerCase() || null; // reopen | resolve_error | null
 
     if (!id || !status) {
       return NextResponse.json({ error: 'id e status são obrigatórios' }, { status: 400 });
     }
+
+    const { data: existingRow } = await supabase
+      .from('workflow_transitions')
+      .select('status,data_payload')
+      .eq('id', id)
+      .maybeSingle();
+
+    const prevStatus = String((existingRow as any)?.status || '').toLowerCase();
+    const prevPayload = ((existingRow as any)?.data_payload || {}) as Record<string, any>;
 
     const now = new Date().toISOString();
     const patch: Record<string, any> = {
@@ -90,41 +100,60 @@ export async function PATCH(request: NextRequest) {
 
     // Persistir notas/auditoria no data_payload (best-effort + merge)
     if (status === 'completed' && note && String(note).trim()) {
-      const { data: existing } = await supabase
-        .from('workflow_transitions')
-        .select('data_payload')
-        .eq('id', id)
-        .maybeSingle();
-      const prev = (existing as any)?.data_payload || {};
       patch.data_payload = {
-        ...(prev || {}),
+        ...(prevPayload || {}),
         completed_note: String(note),
         completed_by: actorUserId,
         completed_at: now,
       };
     }
 
-    // Reabrir (manual): status pending + nota auditável
+    // Voltar para pendente (manual): distingue reabrir vs resolver erro + reseta execução do Kanban (sem perder histórico)
     if (status === 'pending') {
-      // Se está reabrindo, limpar completed_at e também limpar error_message
+      // Limpar completed_at e também limpar error_message
       patch.completed_at = null;
       patch.error_message = null;
 
-      const reopenNote = note && String(note).trim() ? String(note) : null;
-      if (reopenNote) {
-        const { data: existing } = await supabase
-          .from('workflow_transitions')
-          .select('data_payload')
-          .eq('id', id)
-          .maybeSingle();
-        const prev = (existing as any)?.data_payload || {};
-        patch.data_payload = {
-          ...(prev || {}),
-          reopened_note: reopenNote,
-          reopened_by: actorUserId,
-          reopened_at: now,
-        };
+      const nextPayload: Record<string, any> = { ...(prevPayload || {}) };
+
+      const kanbanTaskId = nextPayload.kanban_task_id || null;
+      const kanbanBoardId = nextPayload.kanban_board_id || null;
+      const executedAt = nextPayload.executed_at || null;
+      const executedBy = nextPayload.executed_by || null;
+
+      if (kanbanTaskId || kanbanBoardId || executedAt || executedBy) {
+        const prevExec = Array.isArray(nextPayload.previous_executions) ? nextPayload.previous_executions : [];
+        prevExec.push({
+          kanban_task_id: kanbanTaskId,
+          kanban_board_id: kanbanBoardId,
+          executed_at: executedAt,
+          executed_by: executedBy,
+          reset_at: now,
+          reset_by: actorUserId,
+        });
+        nextPayload.previous_executions = prevExec;
+
+        delete nextPayload.kanban_task_id;
+        delete nextPayload.kanban_board_id;
+        delete nextPayload.executed_at;
+        delete nextPayload.executed_by;
       }
+
+      const trimmedNote = note && String(note).trim() ? String(note).trim() : null;
+      if (trimmedNote) {
+        if (action === 'resolve_error' || (action === null && prevStatus === 'error')) {
+          nextPayload.error_resolved_note = trimmedNote;
+          nextPayload.error_resolved_by = actorUserId;
+          nextPayload.error_resolved_at = now;
+        } else {
+          // default: reopen
+          nextPayload.reopened_note = trimmedNote;
+          nextPayload.reopened_by = actorUserId;
+          nextPayload.reopened_at = now;
+        }
+      }
+
+      patch.data_payload = nextPayload;
     }
 
     const { data, error } = await supabase

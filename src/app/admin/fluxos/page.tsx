@@ -84,6 +84,9 @@ function extractIdsFromPayload(payload: any) {
     reopened_note: p.reopened_note || null,
     reopened_at: p.reopened_at || null,
     reopened_by: p.reopened_by || null,
+    error_resolved_note: p.error_resolved_note || null,
+    error_resolved_at: p.error_resolved_at || null,
+    error_resolved_by: p.error_resolved_by || null,
   };
 }
 
@@ -101,6 +104,7 @@ function FluxosContent() {
   const [openPayload, setOpenPayload] = useState<{ title: string; json: any } | null>(null);
   const [completeDialog, setCompleteDialog] = useState<{ id: string; note: string } | null>(null);
   const [reopenDialog, setReopenDialog] = useState<{ id: string; note: string } | null>(null);
+  const [resolveErrorDialog, setResolveErrorDialog] = useState<{ id: string; note: string } | null>(null);
 
   const filteredTransitions = useMemo(() => {
     const t = filterText.trim().toLowerCase();
@@ -260,7 +264,7 @@ function FluxosContent() {
       const res = await fetch('/api/admin/workflow-transitions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'pending', note }),
+        body: JSON.stringify({ id, status: 'pending', action: 'reopen', note }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || `Falha ao reabrir [${res.status}]`);
@@ -268,6 +272,22 @@ function FluxosContent() {
       await loadTransitions();
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao reabrir transição');
+    }
+  };
+
+  const resolveErrorWithNote = async (id: string, note: string) => {
+    try {
+      const res = await fetch('/api/admin/workflow-transitions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'pending', action: 'resolve_error', note }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || `Falha ao resolver erro [${res.status}]`);
+      toast.success('Erro resolvido (voltou para pendente)');
+      await loadTransitions();
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao resolver erro');
     }
   };
 
@@ -449,6 +469,12 @@ function FluxosContent() {
                                 ids.reopened_by ? ` por ${String(ids.reopened_by).slice(0, 8)}…` : ''
                               }`
                             : null;
+                        const resolvedLabel =
+                          ids.error_resolved_at || ids.error_resolved_by
+                            ? `Erro resolvido${ids.error_resolved_at ? ` em ${new Date(ids.error_resolved_at).toLocaleString('pt-BR')}` : ''}${
+                                ids.error_resolved_by ? ` por ${String(ids.error_resolved_by).slice(0, 8)}…` : ''
+                              }`
+                            : null;
                         return (
                       <div
                         key={t.id}
@@ -473,6 +499,8 @@ function FluxosContent() {
                             {ids.completed_note ? ` • Nota: ${String(ids.completed_note).slice(0, 120)}` : ''}
                             {reopenLabel ? ` • ${reopenLabel}` : ''}
                             {ids.reopened_note ? ` • Motivo: ${String(ids.reopened_note).slice(0, 120)}` : ''}
+                            {resolvedLabel ? ` • ${resolvedLabel}` : ''}
+                            {ids.error_resolved_note ? ` • Motivo: ${String(ids.error_resolved_note).slice(0, 120)}` : ''}
                           </div>
                           {(ids.client_id || ids.proposal_id || ids.contract_id || ids.invoice_id || ids.correlation_id) ? (
                             <div className="text-[11px] text-[#001533]/50 dark:text-white/50 space-x-2">
@@ -518,9 +546,16 @@ function FluxosContent() {
                           <Button
                             variant="outline"
                             onClick={() => setReopenDialog({ id: t.id, note: String(ids.reopened_note || '') })}
-                            disabled={String(t.status).toLowerCase() === 'pending'}
+                            disabled={String(t.status).toLowerCase() !== 'completed'}
                           >
                             Reabrir
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setResolveErrorDialog({ id: t.id, note: String(ids.error_resolved_note || '') })}
+                            disabled={String(t.status).toLowerCase() !== 'error'}
+                          >
+                            Resolver erro
                           </Button>
                           <Button
                             variant="outline"
@@ -667,6 +702,40 @@ function FluxosContent() {
                   }}
                 >
                   Reabrir
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!resolveErrorDialog} onOpenChange={(o) => (!o ? setResolveErrorDialog(null) : null)}>
+          <DialogContent className="sm:max-w-[700px]">
+            <DialogHeader>
+              <DialogTitle>Resolver erro</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-[#001533]/70 dark:text-white/70">
+                Descreva como o erro foi resolvido. A transição volta para <b>pendente</b>.
+              </p>
+              <textarea
+                value={resolveErrorDialog?.note || ''}
+                onChange={(e) => setResolveErrorDialog((prev) => (prev ? { ...prev, note: e.target.value } : prev))}
+                className="w-full min-h-[120px] px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-white/5 dark:border-white/10"
+                placeholder="Ex.: corrigido payload, ajustado cliente_id, reprocessado com sucesso."
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setResolveErrorDialog(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!resolveErrorDialog) return;
+                    const { id, note } = resolveErrorDialog;
+                    setResolveErrorDialog(null);
+                    await resolveErrorWithNote(id, note || '');
+                  }}
+                >
+                  Voltar para pendente
                 </Button>
               </div>
             </div>
