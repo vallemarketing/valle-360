@@ -7,7 +7,7 @@ export interface DomainEventInput {
   eventType: string;
   entityType?: string;
   entityId?: string;
-  actorUserId?: string;
+  actorUserId?: string | null;
   payload?: Record<string, unknown>;
   correlationId?: string;
 }
