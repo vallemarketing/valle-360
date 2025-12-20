@@ -15,48 +15,93 @@ export async function POST() {
       }
     )
 
-    const userId = 'a1b2c3d4-e5f6-4789-a012-3456789abcde'
     const email = 'guilherme@vallegroup.com.br'
     const password = '*Valle2307'
 
-    // 1. Deletar usuário existente se houver
+    // 1) Encontrar usuário existente por email (idempotência)
+    let resolvedUserId: string | null = null
+    let authUser: any = null
+
     try {
-      await supabaseAdmin.auth.admin.deleteUser(userId)
-      console.log('Usuário antigo deletado')
-    } catch (deleteError) {
-      console.log('Nenhum usuário antigo encontrado')
-    }
-
-    // 2. Criar novo usuário no auth.users
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      id: userId,
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: 'Guilherme Valle',
-        role: 'super_admin'
-      },
-      app_metadata: {
-        provider: 'email',
-        providers: ['email'],
-        role: 'super_admin'
+      // Busca simples (primeira página) — suficiente para ambientes pequenos.
+      // Se crescer, dá para paginar.
+      const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 200
+      })
+      if (!listError) {
+        const found = (listData?.users || []).find((u: any) => String(u?.email || '').toLowerCase() === email.toLowerCase())
+        if (found?.id) {
+          resolvedUserId = String(found.id)
+          authUser = found
+        }
       }
-    })
-
-    if (authError) {
-      console.error('Erro ao criar usuário auth:', authError)
-      return NextResponse.json({ error: authError.message }, { status: 400 })
+    } catch {
+      // ignore (best-effort)
     }
 
-    console.log('✅ Usuário criado no auth.users:', authData.user.id)
+    // 2) Se já existe, atualiza senha/metadata. Senão, cria usuário novo.
+    if (resolvedUserId) {
+      const { data: updated, error: updErr } = await supabaseAdmin.auth.admin.updateUserById(resolvedUserId, {
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: 'Guilherme Valle',
+          role: 'super_admin'
+        },
+        app_metadata: {
+          provider: 'email',
+          providers: ['email'],
+          role: 'super_admin'
+        }
+      })
+
+      if (updErr) {
+        console.error('Erro ao atualizar usuário auth:', updErr)
+        return NextResponse.json({ error: updErr.message }, { status: 400 })
+      }
+
+      authUser = updated.user
+    } else {
+      // ID fixo ajuda em ambientes novos, mas só quando o email ainda não existe.
+      const userId = 'a1b2c3d4-e5f6-4789-a012-3456789abcde'
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        id: userId,
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: 'Guilherme Valle',
+          role: 'super_admin'
+        },
+        app_metadata: {
+          provider: 'email',
+          providers: ['email'],
+          role: 'super_admin'
+        }
+      })
+
+      if (authError) {
+        console.error('Erro ao criar usuário auth:', authError)
+        return NextResponse.json({ error: authError.message }, { status: 400 })
+      }
+
+      resolvedUserId = authData.user.id
+      authUser = authData.user
+    }
+
+    if (!resolvedUserId) {
+      return NextResponse.json({ error: 'Não foi possível resolver/criar o usuário admin' }, { status: 500 })
+    }
+
+    console.log('✅ Usuário admin pronto no auth.users:', resolvedUserId)
 
     // 3. Atualizar user_profiles
     const { error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .upsert({
-        id: userId,
-        user_id: userId,
+        id: resolvedUserId,
+        user_id: resolvedUserId,
         full_name: 'Guilherme Valle',
         email,
         role: 'super_admin',
@@ -77,7 +122,7 @@ export async function POST() {
     const { error: usersError } = await supabaseAdmin
       .from('users')
       .upsert({
-        id: userId,
+        id: resolvedUserId,
         email,
         full_name: 'Guilherme Valle',
         role: 'super_admin',
@@ -100,7 +145,7 @@ export async function POST() {
       .from('employees')
       .select('id')
       .eq('email', email)
-      .single()
+      .maybeSingle()
 
     let employeeId = existingEmployee?.id
 
@@ -109,7 +154,7 @@ export async function POST() {
       const { data: newEmployee, error: employeeError } = await supabaseAdmin
         .from('employees')
         .insert({
-          user_id: userId,
+          user_id: resolvedUserId,
           full_name: 'Guilherme Valle',
           email,
           phone: '(11) 99999-9999',
@@ -141,14 +186,14 @@ export async function POST() {
       success: true,
       message: '✅ Admin Guilherme criado com sucesso!',
       user: {
-        id: authData.user.id,
-        email: authData.user.email,
+        id: resolvedUserId,
+        email: (authUser as any)?.email || email,
         role: 'super_admin'
       },
       credentials: {
         email,
         password,
-        loginUrl: 'http://localhost:3000/login'
+        loginUrl: '/login'
       }
     })
 

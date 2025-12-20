@@ -55,6 +55,23 @@ export default function LoginPage() {
         return
       }
 
+      // Bridge: garante sessão também em cookies para as rotas /api/* (auth-helpers).
+      // Sem isso, o usuário fica "logado" no client (localStorage) mas as route handlers retornam 401.
+      if (data.session?.access_token && data.session?.refresh_token) {
+        try {
+          await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              access_token: data.session.access_token,
+              refresh_token: data.session.refresh_token,
+            }),
+          })
+        } catch {
+          // best-effort: não bloquear login se falhar (o usuário ainda pode navegar, mas /api/* pode falhar)
+        }
+      }
+
       // Salvar preferência de lembrar
       if (rememberMe) {
         localStorage.setItem('valle360_remember', 'true')
