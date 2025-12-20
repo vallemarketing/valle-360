@@ -4,11 +4,16 @@ import { cookies } from 'next/headers';
 
 import { getOrCreateOnboardingBoardIdForClient, getOrCreateSuperAdminBoardId, createKanbanTaskFromHub } from '@/lib/kanban/hub';
 import { notifyAdmins } from '@/lib/admin/notifyAdmins';
+import { buildKanbanTaskTemplateFromWorkflowTransition, type TaskPriority, type TaskStatus } from '@/lib/hub/templates';
 
 export const dynamic = 'force-dynamic';
 
-type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'blocked' | 'cancelled';
-type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+function uuidOrNull(v: any): string | null {
+  if (!v) return null;
+  const s = String(v);
+  const ok = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+  return ok ? s : null;
+}
 
 function extractExistingKanbanIds(payload: any): { boardId: string | null; taskId: string | null } {
   if (!payload) return { boardId: null, taskId: null };
@@ -89,143 +94,7 @@ async function resolveClientIdFromPayload(supabase: any, payload: any): Promise<
   return null;
 }
 
-function pickArea(transition: any) {
-  return (transition?.to_area || transition?.from_area || 'Operacao') as string;
-}
-
-function pickPriority(triggerEvent: string) {
-  const t = (triggerEvent || '').toLowerCase();
-  if (t.includes('payment_failed') || t.includes('failed')) return 'urgent';
-  if (t.includes('paid')) return 'high';
-  if (t.includes('created')) return 'medium';
-  return 'medium';
-}
-
-function buildTemplate(transition: any, payload: any): {
-  title: string;
-  description: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  area: string;
-  templateId: string;
-} {
-  const trigger = String(transition?.trigger_event || '').toLowerCase();
-  const from = transition?.from_area || '';
-  const to = transition?.to_area || '';
-
-  const ids = {
-    client_id: payload?.client_id || payload?.clientId || null,
-    proposal_id: payload?.proposal_id || null,
-    contract_id: payload?.contract_id || null,
-    invoice_id: payload?.invoice_id || null,
-    correlation_id: payload?.correlation_id || null,
-  };
-
-  const baseHeader = [
-    `Origem: ${from} → ${to}`,
-    `Evento: ${transition?.trigger_event}`,
-    ids.client_id ? `Cliente: ${ids.client_id}` : null,
-    ids.proposal_id ? `Proposta: ${ids.proposal_id}` : null,
-    ids.contract_id ? `Contrato: ${ids.contract_id}` : null,
-    ids.invoice_id ? `Fatura: ${ids.invoice_id}` : null,
-    ids.correlation_id ? `Correlation: ${ids.correlation_id}` : null,
-  ]
-    .filter(Boolean)
-    .join('\n');
-
-  const payloadJson = (() => {
-    try {
-      return JSON.stringify(payload || {}, null, 2);
-    } catch {
-      return '';
-    }
-  })();
-
-  // Defaults
-  let title = `${from} → ${to}: ${transition?.trigger_event}`;
-  let area = pickArea(transition);
-  let priority: TaskPriority = pickPriority(String(transition?.trigger_event || '')) as TaskPriority;
-  let templateId = 'generic.workflow_transition';
-  const status: TaskStatus = 'todo';
-  let checklist: string[] = [];
-
-  if (trigger === 'proposal.sent') {
-    title = 'Revisar proposta e preparar documentação (Jurídico)';
-    area = 'Jurídico';
-    priority = 'high';
-    templateId = 'juridico.proposal_review';
-    checklist = [
-      'Revisar escopo, prazos e cláusulas críticas',
-      'Validar dados do cliente e CNPJ/CPF (se aplicável)',
-      'Preparar minuta/termos do contrato',
-      'Devolver para Contratos/Comercial com ajustes e riscos',
-    ];
-  } else if (trigger === 'proposal.accepted') {
-    title = 'Gerar contrato e preparar assinatura (Contratos)';
-    area = 'Contratos';
-    priority = 'high';
-    templateId = 'contratos.contract_generation';
-    checklist = [
-      'Gerar contrato a partir da proposta aceita',
-      'Conferir valores, datas, vencimento e escopo',
-      'Enviar para assinatura (DocuSign/Clicksign/etc.)',
-      'Atualizar status e anexos no sistema',
-    ];
-  } else if (trigger === 'contract.created') {
-    title = 'Configurar cobrança inicial e acompanhar pagamento (Financeiro)';
-    area = 'Financeiro';
-    priority = 'medium';
-    templateId = 'financeiro.invoice_setup';
-    checklist = [
-      'Confirmar contrato ativo e dados de cobrança',
-      'Validar fatura gerada / método de pagamento',
-      'Enviar comunicação de cobrança ao cliente (se necessário)',
-      'Registrar pendência/risco (se houver)',
-    ];
-  } else if (trigger === 'invoice.created') {
-    title = 'Iniciar onboarding operacional (Operação)';
-    area = 'Operacao';
-    priority = 'high';
-    templateId = 'operacao.onboarding_start';
-    checklist = [
-      'Agendar kickoff com cliente',
-      'Coletar acessos e briefing',
-      'Conectar integrações (Google/Meta/Pixel/WhatsApp)',
-      'Criar plano inicial e responsabilidades',
-    ];
-  } else if (trigger === 'invoice.paid') {
-    title = 'Pagamento confirmado — iniciar execução (Operação)';
-    area = 'Operacao';
-    priority = 'high';
-    templateId = 'operacao.payment_confirmed';
-    checklist = [
-      'Confirmar liberação de execução (pagamento OK)',
-      'Priorizar setup e kickoff',
-      'Registrar início de operação e próximos marcos',
-    ];
-  } else if (trigger === 'invoice.payment_failed') {
-    title = 'Falha no pagamento — acionar Financeiro/Comercial';
-    area = 'Financeiro';
-    priority = 'urgent';
-    templateId = 'financeiro.payment_failed';
-    checklist = [
-      'Verificar motivo da falha no Stripe',
-      'Contatar cliente e oferecer alternativa',
-      'Atualizar status e próximos passos',
-    ];
-  }
-
-  const checklistBlock = checklist.length
-    ? `\n\nChecklist:\n${checklist.map((c) => `- [ ] ${c}`).join('\n')}`
-    : '';
-
-  const description =
-    `${baseHeader}` +
-    checklistBlock +
-    `\n\nPayload:\n${payloadJson}`;
-
-  return { title, description, status, priority, area, templateId };
-}
+// template builder movido para src/lib/hub/templates.ts
 
 /**
  * POST /api/admin/workflow-transitions/execute
@@ -322,7 +191,7 @@ export async function POST(request: NextRequest) {
       ? await getOrCreateOnboardingBoardIdForClient(supabase as any, clientId, actorUserId)
       : await getOrCreateSuperAdminBoardId(supabase as any, actorUserId);
 
-    const tpl = buildTemplate(transition, payload);
+    const tpl = buildKanbanTaskTemplateFromWorkflowTransition(transition, payload);
 
     const task = await createKanbanTaskFromHub(supabase as any, {
       boardId,
@@ -364,6 +233,33 @@ export async function POST(request: NextRequest) {
         data_payload: mergedPayload,
       })
       .eq('id', transition.id);
+
+    // Observabilidade/auditoria mínima: registra execução no Hub (event_log já como processed)
+    try {
+      await supabase.from('event_log').insert({
+        event_type: 'workflow_transition.executed_to_kanban',
+        entity_type: 'workflow_transition',
+        entity_id: transition.id,
+        actor_user_id: actorUserId,
+        payload: {
+          transition_id: transition.id,
+          from_area: transition.from_area,
+          to_area: transition.to_area,
+          trigger_event: transition.trigger_event,
+          template_id: tpl.templateId,
+          kanban_task_id: task.id,
+          kanban_board_id: task.board_id,
+          client_id: clientId,
+          at: executedAt,
+          correlation_id: (mergedPayload as any)?.correlation_id || null,
+        },
+        correlation_id: uuidOrNull((mergedPayload as any)?.correlation_id),
+        status: 'processed',
+        processed_at: executedAt,
+      });
+    } catch {
+      // best-effort
+    }
 
     // Notificar admins (broadcast)
     const kanbanLink = `/admin/meu-kanban?boardId=${encodeURIComponent(task.board_id)}&taskId=${encodeURIComponent(task.id)}`;

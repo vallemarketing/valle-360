@@ -12,6 +12,14 @@ function asWorkflowStatus(v: any): WorkflowStatus | null {
   return null;
 }
 
+function uuidOrNull(v: any): string | null {
+  if (!v) return null;
+  const s = String(v);
+  // UUID v4-ish (aceita v1..v5)
+  const ok = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+  return ok ? s : null;
+}
+
 /**
  * GET /api/admin/workflow-transitions
  * Lista transições de fluxo (hub).
@@ -95,6 +103,30 @@ export async function PATCH(request: NextRequest) {
     const prevPayload = ((existingRow as any)?.data_payload || {}) as Record<string, any>;
 
     const now = new Date().toISOString();
+
+    // Normaliza ação (com fallback compatível)
+    const inferredAction =
+      action ||
+      (status === 'pending' && prevStatus === 'completed'
+        ? 'reopen'
+        : status === 'pending' && prevStatus === 'error'
+          ? 'resolve_error'
+          : null);
+
+    // Validações por ação/status atual (robustez do modo manual)
+    if (status === 'pending' && inferredAction === 'reopen' && prevStatus !== 'completed') {
+      return NextResponse.json({ error: 'Ação inválida: só é possível reabrir quando o status atual é completed' }, { status: 400 });
+    }
+    if (status === 'pending' && inferredAction === 'resolve_error' && prevStatus !== 'error') {
+      return NextResponse.json({ error: 'Ação inválida: só é possível resolver erro quando o status atual é error' }, { status: 400 });
+    }
+    if (status === 'pending' && inferredAction === 'reroute' && prevStatus !== 'pending') {
+      return NextResponse.json({ error: 'Ação inválida: só é possível encaminhar quando o status atual é pending' }, { status: 400 });
+    }
+    if (status === 'error' && (action === 'mark_error' || action === null) && prevStatus === 'error') {
+      return NextResponse.json({ error: 'Ação inválida: transição já está em error' }, { status: 400 });
+    }
+
     const patch: Record<string, any> = {
       status,
       error_message: status === 'error' ? (errorMessage || 'Erro informado pelo admin') : null,
@@ -158,11 +190,11 @@ export async function PATCH(request: NextRequest) {
 
       const trimmedNote = note && String(note).trim() ? String(note).trim() : null;
       if (trimmedNote) {
-        if (action === 'resolve_error' || (action === null && prevStatus === 'error')) {
+        if (inferredAction === 'resolve_error') {
           nextPayload.error_resolved_note = trimmedNote;
           nextPayload.error_resolved_by = actorUserId;
           nextPayload.error_resolved_at = now;
-        } else if (action === 'reroute') {
+        } else if (inferredAction === 'reroute') {
           // Encaminhar (pending -> pending): muda to_area e registra histórico
           if (!nextToArea || !String(nextToArea).trim()) {
             return NextResponse.json({ error: 'to_area é obrigatório para encaminhar' }, { status: 400 });
@@ -192,7 +224,7 @@ export async function PATCH(request: NextRequest) {
           nextPayload.reopened_by = actorUserId;
           nextPayload.reopened_at = now;
         }
-      } else if (action === 'reroute') {
+      } else if (inferredAction === 'reroute') {
         // Encaminhar sem nota: permitido, mas exige to_area
         if (!nextToArea || !String(nextToArea).trim()) {
           return NextResponse.json({ error: 'to_area é obrigatório para encaminhar' }, { status: 400 });
@@ -226,6 +258,52 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Observabilidade/auditoria mínima: grava ação manual no event_log (já como processed)
+    try {
+      const p: any = patch.data_payload || prevPayload || {};
+      const corr = uuidOrNull(p?.correlation_id);
+
+      const eventType =
+        status === 'completed'
+          ? 'workflow_transition.completed'
+          : status === 'error'
+            ? 'workflow_transition.marked_error'
+            : status === 'pending' && inferredAction === 'reopen'
+              ? 'workflow_transition.reopened'
+              : status === 'pending' && inferredAction === 'resolve_error'
+                ? 'workflow_transition.error_resolved'
+                : status === 'pending' && inferredAction === 'reroute'
+                  ? 'workflow_transition.rerouted'
+                  : 'workflow_transition.updated';
+
+      await supabase.from('event_log').insert({
+        event_type: eventType,
+        entity_type: 'workflow_transition',
+        entity_id: id,
+        actor_user_id: actorUserId,
+        payload: {
+          transition_id: id,
+          action: inferredAction,
+          prev_status: prevStatus,
+          next_status: status,
+          prev_to_area: prevToArea,
+          next_to_area: patch.to_area || prevToArea,
+          note: note || null,
+          at: now,
+          correlation_id: p?.correlation_id || null,
+          client_id: p?.client_id || p?.clientId || null,
+          proposal_id: p?.proposal_id || null,
+          contract_id: p?.contract_id || null,
+          invoice_id: p?.invoice_id || null,
+        },
+        correlation_id: corr,
+        status: 'processed',
+        processed_at: now,
+      });
+    } catch {
+      // best-effort: não bloquear a ação manual por falha de auditoria
+    }
 
     return NextResponse.json({ success: true, transition: data });
   } catch (e: any) {

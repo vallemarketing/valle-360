@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Play, Eye, KanbanSquare, RotateCcw } from 'lucide-react';
+import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Play, Eye, KanbanSquare, RotateCcw, History, Copy } from 'lucide-react';
 
 type WorkflowStatus = 'pending' | 'completed' | 'error';
 
@@ -81,6 +81,8 @@ function extractIdsFromPayload(payload: any) {
     executed_at: p.executed_at || null,
     executed_by: p.executed_by || null,
     completed_note: p.completed_note || null,
+    completed_at: p.completed_at || null,
+    completed_by: p.completed_by || null,
     reopened_note: p.reopened_note || null,
     reopened_at: p.reopened_at || null,
     reopened_by: p.reopened_by || null,
@@ -95,7 +97,105 @@ function extractIdsFromPayload(payload: any) {
     rerouted_by: p.rerouted_by || null,
     rerouted_from_area: p.rerouted_from_area || null,
     rerouted_to_area: p.rerouted_to_area || null,
+    previous_executions: Array.isArray(p.previous_executions) ? p.previous_executions : null,
+    reroute_history: Array.isArray(p.reroute_history) ? p.reroute_history : null,
+    source_event_id: p.source_event_id || null,
   };
+}
+
+function shortUser(u: any) {
+  if (!u) return null;
+  const s = String(u);
+  return s.length > 10 ? `${s.slice(0, 8)}…` : s;
+}
+
+function safeDateLabel(v: any) {
+  if (!v) return null;
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleString('pt-BR');
+}
+
+function buildTransitionHistory(t: WorkflowTransitionRow) {
+  const p: any = t?.data_payload || {};
+  const ids = extractIdsFromPayload(p);
+
+  const items: Array<{ at: any; label: string; by?: any; note?: any; extra?: any }> = [];
+
+  items.push({ at: t.created_at, label: 'Criado', by: t.created_by, extra: { from: t.from_area, to: t.to_area, trigger: t.trigger_event } });
+
+  if (ids.marked_error_at || ids.marked_error_note) {
+    items.push({ at: ids.marked_error_at, label: 'Marcado como erro', by: ids.marked_error_by, note: ids.marked_error_note });
+  }
+  if (ids.error_resolved_at || ids.error_resolved_note) {
+    items.push({ at: ids.error_resolved_at, label: 'Erro resolvido (volta p/ pendente)', by: ids.error_resolved_by, note: ids.error_resolved_note });
+  }
+  if (ids.reopened_at || ids.reopened_note) {
+    items.push({ at: ids.reopened_at, label: 'Reaberto', by: ids.reopened_by, note: ids.reopened_note });
+  }
+  if (ids.rerouted_at || ids.rerouted_note) {
+    items.push({
+      at: ids.rerouted_at,
+      label: 'Encaminhado',
+      by: ids.rerouted_by,
+      note: ids.rerouted_note,
+      extra: { from: ids.rerouted_from_area, to: ids.rerouted_to_area },
+    });
+  }
+
+  if (ids.executed_at || p.kanban_task_id || p.kanban_board_id) {
+    items.push({
+      at: ids.executed_at,
+      label: 'Executado (Kanban)',
+      by: ids.executed_by,
+      extra: { kanban_task_id: p.kanban_task_id, kanban_board_id: p.kanban_board_id },
+    });
+  }
+
+  if (ids.completed_note || t.completed_at) {
+    items.push({
+      at: ids.completed_at || t.completed_at,
+      label: 'Concluído (manual)',
+      by: ids.completed_by || p.completed_by,
+      note: ids.completed_note,
+    });
+  }
+
+  const prevExec = ids.previous_executions || [];
+  for (const ex of prevExec) {
+    if (!ex) continue;
+    items.push({
+      at: ex.executed_at || ex.at,
+      label: 'Execução anterior (resetada)',
+      by: ex.executed_by || ex.by,
+      note: ex.note,
+      extra: { kanban_task_id: ex.kanban_task_id, kanban_board_id: ex.kanban_board_id, reason: ex.reason, action: ex.action },
+    });
+  }
+
+  const reroutes = ids.reroute_history || [];
+  for (const r of reroutes) {
+    if (!r) continue;
+    items.push({
+      at: r.rerouted_at || r.at,
+      label: 'Encaminhamento (histórico)',
+      by: r.rerouted_by || r.by,
+      note: r.rerouted_note || r.note,
+      extra: { from: r.from_area || r.from, to: r.to_area || r.to },
+    });
+  }
+
+  // ordena por data (se inválida, joga p/ fim)
+  const withTime = items.map((it) => {
+    const dt = it.at ? new Date(String(it.at)).getTime() : NaN;
+    return { ...it, __ts: dt };
+  });
+  withTime.sort((a, b) => {
+    const ta = Number.isNaN(a.__ts) ? Number.POSITIVE_INFINITY : a.__ts;
+    const tb = Number.isNaN(b.__ts) ? Number.POSITIVE_INFINITY : b.__ts;
+    return ta - tb;
+  });
+  return { ids, items: withTime };
 }
 
 function FluxosContent() {
@@ -110,11 +210,38 @@ function FluxosContent() {
   const [filterText, setFilterText] = useState('');
 
   const [openPayload, setOpenPayload] = useState<{ title: string; json: any } | null>(null);
+  const [openHistory, setOpenHistory] = useState<WorkflowTransitionRow | null>(null);
   const [completeDialog, setCompleteDialog] = useState<{ id: string; note: string } | null>(null);
   const [reopenDialog, setReopenDialog] = useState<{ id: string; note: string } | null>(null);
   const [resolveErrorDialog, setResolveErrorDialog] = useState<{ id: string; note: string } | null>(null);
   const [markErrorDialog, setMarkErrorDialog] = useState<{ id: string; note: string } | null>(null);
   const [rerouteDialog, setRerouteDialog] = useState<{ id: string; toArea: string; note: string } | null>(null);
+
+  const availableAreas = useMemo(() => {
+    const defaults = [
+      'Comercial',
+      'Jurídico',
+      'Contratos',
+      'Financeiro',
+      'Operacao',
+      'Admin',
+      'RH',
+      'Social Media',
+      'Tráfego',
+      'Design',
+      'Vídeo',
+    ];
+    const fromTo = (transitions || [])
+      .flatMap((t) => [t.from_area, t.to_area])
+      .filter(Boolean)
+      .map((s) => String(s));
+    const set = new Set<string>([...defaults, ...fromTo]);
+
+    // preserva ordem dos defaults e adiciona o resto em ordem alfabética
+    const rest = Array.from(set).filter((x) => !defaults.includes(x));
+    rest.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return [...defaults, ...rest];
+  }, [transitions]);
 
   const filteredTransitions = useMemo(() => {
     const t = filterText.trim().toLowerCase();
@@ -572,7 +699,40 @@ function FluxosContent() {
                           ) : null}
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={async () => {
+                              try {
+                                const p: any = t.data_payload || {};
+                                const idsToCopy = {
+                                  transition_id: t.id,
+                                  from_area: t.from_area,
+                                  to_area: t.to_area,
+                                  trigger_event: t.trigger_event,
+                                  client_id: ids.client_id,
+                                  proposal_id: ids.proposal_id,
+                                  contract_id: ids.contract_id,
+                                  invoice_id: ids.invoice_id,
+                                  correlation_id: ids.correlation_id,
+                                  source_event_id: ids.source_event_id,
+                                  kanban_task_id: p.kanban_task_id || p.task_id || null,
+                                  kanban_board_id: p.kanban_board_id || p.board_id || null,
+                                };
+                                await navigator.clipboard.writeText(JSON.stringify(idsToCopy, null, 2));
+                                toast.success('IDs copiados');
+                              } catch {
+                                toast.error('Falha ao copiar');
+                              }
+                            }}
+                          >
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copiar IDs
+                          </Button>
+                          <Button variant="outline" onClick={() => setOpenHistory(t)}>
+                            <History className="w-4 h-4 mr-2" />
+                            Histórico
+                          </Button>
                           <Button
                             variant="outline"
                             onClick={() => setOpenPayload({ title: `Payload • ${t.trigger_event}`, json: t.data_payload })}
@@ -696,6 +856,83 @@ function FluxosContent() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={!!openHistory} onOpenChange={(o) => (!o ? setOpenHistory(null) : null)}>
+          <DialogContent className="sm:max-w-[900px]">
+            <DialogHeader>
+              <DialogTitle>Histórico da transição</DialogTitle>
+            </DialogHeader>
+            {openHistory ? (
+              (() => {
+                const { ids, items } = buildTransitionHistory(openHistory);
+                const kanbanLink = getKanbanLinkFromTransition(openHistory);
+                const p: any = openHistory.data_payload || {};
+                return (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-xs text-[#001533]/60 dark:text-white/60">
+                        <span className="font-semibold text-[#001533] dark:text-white">
+                          {openHistory.from_area} → {openHistory.to_area}
+                        </span>{' '}
+                        • {openHistory.trigger_event} • {statusBadge(String(openHistory.status))}
+                      </div>
+                      <div className="flex gap-2">
+                        {kanbanLink ? (
+                          <Button variant="outline" onClick={() => window.location.assign(kanbanLink)}>
+                            <KanbanSquare className="w-4 h-4 mr-2" />
+                            Abrir no Kanban
+                          </Button>
+                        ) : null}
+                        <Button variant="outline" onClick={() => setOpenPayload({ title: `Payload • ${openHistory.trigger_event}`, json: p })}>
+                          <Eye className="w-4 h-4 mr-2" />
+                          Ver payload
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-[#001533]/50 dark:text-white/50 space-x-2">
+                      <span>transition_id: {openHistory.id.slice(0, 10)}…</span>
+                      {ids.client_id ? <span>client_id: {String(ids.client_id).slice(0, 10)}…</span> : null}
+                      {ids.proposal_id ? <span>proposal_id: {String(ids.proposal_id).slice(0, 10)}…</span> : null}
+                      {ids.contract_id ? <span>contract_id: {String(ids.contract_id).slice(0, 10)}…</span> : null}
+                      {ids.invoice_id ? <span>invoice_id: {String(ids.invoice_id).slice(0, 10)}…</span> : null}
+                      {ids.correlation_id ? <span>corr: {String(ids.correlation_id).slice(0, 10)}…</span> : null}
+                      {ids.source_event_id ? <span>source_event_id: {String(ids.source_event_id).slice(0, 10)}…</span> : null}
+                    </div>
+
+                    <div className="space-y-2 max-h-[60vh] overflow-auto pr-1">
+                      {items.length === 0 ? (
+                        <div className="text-sm text-[#001533]/60 dark:text-white/60">Sem histórico.</div>
+                      ) : (
+                        items.map((it, idx) => (
+                          <div key={idx} className="rounded-lg border border-[#001533]/10 dark:border-white/10 p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="text-sm font-semibold text-[#001533] dark:text-white">{it.label}</div>
+                              <div className="text-xs text-[#001533]/60 dark:text-white/60">
+                                {safeDateLabel(it.at) ? safeDateLabel(it.at) : '—'}
+                                {it.by ? ` • ${shortUser(it.by)}` : ''}
+                              </div>
+                            </div>
+                            {it.note ? (
+                              <div className="text-xs text-[#001533]/70 dark:text-white/70 mt-1 whitespace-pre-wrap">
+                                {String(it.note)}
+                              </div>
+                            ) : null}
+                            {it.extra ? (
+                              <pre className="text-[11px] bg-black/5 dark:bg-white/5 rounded-lg p-2 mt-2 overflow-auto">
+{JSON.stringify(it.extra, null, 2)}
+                              </pre>
+                            ) : null}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
+            ) : null}
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={!!openPayload} onOpenChange={(o) => (!o ? setOpenPayload(null) : null)}>
           <DialogContent className="sm:max-w-[900px]">
@@ -860,19 +1097,7 @@ function FluxosContent() {
                   onChange={(e) => setRerouteDialog((prev) => (prev ? { ...prev, toArea: e.target.value } : prev))}
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-white/5 dark:border-white/10"
                 >
-                  {[
-                    'Comercial',
-                    'Jurídico',
-                    'Contratos',
-                    'Financeiro',
-                    'Operacao',
-                    'RH',
-                    'Admin',
-                    'Social Media',
-                    'Tráfego',
-                    'Design',
-                    'Vídeo',
-                  ].map((a) => (
+                  {availableAreas.map((a) => (
                     <option key={a} value={a}>
                       {a}
                     </option>
