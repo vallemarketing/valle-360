@@ -63,7 +63,32 @@ export async function notifyAreaUsers(params: {
     .filter((e: any) => e?.user_id && areaMatchesEmployee(params.area, e))
     .map((e: any) => String(e.user_id));
 
-  if (userIds.length === 0) return;
+  // Se ainda não existe nenhum colaborador cadastrado para essa área,
+  // criamos um "inbox por área" como broadcast (user_id = null).
+  // O endpoint /api/notifications filtra esse tipo para não-admins via metadata.audience = 'area'.
+  if (userIds.length === 0) {
+    const row = {
+      user_id: null,
+      title: params.title,
+      message: params.message,
+      type: params.type || 'workflow',
+      is_read: false,
+      link: params.link ?? '/admin/fluxos',
+      metadata: {
+        ...(params.metadata || {}),
+        area: params.area,
+        audience: 'area',
+      },
+      created_at: new Date().toISOString(),
+    };
+
+    try {
+      await supabase.from('notifications').insert(row);
+    } catch {
+      // ignore
+    }
+    return;
+  }
 
   const rows = userIds.map((userId) => ({
     user_id: userId,
@@ -75,6 +100,7 @@ export async function notifyAreaUsers(params: {
     metadata: {
       ...(params.metadata || {}),
       area: params.area,
+      audience: 'area',
     },
     created_at: new Date().toISOString(),
   }));

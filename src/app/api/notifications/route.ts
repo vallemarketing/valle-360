@@ -33,6 +33,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
+    const { data: isAdmin } = await supabase.rpc('is_admin');
+
     const { searchParams } = new URL(request.url);
     const unreadOnly = searchParams.get('unread') === 'true';
     const limit = parseInt(searchParams.get('limit') || '20');
@@ -47,25 +49,22 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    const unreadCountQuery = supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .or(baseFilter)
-      .eq('is_read', false);
-
     if (unreadOnly) {
       listQuery.eq('is_read', false);
     }
 
-    const [{ data: rows, error: listError }, { count: unreadCount, error: countError }] = await Promise.all([
-      listQuery,
-      unreadCountQuery,
-    ]);
+    const { data: rows, error: listError } = await listQuery;
 
     if (listError) throw listError;
-    if (countError) throw countError;
 
-    const notifications = (rows || []).map((n: any) => ({
+    // Filtrar "broadcast de área" para não-admins
+    const filtered = (rows || []).filter((n: any) => {
+      const audience = n?.metadata?.audience;
+      if (audience === 'area' && !isAdmin) return false;
+      return true;
+    });
+
+    const notifications = filtered.map((n: any) => ({
       id: n.id,
       type: n.type,
       title: n.title,
@@ -76,6 +75,23 @@ export async function GET(request: NextRequest) {
       metadata: n.metadata || null,
       user_id: n.user_id ?? null,
     }));
+
+    // unreadCount: calcular com base no que o usuário pode ver (inclui broadcast, mas exclui audience=area se não for admin)
+    const unreadRowsQuery = supabase
+      .from('notifications')
+      .select('*')
+      .or(baseFilter)
+      .eq('is_read', false)
+      .limit(200);
+
+    const { data: unreadRows, error: unreadErr } = await unreadRowsQuery;
+    if (unreadErr) throw unreadErr;
+
+    const unreadCount = (unreadRows || []).filter((n: any) => {
+      const audience = n?.metadata?.audience;
+      if (audience === 'area' && !isAdmin) return false;
+      return true;
+    }).length;
 
     return NextResponse.json({ success: true, notifications, unreadCount: unreadCount || 0 });
 

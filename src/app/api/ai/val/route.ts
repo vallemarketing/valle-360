@@ -212,13 +212,34 @@ export async function POST(request: NextRequest) {
         messages
       });
       parsedResponse = result.json;
-    } catch {
-      parsedResponse = {
-        message: 'Não consegui estruturar a resposta em JSON agora. Pode tentar novamente com uma pergunta mais direta?',
-        suggestions: [],
-        actions: [],
-        mood: 'neutral'
-      };
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      const missingAiKey =
+        msg.includes('OPENROUTER_API_KEY') ||
+        msg.includes('OPENAI_API_KEY') ||
+        msg.includes('não configurada') ||
+        msg.includes('nao configurada') ||
+        msg.includes('não configurado') ||
+        msg.includes('nao configurado');
+
+      if (missingAiKey) {
+        parsedResponse = {
+          message:
+            'A IA ainda não está conectada neste ambiente. Para ativar agora, vá em **Admin → Integrações** e conecte **OpenRouter** (recomendado) ou **OpenAI**.\n\nDepois disso eu já consigo responder e automatizar tarefas com a Val.',
+          suggestions: ['Abrir Integrações', 'Conectar OpenRouter', 'Conectar OpenAI'],
+          actions: [
+            { label: 'Abrir Integrações', action: 'open_link', params: { url: '/admin/integracoes' } },
+          ],
+          mood: 'alert',
+        };
+      } else {
+        parsedResponse = {
+          message: 'Não consegui estruturar a resposta em JSON agora. Pode tentar novamente com uma pergunta mais direta?',
+          suggestions: [],
+          actions: [],
+          mood: 'neutral',
+        };
+      }
     }
 
     // Adicionar info da persona na resposta
