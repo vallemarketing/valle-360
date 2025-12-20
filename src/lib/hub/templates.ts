@@ -122,6 +122,16 @@ export function buildKanbanTaskTemplateFromWorkflowTransition(
     priority = 'urgent';
     templateId = 'financeiro.payment_failed';
     checklist = ['Verificar motivo da falha no Stripe', 'Contatar cliente e oferecer alternativa', 'Atualizar status e próximos passos'];
+  } else if (trigger === 'notifications.required') {
+    title = 'Disparar notificações e registrar confirmação (Notificações)';
+    area = 'Notificacoes';
+    priority = 'medium';
+    templateId = 'notificacoes.dispatch_required';
+    checklist = [
+      'Confirmar público-alvo (cliente / time interno) e canal (in-app / email / WhatsApp)',
+      'Enviar mensagem padrão com link e IDs (cliente/proposta/contrato/fatura)',
+      'Registrar evidência e horário do envio',
+    ];
   }
 
   const checklistBlock = checklist.length ? `\n\nChecklist:\n${checklist.map((c) => `- [ ] ${c}`).join('\n')}` : '';

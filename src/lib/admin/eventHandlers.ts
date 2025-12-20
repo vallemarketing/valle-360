@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from './supabaseAdmin';
 import type { DomainEventRow } from './eventBus';
 import { goalEngine } from '@/lib/goals/goal-engine';
 import { notifyAdmins as notifyAdminUsers } from '@/lib/admin/notifyAdmins';
+import { notifyAreaUsers } from '@/lib/admin/notifyArea';
 
 type HandlerResult = { ok: true } | { ok: false; error: string };
 
@@ -25,7 +26,7 @@ async function insertWorkflowTransition(params: {
   createdBy?: string | null;
   sourceEventId?: string | null;
   correlationId?: string | null;
-}) {
+}): Promise<string | null> {
   const supabase = getSupabaseAdmin();
   const enrichedPayload = {
     ...(params.payload || {}),
@@ -45,17 +46,47 @@ async function insertWorkflowTransition(params: {
       .limit(1)
       .maybeSingle();
 
-    if (existing?.id) return;
+    if (existing?.id) return String(existing.id);
   }
 
-  await supabase.from('workflow_transitions').insert({
+  const { data: inserted } = await supabase
+    .from('workflow_transitions')
+    .insert({
     from_area: params.fromArea,
     to_area: params.toArea,
     status: 'pending',
     trigger_event: params.triggerEvent,
     data_payload: enrichedPayload,
     created_by: params.createdBy || null,
-  });
+    })
+    .select('id')
+    .single();
+
+  const transitionId = inserted?.id ? String(inserted.id) : null;
+
+  // Conectar a "área de colaboradores": avisar quem atua na área de destino.
+  // Link: envia para o Kanban do colaborador (onde ele executa trabalho), mantendo rastreabilidade via metadata.
+  try {
+    await notifyAreaUsers({
+      area: params.toArea,
+      title: `Nova demanda (${params.toArea})`,
+      message: `Há uma nova transição pendente para a sua área. Evento: ${params.triggerEvent}.`,
+      link: '/colaborador/kanban',
+      metadata: {
+        workflow_transition_id: transitionId,
+        trigger_event: params.triggerEvent,
+        from_area: params.fromArea,
+        to_area: params.toArea,
+        correlation_id: params.correlationId || null,
+        source_event_id: params.sourceEventId || null,
+      },
+      type: 'workflow',
+    });
+  } catch {
+    // best-effort
+  }
+
+  return transitionId;
 }
 
 async function notifyAdmins(
@@ -539,6 +570,16 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
               sourceEventId: event.id,
               correlationId: event.correlation_id,
             });
+            // Passo de Notificações (rastreamento no Hub): avisos ao time/cliente com links e IDs
+            await insertWorkflowTransition({
+              fromArea: 'Operacao',
+              toArea: 'Notificacoes',
+              triggerEvent: 'notifications.required',
+              payload: { proposal_id: proposalId, contract_id: contract.id, invoice_id: invoice.id, client_id: contract.client_id },
+              createdBy: event.actor_user_id,
+              sourceEventId: event.id,
+              correlationId: event.correlation_id,
+            });
           }
         }
 
@@ -584,6 +625,15 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
           fromArea: 'Financeiro',
           toArea: 'Operacao',
           triggerEvent: 'invoice.paid',
+          payload,
+          createdBy: event.actor_user_id,
+          sourceEventId: event.id,
+          correlationId: event.correlation_id,
+        });
+        await insertWorkflowTransition({
+          fromArea: 'Operacao',
+          toArea: 'Notificacoes',
+          triggerEvent: 'notifications.required',
           payload,
           createdBy: event.actor_user_id,
           sourceEventId: event.id,
@@ -653,6 +703,15 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
           fromArea: 'Financeiro',
           toArea: 'Comercial',
           triggerEvent: 'invoice.payment_failed',
+          payload,
+          createdBy: event.actor_user_id,
+          sourceEventId: event.id,
+          correlationId: event.correlation_id,
+        });
+        await insertWorkflowTransition({
+          fromArea: 'Comercial',
+          toArea: 'Notificacoes',
+          triggerEvent: 'notifications.required',
           payload,
           createdBy: event.actor_user_id,
           sourceEventId: event.id,

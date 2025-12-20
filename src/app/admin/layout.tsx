@@ -58,6 +58,7 @@ const breadcrumbMap: Record<string, string> = {
   "/admin/integracoes": "Integrações",
   "/admin/kanban-app": "Kanban",
   "/admin/fluxos": "Fluxos",
+  "/admin/prontidao": "Prontidão",
   "/admin/performance": "Performance",
   "/admin/configuracoes": "Configurações",
   "/admin/agendas": "Agendas",

@@ -12,6 +12,35 @@ import { getValPersona, buildValPrompt } from '@/lib/ai/val-personas';
 
 export const dynamic = 'force-dynamic';
 
+function normalizeText(input: string) {
+  return input
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function inferPersonaFromEmployee(params: { department?: string | null; areas?: string[] | null }) {
+  const dept = params.department ? normalizeText(params.department) : '';
+  const areas = Array.isArray(params.areas) ? params.areas.map((a) => normalizeText(String(a))) : [];
+  const raw = [dept, ...areas].filter(Boolean).join(' ');
+
+  if (raw.includes('comercial') || raw.includes('vendas')) return 'comercial';
+  if (raw.includes('financeiro') || raw.includes('finance') || raw.includes('cobranca') || raw.includes('cobran')) return 'financeiro';
+  if (raw.includes('rh') || raw.includes('people') || raw.includes('pessoas')) return 'rh';
+  if (raw.includes('juridico') || raw.includes('compliance')) return 'juridico';
+  if (raw.includes('contratos') || raw.includes('contract')) return 'contratos';
+  if (raw.includes('operacao') || raw.includes('operacional') || raw.includes('ops')) return 'operacao';
+  if (raw.includes('notificacao') || raw.includes('alert')) return 'notificacoes';
+  if (raw.includes('trafego') || raw.includes('ads') || raw.includes('midia') || raw.includes('mídia')) return 'trafego';
+  if (raw.includes('social')) return 'social_media';
+  if (raw.includes('video') || raw.includes('vídeo')) return 'video_maker';
+  if (raw.includes('web')) return 'web_designer';
+  if (raw.includes('design')) return 'designer';
+
+  return 'colaborador';
+}
+
 // POST - Conversar com a Val
 export async function POST(request: NextRequest) {
   try {
@@ -35,20 +64,38 @@ export async function POST(request: NextRequest) {
     const { data: profileData } = await supabase
       .from('user_profiles')
       .select('*')
-      .eq('id', user.id)
-      .single();
+      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
+      .maybeSingle();
 
-    const userType = profileData?.user_type || 'colaborador';
+    // user_type do banco tende a ser enum (super_admin/admin/hr/finance/manager/employee/client).
+    const rawUserType = (profileData?.user_type || 'employee') as string;
     const userName = profileData?.full_name || user.email;
     const companyName = profileData?.company_name;
 
+    // Inferir persona por área do colaborador (department/areas) quando aplicável
+    let personaKey: string = rawUserType;
+    if (rawUserType === 'finance') personaKey = 'financeiro';
+    if (rawUserType === 'hr') personaKey = 'rh';
+    if (rawUserType === 'client') personaKey = 'cliente';
+    if (rawUserType === 'employee' || rawUserType === 'manager') {
+      const { data: emp } = await supabase
+        .from('employees')
+        .select('department, areas')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      personaKey = inferPersonaFromEmployee({
+        department: (emp as any)?.department,
+        areas: (emp as any)?.areas,
+      });
+    }
+
     // Obter persona especializada
-    const persona = getValPersona(userType);
+    const persona = getValPersona(personaKey);
 
     // Buscar dados relevantes baseado no tipo de usuário
     let businessContext: any = {
       currentUser: userName,
-      userRole: userType,
+      userRole: personaKey,
       currentDate: new Date().toLocaleDateString('pt-BR'),
       currentTime: new Date().toLocaleTimeString('pt-BR'),
       persona: persona.name,
@@ -56,25 +103,25 @@ export async function POST(request: NextRequest) {
     };
 
     // Dados específicos por tipo de usuário
-    if (['super_admin', 'admin', 'head_marketing'].includes(userType)) {
+    if (['super_admin', 'admin'].includes(personaKey)) {
       // Buscar dados de gestão
       const [clientsData, tasksData, alertsData, financialData] = await Promise.all([
-        supabase.from('user_profiles').select('id, full_name, email, company_name').eq('user_type', 'cliente').limit(20),
+        supabase.from('clients').select('id, company_name, contact_email').limit(20),
         supabase.from('tasks').select('*').in('status', ['pending', 'in_progress']).limit(10),
         supabase.from('sentiment_alerts').select('*').eq('status', 'pending').limit(5),
-        supabase.from('contracts').select('value, status').eq('status', 'active')
+        supabase.from('contracts').select('monthly_value, status').eq('status', 'active')
       ]);
 
       businessContext = {
         ...businessContext,
         totalClients: clientsData.data?.length || 0,
-        recentClients: clientsData.data?.slice(0, 5).map(c => c.company_name || c.full_name) || [],
+        recentClients: clientsData.data?.slice(0, 5).map((c: any) => c.company_name || c.contact_email) || [],
         pendingTasks: tasksData.data?.length || 0,
         pendingAlerts: alertsData.data?.length || 0,
         activeContracts: financialData.data?.length || 0,
-        monthlyRevenue: financialData.data?.reduce((sum, c) => sum + (c.value || 0), 0) || 0
+        monthlyRevenue: financialData.data?.reduce((sum: number, c: any) => sum + (c.monthly_value || 0), 0) || 0
       };
-    } else if (userType === 'comercial') {
+    } else if (personaKey === 'comercial') {
       // Buscar dados de vendas
       const [leadsData, proposalsData] = await Promise.all([
         supabase.from('leads').select('*').in('status', ['new', 'contacted', 'qualified']).limit(10),
@@ -86,7 +133,7 @@ export async function POST(request: NextRequest) {
         activeLeads: leadsData.data?.length || 0,
         pendingProposals: proposalsData.data?.length || 0
       };
-    } else if (userType === 'financeiro') {
+    } else if (personaKey === 'financeiro') {
       // Buscar dados financeiros
       const [contractsData, pendingPayments] = await Promise.all([
         supabase.from('contracts').select('*').eq('status', 'active'),
@@ -97,13 +144,16 @@ export async function POST(request: NextRequest) {
         ...businessContext,
         activeContracts: contractsData.data?.length || 0,
         pendingPayments: pendingPayments.data?.length || 0,
-        totalPending: pendingPayments.data?.reduce((sum, c) => sum + (c.value || 0), 0) || 0
+        totalPending: pendingPayments.data?.reduce((sum: number, c: any) => sum + (c.monthly_value || 0), 0) || 0
       };
-    } else if (userType === 'cliente') {
+    } else if (personaKey === 'cliente') {
       // Buscar dados do cliente
+      const { data: clientRow } = await supabase.from('clients').select('id').eq('user_id', user.id).maybeSingle();
+      const clientId = (clientRow as any)?.id as string | undefined;
+
       const [tasksData, messagesData] = await Promise.all([
-        supabase.from('tasks').select('*').eq('client_id', user.id).limit(10),
-        supabase.from('messages').select('*').eq('receiver_id', user.id).eq('read', false).limit(5)
+        clientId ? supabase.from('kanban_tasks').select('*').eq('client_id', clientId).limit(10) : supabase.from('kanban_tasks').select('*').limit(0),
+        supabase.from('messages').select('*').eq('recipient_id', user.id).eq('is_read', false).limit(5)
       ]);
 
       businessContext = {
@@ -125,7 +175,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Construir prompt especializado
-    const systemPrompt = buildValPrompt(userType, {
+    const systemPrompt = buildValPrompt(personaKey, {
       userName,
       companyName,
       additionalContext: `Contexto do negócio:\n${JSON.stringify(businessContext, null, 2)}`
@@ -152,7 +202,7 @@ export async function POST(request: NextRequest) {
     let parsedResponse;
     try {
       const result = await generateWithAI({
-        task: userType === 'comercial' ? 'sales' : userType === 'rh' ? 'hr' : 'general',
+        task: personaKey === 'comercial' ? 'sales' : personaKey === 'rh' ? 'hr' : 'general',
         json: true,
         temperature: 0.7,
         maxTokens: 1500,
@@ -182,7 +232,7 @@ export async function POST(request: NextRequest) {
     try {
       await supabase.from('val_interactions').insert({
         user_id: user.id,
-        user_type: userType,
+        user_type: personaKey,
         message: message,
         response: parsedResponse.message,
         persona: persona.name,
@@ -223,16 +273,31 @@ export async function GET(request: NextRequest) {
     const { data: profileData } = await supabase
       .from('user_profiles')
       .select('user_type, full_name')
-      .eq('id', user.id)
-      .single();
+      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
+      .maybeSingle();
 
-    const userType = profileData?.user_type || 'colaborador';
-    const persona = getValPersona(userType);
+    const rawUserType = (profileData?.user_type || 'employee') as string;
+    let personaKey: string = rawUserType;
+    if (rawUserType === 'finance') personaKey = 'financeiro';
+    if (rawUserType === 'hr') personaKey = 'rh';
+    if (rawUserType === 'client') personaKey = 'cliente';
+    if (rawUserType === 'employee' || rawUserType === 'manager') {
+      const { data: emp } = await supabase
+        .from('employees')
+        .select('department, areas')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      personaKey = inferPersonaFromEmployee({
+        department: (emp as any)?.department,
+        areas: (emp as any)?.areas,
+      });
+    }
+    const persona = getValPersona(personaKey);
 
     // Buscar dados para sugestões baseado no tipo
     let contextData: any = {};
 
-    if (['super_admin', 'admin'].includes(userType)) {
+    if (['super_admin', 'admin'].includes(personaKey)) {
       const [alertsData, tasksData, paymentsData] = await Promise.all([
         supabase.from('sentiment_alerts').select('*').eq('status', 'pending').limit(3),
         supabase.from('tasks').select('*').eq('status', 'overdue').limit(5),
@@ -257,7 +322,7 @@ export async function GET(request: NextRequest) {
       messages: [
         { 
           role: 'system', 
-          content: `Você é a ${persona.name}. Gere 2-3 sugestões proativas curtas e relevantes para um ${userType}.\nRetorne JSON: { "suggestions": [{ "icon": "emoji", "text": "sugestão curta", "priority": "high/medium/low", "action": "ação_sugerida" }] }`
+          content: `Você é a ${persona.name}. Gere 2-3 sugestões proativas curtas e relevantes para um ${personaKey}.\nRetorne JSON: { "suggestions": [{ "icon": "emoji", "text": "sugestão curta", "priority": "high/medium/low", "action": "ação_sugerida" }] }`
         },
         { 
           role: 'user', 

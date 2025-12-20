@@ -36,6 +36,7 @@ import {
   ToggleLeft,
   Building2,
   Workflow,
+  CheckCircle2,
   LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -160,6 +161,7 @@ const navGroups: NavGroup[] = [
     label: "Sistema",
     icon: Settings,
     items: [
+      { id: "readiness", label: "Prontidão", href: "/admin/prontidao", icon: CheckCircle2 },
       { id: "flows", label: "Fluxos", href: "/admin/fluxos", icon: Workflow },
       { id: "feature-flags", label: "Feature Flags", href: "/admin/feature-flags", icon: ToggleLeft },
       { id: "integrations", label: "Integrações", href: "/admin/integracoes", icon: LinkIcon },
