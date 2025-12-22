@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, Send, User, Mail, Phone, MapPin, Briefcase, Shield, Calendar, DollarSign, Building } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -351,6 +352,13 @@ export default function NovoColaboradorPage() {
           <div>
             <h1 className="text-3xl font-bold">Novo Colaborador</h1>
             <p className="text-gray-600 mt-1">Cadastre um novo membro da equipe</p>
+            <p className="text-sm mt-2 text-amber-700">
+              Atenção: esta tela cria um usuário NOVO no Supabase Auth. Se o colaborador já existe (login/senha), use{' '}
+              <Link className="underline" href="/admin/colaboradores/vincular">
+                Vincular existente
+              </Link>
+              .
+            </p>
           </div>
         </div>
       </div>

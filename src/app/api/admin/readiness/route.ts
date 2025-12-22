@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { AREA_BOARDS, inferAreaKeyFromLabel, type AreaKey } from '@/lib/kanban/areaBoards';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,29 +85,46 @@ export async function GET(request: NextRequest) {
     };
 
     // Áreas (colaboradores)
-    const areas = ['Comercial', 'Jurídico', 'Contratos', 'Financeiro', 'Operacao', 'Notificacoes', 'RH'];
-    const { data: employees } = await supabase.from('employees').select('id, department, areas, is_active').eq('is_active', true);
+    const { data: employees } = await supabase
+      .from('employees')
+      .select('id, department, area_of_expertise, areas, is_active')
+      .eq('is_active', true);
 
-    const normalize = (s: string) =>
-      s
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .trim();
+    const countsByAreaKey = new Map<AreaKey, number>();
+    for (const b of AREA_BOARDS) countsByAreaKey.set(b.areaKey, 0);
 
-    const areaCoverage = areas.map((area) => {
-      const a = normalize(area);
-      const count =
-        (employees || []).filter((e: any) => {
-          const dept = e?.department ? normalize(String(e.department)) : '';
-          const arr = Array.isArray(e?.areas) ? e.areas.map((x: any) => normalize(String(x))) : [];
-          if (dept === a || dept.includes(a) || a.includes(dept)) return true;
-          if (arr.includes(a)) return true;
-          if (arr.some((x: string) => x.includes(a) || a.includes(x))) return true;
-          return false;
-        }).length || 0;
+    const addAreaKey = (k: AreaKey | null) => {
+      if (!k) return;
+      if (!countsByAreaKey.has(k)) return;
+      countsByAreaKey.set(k, (countsByAreaKey.get(k) || 0) + 1);
+    };
+
+    for (const e of employees || []) {
+      const labels: string[] = [];
+      if (e?.department) labels.push(String(e.department));
+      if ((e as any)?.area_of_expertise) labels.push(String((e as any).area_of_expertise));
+      if (Array.isArray((e as any)?.areas)) labels.push(...((e as any).areas as any[]).map((x) => String(x)));
+
+      const unique = new Set<AreaKey>();
+      for (const lbl of labels) {
+        const k = inferAreaKeyFromLabel(lbl);
+        if (k) unique.add(k);
+      }
+
+      // Fallback: se nada foi inferido mas tem string de department, tenta inferir do texto todo
+      if (unique.size === 0 && e?.department) {
+        const k = inferAreaKeyFromLabel(String(e.department));
+        if (k) unique.add(k);
+      }
+
+      for (const k of unique) addAreaKey(k);
+    }
+
+    const areaCoverage = AREA_BOARDS.map((b) => {
+      const count = countsByAreaKey.get(b.areaKey) || 0;
       return {
-        area,
+        area: b.label,
+        areaKey: b.areaKey,
         activeEmployees: count,
         status: count > 0 ? 'pass' : 'warn',
       };

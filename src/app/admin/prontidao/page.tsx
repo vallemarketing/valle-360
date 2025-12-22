@@ -126,6 +126,8 @@ export default function ProntidaoPage() {
               </div>
               <div className="mt-3">
                 <Link className="text-sm underline" href="/admin/colaboradores">Gerenciar colaboradores</Link>
+                <span className="mx-2 text-sm" style={{ color: 'var(--text-secondary)' }}>•</span>
+                <Link className="text-sm underline" href="/admin/colaboradores/vincular">Vincular existente</Link>
               </div>
             </div>
 
