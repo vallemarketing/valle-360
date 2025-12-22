@@ -218,17 +218,33 @@ export default function EmployeesListPage() {
             </p>
           </div>
 
-          <Link href="/admin/colaboradores/novo">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium text-white shadow-md"
-              style={{ backgroundColor: 'var(--primary-500)' }}
-            >
-              <Plus className="w-5 h-5" />
-              Novo Colaborador
-            </motion.button>
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/admin/colaboradores/vincular">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium border shadow-sm"
+                style={{
+                  backgroundColor: 'var(--bg-primary)',
+                  borderColor: 'var(--border-light)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                Vincular existente
+              </motion.button>
+            </Link>
+            <Link href="/admin/colaboradores/novo">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium text-white shadow-md"
+                style={{ backgroundColor: 'var(--primary-500)' }}
+              >
+                <Plus className="w-5 h-5" />
+                Novo Colaborador
+              </motion.button>
+            </Link>
+          </div>
         </div>
 
         {/* Stats */}

@@ -1,12 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { predictiveEngine, type Prediction } from '@/lib/ai/predictive-engine';
 import { clientHealthScore } from '@/lib/ai/client-health-score';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
+
+async function requireAdmin() {
+  const cookieStore = cookies();
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user?.id) {
+    return { ok: false as const, res: NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 }) };
+  }
+
+  const { data: isAdmin, error: isAdminError } = await supabase.rpc('is_admin');
+  if (isAdminError || !isAdmin) {
+    return { ok: false as const, res: NextResponse.json({ success: false, error: 'Acesso negado (admin)' }, { status: 403 }) };
+  }
+
+  return { ok: true as const, userId: auth.user.id };
+}
 
 // GET - Buscar previsões
 export async function GET(request: NextRequest) {
   try {
+    const gate = await requireAdmin();
+    if (!gate.ok) return gate.res;
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') as Prediction['type'] | null;
     const entity_type = searchParams.get('entity_type') || undefined;
@@ -33,6 +55,9 @@ export async function GET(request: NextRequest) {
 // POST - Gerar previsões
 export async function POST(request: NextRequest) {
   try {
+    const gate = await requireAdmin();
+    if (!gate.ok) return gate.res;
+
     const body = await request.json();
     const { action, entity_id, entity_type, period } = body;
 
@@ -134,6 +159,9 @@ export async function POST(request: NextRequest) {
 // PUT - Registrar feedback de previsão
 export async function PUT(request: NextRequest) {
   try {
+    const gate = await requireAdmin();
+    if (!gate.ok) return gate.res;
+
     const body = await request.json();
     const { prediction_id, was_correct, actual_outcome } = body;
 

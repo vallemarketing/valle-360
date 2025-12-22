@@ -3,7 +3,7 @@
  * Sistema de pontuação de saúde do cliente
  */
 
-import { supabase } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export interface ClientHealthScore {
   client_id: string;
@@ -38,6 +38,9 @@ export interface ClientActivity {
 }
 
 class ClientHealthScoreService {
+  private db() {
+    return getSupabaseAdmin();
+  }
   // Pesos para cada categoria
   private readonly WEIGHTS = {
     engagement: 0.25,
@@ -52,7 +55,7 @@ class ClientHealthScoreService {
   async calculateHealthScore(clientId: string): Promise<ClientHealthScore | null> {
     try {
       // Busca dados do cliente
-      const { data: client } = await supabase
+      const { data: client } = await this.db()
         .from('clients')
         .select('*')
         .eq('id', clientId)
@@ -134,7 +137,7 @@ class ClientHealthScoreService {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
       // Busca atividades do cliente nos últimos 30 dias
-      const { data: activities } = await supabase
+      const { data: activities } = await this.db()
         .from('client_activities')
         .select('*')
         .eq('client_id', clientId)
@@ -171,7 +174,7 @@ class ClientHealthScoreService {
   private async calculatePaymentScore(clientId: string): Promise<number> {
     try {
       // Busca histórico de faturas
-      const { data: invoices } = await supabase
+      const { data: invoices } = await this.db()
         .from('invoices')
         .select('*')
         .eq('client_id', clientId)
@@ -211,7 +214,7 @@ class ClientHealthScoreService {
   private async calculateSatisfactionScore(clientId: string): Promise<number> {
     try {
       // Busca NPS e feedbacks
-      const { data: feedbacks } = await supabase
+      const { data: feedbacks } = await this.db()
         .from('client_feedbacks')
         .select('*')
         .eq('client_id', clientId)
@@ -250,7 +253,7 @@ class ClientHealthScoreService {
   private async calculateGrowthScore(clientId: string): Promise<number> {
     try {
       // Busca métricas de crescimento
-      const { data: metrics } = await supabase
+      const { data: metrics } = await this.db()
         .from('client_metrics')
         .select('*')
         .eq('client_id', clientId)
@@ -468,7 +471,7 @@ class ClientHealthScoreService {
    */
   private async determineTrend(clientId: string, currentScore: number): Promise<ClientHealthScore['trend']> {
     try {
-      const { data: previousScore } = await supabase
+      const { data: previousScore } = await this.db()
         .from('client_health_scores')
         .select('overall_score')
         .eq('client_id', clientId)
@@ -492,7 +495,7 @@ class ClientHealthScoreService {
    */
   private async saveHealthScore(healthScore: ClientHealthScore): Promise<void> {
     try {
-      await supabase
+      await this.db()
         .from('client_health_scores')
         .upsert({
           client_id: healthScore.client_id,
@@ -523,7 +526,7 @@ class ClientHealthScoreService {
     min_churn_probability?: number;
   }): Promise<ClientHealthScore[]> {
     try {
-      let query = supabase
+      let query = this.db()
         .from('client_health_scores')
         .select('*')
         .order('overall_score', { ascending: true });
@@ -554,7 +557,7 @@ class ClientHealthScoreService {
    */
   async recalculateAllScores(): Promise<number> {
     try {
-      const { data: clients } = await supabase
+      const { data: clients } = await this.db()
         .from('clients')
         .select('id')
         .eq('is_active', true);

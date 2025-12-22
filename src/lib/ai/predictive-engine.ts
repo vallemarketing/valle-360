@@ -3,7 +3,7 @@
  * Motor preditivo para análises e previsões
  */
 
-import { supabase } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export interface Prediction {
   id?: string;
@@ -37,6 +37,9 @@ export interface PredictionConfig {
 }
 
 class PredictiveEngineService {
+  private db() {
+    return getSupabaseAdmin();
+  }
   /**
    * Gera previsão de churn para um cliente
    */
@@ -143,7 +146,7 @@ class PredictiveEngineService {
       let conversionScore = 50; // Base
 
       // Fator 1: Score do lead
-      const { data: lead } = await supabase
+      const { data: lead } = await this.db()
         .from('leads')
         .select('*')
         .eq('id', leadId)
@@ -236,11 +239,11 @@ class PredictiveEngineService {
    */
   async predictDelay(taskId: string): Promise<Prediction | null> {
     try {
-      const { data: task } = await supabase
-        .from('kanban_cards')
-        .select('*')
+      const { data: task } = await this.db()
+        .from('kanban_tasks')
+        .select('id, title, assigned_to, priority, estimated_hours, due_date, created_at, updated_at, column_id, board_id, status')
         .eq('id', taskId)
-        .single();
+        .maybeSingle();
 
       if (!task) return null;
 
@@ -279,7 +282,7 @@ class PredictiveEngineService {
         const daysUntilDue = Math.floor(
           (new Date(task.due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
         );
-        if (daysUntilDue < 2 && task.status !== 'done') {
+        if (daysUntilDue < 2 && (task as any).status !== 'done') {
           delayProbability += 25;
           factors.push({
             name: 'Prazo iminente',
@@ -289,18 +292,6 @@ class PredictiveEngineService {
             description: `Apenas ${daysUntilDue} dias até o prazo`
           });
         }
-      }
-
-      // Fator 4: Dependências
-      if (task.blocked_by && task.blocked_by.length > 0) {
-        delayProbability += 20;
-        factors.push({
-          name: 'Dependências pendentes',
-          weight: 0.20,
-          value: task.blocked_by.length,
-          impact: 'negative',
-          description: `${task.blocked_by.length} tarefas bloqueando`
-        });
       }
 
       const confidence = Math.min(85, 35 + factors.length * 15);
@@ -334,7 +325,7 @@ class PredictiveEngineService {
   async predictRevenue(period: 'month' | 'quarter'): Promise<Prediction | null> {
     try {
       // Busca histórico de receita
-      const { data: revenueHistory } = await supabase
+      const { data: revenueHistory } = await this.db()
         .from('revenue_records')
         .select('*')
         .order('period', { ascending: false })
@@ -413,7 +404,7 @@ class PredictiveEngineService {
    */
   async predictUpsellOpportunities(clientId: string): Promise<Prediction | null> {
     try {
-      const { data: client } = await supabase
+      const { data: client } = await this.db()
         .from('clients')
         .select('*, client_services(*)')
         .eq('id', clientId)
@@ -569,11 +560,50 @@ class PredictiveEngineService {
     return '❄️ Frio: Manter em nurturing automático';
   }
 
-  private async savePrediction(prediction: Prediction): Promise<void> {
+  private toDateOnly(iso: string): string | null {
     try {
-      await supabase.from('ai_predictions').insert(prediction);
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return null;
+      return d.toISOString().slice(0, 10);
+    } catch {
+      return null;
+    }
+  }
+
+  private async savePrediction(prediction: Prediction): Promise<string | null> {
+    try {
+      const predictedForDate = this.toDateOnly(prediction.valid_until);
+      const looksLikeUuid = (v: string) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+      const targetId = prediction.entity_id && looksLikeUuid(prediction.entity_id) ? prediction.entity_id : null;
+      const { data, error } = await this.db()
+        .from('ml_predictions_log')
+        .insert({
+          prediction_type: prediction.type,
+          prediction_target: prediction.entity_type,
+          target_id: targetId,
+          predicted_value: {
+            value: prediction.prediction_value,
+            factors: prediction.factors || [],
+            recommendation: prediction.recommendation || null,
+            entity_name: prediction.entity_name || null,
+            entity_id: prediction.entity_id || null,
+          },
+          predicted_probability: prediction.confidence,
+          predicted_at: prediction.created_at,
+          predicted_for_date: predictedForDate,
+          model_version: 'heuristic_v1',
+          features_used: (prediction.factors || []).map((f) => f.name),
+          created_by: null,
+        })
+        .select('id')
+        .single();
+      if (error) throw error;
+      if (data?.id) prediction.id = data.id;
+      return data?.id || null;
     } catch (error) {
       console.error('Erro ao salvar previsão:', error);
+      return null;
     }
   }
 
@@ -587,18 +617,44 @@ class PredictiveEngineService {
     min_confidence?: number;
   }): Promise<Prediction[]> {
     try {
-      let query = supabase
-        .from('ai_predictions')
+      let query = this.db()
+        .from('ml_predictions_log')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('predicted_at', { ascending: false });
 
-      if (filters?.type) query = query.eq('type', filters.type);
-      if (filters?.entity_type) query = query.eq('entity_type', filters.entity_type);
-      if (filters?.entity_id) query = query.eq('entity_id', filters.entity_id);
-      if (filters?.min_confidence) query = query.gte('confidence', filters.min_confidence);
+      if (filters?.type) query = query.eq('prediction_type', filters.type);
+      if (filters?.entity_type) query = query.eq('prediction_target', filters.entity_type);
+      if (filters?.entity_id) query = query.eq('target_id', filters.entity_id);
+      if (filters?.min_confidence) query = query.gte('predicted_probability', filters.min_confidence);
 
       const { data } = await query;
-      return data || [];
+      const rows = (data || []) as any[];
+      return rows.map((r) => {
+        const pv = r.predicted_value;
+        const value = typeof pv === 'object' && pv !== null && 'value' in pv ? Number((pv as any).value) : Number(pv);
+        const factors = (pv && typeof pv === 'object' ? (pv as any).factors : null) || [];
+        const recommendation = pv && typeof pv === 'object' ? (pv as any).recommendation : undefined;
+        const entityName = pv && typeof pv === 'object' ? (pv as any).entity_name : undefined;
+
+        const createdAt = r.predicted_at || r.created_at || new Date().toISOString();
+        const validUntil = r.predicted_for_date ? new Date(String(r.predicted_for_date)).toISOString() : createdAt;
+
+        return {
+          id: r.id,
+          type: r.prediction_type,
+          entity_type: r.prediction_target,
+          entity_id: r.target_id,
+          entity_name: entityName,
+          prediction_value: Number.isFinite(value) ? value : 0,
+          confidence: Number(r.predicted_probability || 0),
+          factors,
+          recommendation,
+          created_at: createdAt,
+          valid_until: validUntil,
+          was_correct: r.was_correct ?? undefined,
+          actual_outcome: r.actual_value ?? undefined,
+        } as Prediction;
+      });
     } catch (error) {
       console.error('Erro ao buscar previsões:', error);
       return [];
@@ -610,11 +666,12 @@ class PredictiveEngineService {
    */
   async recordPredictionOutcome(predictionId: string, wasCorrect: boolean, actualOutcome?: any): Promise<void> {
     try {
-      await supabase
-        .from('ai_predictions')
+      await this.db()
+        .from('ml_predictions_log')
         .update({
           was_correct: wasCorrect,
-          actual_outcome: actualOutcome
+          actual_value: actualOutcome ?? null,
+          actual_recorded_at: new Date().toISOString(),
         })
         .eq('id', predictionId);
     } catch (error) {

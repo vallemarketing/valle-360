@@ -39,7 +39,16 @@ const INTEGRATION_CONFIGS: Record<string, { fields: IntegrationField[] }> = {
   openrouter: {
     fields: [
       { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'sk-or-...', required: true, helpText: 'Chave do OpenRouter (gateway de modelos)' },
-      { key: 'config.model', label: 'Modelo (opcional)', type: 'text', placeholder: 'openrouter/auto', helpText: 'Ex: openrouter/auto' }
+      { key: 'config.model', label: 'Modelo fixo (opcional)', type: 'text', placeholder: 'openrouter/auto', helpText: 'Se preencher, fixa um modelo para todas as tarefas e ignora a política por função.' },
+      {
+        key: 'config.model_policy',
+        label: 'Política de modelos (JSON, opcional)',
+        type: 'text',
+        placeholder:
+          '{"default":["openrouter/auto"],"kanban_insights":["anthropic/claude-3.5-sonnet","openrouter/auto"],"copywriting":["openai/gpt-4o-mini","openrouter/auto"]}',
+        helpText:
+          'Mapeia task → lista de modelos. Ex: {"analysis":["...","openrouter/auto"],"default":["openrouter/auto"]}. Se algum modelo falhar, o sistema tenta o próximo.',
+      },
     ]
   },
   anthropic: {

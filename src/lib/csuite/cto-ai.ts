@@ -142,7 +142,7 @@ export async function getDepartmentCapacity(department?: string): Promise<Capaci
 
   // Buscar tasks/horas alocadas (simulado com base em Kanban)
   const { data: tasks } = await supabase
-    .from('kanban_cards')
+    .from('kanban_tasks')
     .select('assigned_to, estimated_hours, status')
     .neq('status', 'done');
 

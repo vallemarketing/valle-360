@@ -55,8 +55,33 @@ export async function GET(request: NextRequest) {
     const criticalStatus: Record<string, ReadinessStatus> = {};
     for (const id of critical) {
       const row = (integrations || []).find((x: any) => x.integration_id === id);
-      criticalStatus[id] = row?.status === 'connected' && (row?.api_key || row?.access_token) ? 'pass' : 'warn';
+      const connectedInDb = row?.status === 'connected' && (row?.api_key || row?.access_token);
+      const connectedInEnv =
+        (id === 'openrouter' && !!process.env.OPENROUTER_API_KEY) ||
+        (id === 'openai' && !!process.env.OPENAI_API_KEY) ||
+        (id === 'stripe' && !!process.env.STRIPE_SECRET_KEY) ||
+        (id === 'sendgrid' && !!process.env.SENDGRID_API_KEY) ||
+        (id === 'whatsapp' && !!process.env.WHATSAPP_ACCESS_TOKEN);
+
+      criticalStatus[id] = connectedInDb || connectedInEnv ? 'pass' : 'warn';
     }
+
+    const aiSource = {
+      openrouter:
+        (integrations || []).find((x: any) => x.integration_id === 'openrouter')?.status === 'connected' &&
+        (integrations || []).find((x: any) => x.integration_id === 'openrouter')?.api_key
+          ? ('db' as const)
+          : process.env.OPENROUTER_API_KEY
+            ? ('env' as const)
+            : ('none' as const),
+      openai:
+        (integrations || []).find((x: any) => x.integration_id === 'openai')?.status === 'connected' &&
+        (integrations || []).find((x: any) => x.integration_id === 'openai')?.api_key
+          ? ('db' as const)
+          : process.env.OPENAI_API_KEY
+            ? ('env' as const)
+            : ('none' as const),
+    };
 
     // Áreas (colaboradores)
     const areas = ['Comercial', 'Jurídico', 'Contratos', 'Financeiro', 'Operacao', 'Notificacoes', 'RH'];
@@ -118,6 +143,7 @@ export async function GET(request: NextRequest) {
           openrouter: criticalStatus.openrouter,
           openai: criticalStatus.openai,
         },
+        source: aiSource,
       },
       ml: {
         status: statusFromBool((goalConfigs || 0) > 0 || (mlModels || 0) > 0),

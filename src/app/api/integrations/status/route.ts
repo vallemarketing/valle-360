@@ -45,16 +45,30 @@ export async function GET(request: NextRequest) {
     }
 
     // Formatar resposta
-    const integrations = data.map(integration => ({
-      id: integration.integration_id,
-      name: integration.display_name,
-      category: integration.category,
-      status: integration.status,
-      connected: integration.status === 'connected',
-      lastSync: integration.last_sync,
-      error: integration.error_message,
-      config: integration.config
-    }));
+    const envConnectedById: Record<string, boolean> = {
+      openrouter: !!process.env.OPENROUTER_API_KEY,
+      openai: !!process.env.OPENAI_API_KEY,
+      anthropic: !!process.env.ANTHROPIC_API_KEY,
+      gemini: !!(process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_CLOUD_API_KEY),
+      stripe: !!process.env.STRIPE_SECRET_KEY,
+      sendgrid: !!process.env.SENDGRID_API_KEY,
+    };
+
+    const integrations = data.map((integration) => {
+      const envConnected = !!envConnectedById[integration.integration_id];
+      const dbConnected = integration.status === 'connected';
+      return {
+        id: integration.integration_id,
+        name: integration.display_name,
+        category: integration.category,
+        status: integration.status,
+        connected: dbConnected || envConnected,
+        connectedVia: dbConnected ? 'db' : envConnected ? 'env' : 'none',
+        lastSync: integration.last_sync,
+        error: integration.error_message,
+        config: integration.config,
+      };
+    });
 
     // Estatísticas
     const stats = {
@@ -101,30 +115,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ID da integração é obrigatório' }, { status: 400 });
     }
 
-    // Buscar configuração
-    const { data: config, error } = await supabase
+    // Buscar configuração (pode não existir no banco; nesse caso, permitimos fallback via env vars)
+    const { data: dbConfig, error: dbError } = await supabase
       .from('integration_configs')
       .select('*')
       .eq('integration_id', integrationId)
       .single();
 
-    if (error || !config) {
-      return NextResponse.json({ error: 'Integração não encontrada' }, { status: 404 });
-    }
+    const config = !dbError ? dbConfig : null;
 
-    if (config.status !== 'connected') {
+    const envConnectedById: Record<string, boolean> = {
+      openrouter: !!process.env.OPENROUTER_API_KEY,
+      openai: !!process.env.OPENAI_API_KEY,
+      anthropic: !!process.env.ANTHROPIC_API_KEY,
+      gemini: !!(process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_CLOUD_API_KEY),
+      stripe: !!process.env.STRIPE_SECRET_KEY,
+      sendgrid: !!process.env.SENDGRID_API_KEY,
+      whatsapp: !!process.env.WHATSAPP_ACCESS_TOKEN,
+    };
+
+    const envConnected = !!envConnectedById[integrationId];
+    const dbConnected = config?.status === 'connected';
+
+    if (!dbConnected && !envConnected) {
       return NextResponse.json({
         success: true,
         healthy: false,
-        reason: 'Integração não está conectada'
+        reason: config ? 'Integração não está conectada' : 'Integração não configurada (db/env)',
       });
     }
 
     // Verificar saúde baseado no tipo
-    const healthCheck = await checkIntegrationHealth(integrationId, config);
+    const healthCheck = await checkIntegrationHealth(integrationId, config || {});
 
     // Atualizar status se necessário
-    if (!healthCheck.healthy && config.status === 'connected') {
+    if (!healthCheck.healthy && config?.status === 'connected') {
       await supabase
         .from('integration_configs')
         .update({
@@ -135,13 +160,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Registrar log
-    await supabase.from('integration_logs').insert({
-      integration_id: integrationId,
-      action: 'health_check',
-      status: healthCheck.healthy ? 'success' : 'error',
-      error_message: healthCheck.error,
-      duration_ms: healthCheck.responseTime
-    });
+    // (best-effort) só loga quando existe config no banco (evita FK quebrar em ambientes sem seed)
+    if (config) {
+      await supabase.from('integration_logs').insert({
+        integration_id: integrationId,
+        action: 'health_check',
+        status: healthCheck.healthy ? 'success' : 'error',
+        error_message: healthCheck.error,
+        duration_ms: healthCheck.responseTime,
+        response_data: { connectedVia: dbConnected ? 'db' : envConnected ? 'env' : 'none' },
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -167,32 +196,60 @@ async function checkIntegrationHealth(
   try {
     switch (integrationId) {
       case 'openrouter':
-        if (!config.api_key) return { healthy: false, error: 'API Key não configurada' };
-        try {
-          const r = await fetch('https://openrouter.ai/api/v1/models', {
-            headers: { Authorization: `Bearer ${config.api_key}` },
-          });
-          return {
-            healthy: r.ok,
-            error: r.ok ? undefined : 'Falha na autenticação',
-            responseTime: Date.now() - startTime,
-          };
-        } catch (e: any) {
-          return { healthy: false, error: e?.message || 'Falha no health check', responseTime: Date.now() - startTime };
+        {
+          const key = config.api_key || process.env.OPENROUTER_API_KEY;
+          if (!key) return { healthy: false, error: 'API Key não configurada (db/env)' };
+          try {
+            // Validar o caminho real usado pela app (chat/completions), não apenas /models.
+            const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${key}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost',
+                'X-Title': 'Valle 360',
+              },
+              body: JSON.stringify({
+                model: 'openrouter/auto',
+                messages: [{ role: 'user', content: 'ping' }],
+                max_tokens: 8,
+                temperature: 0,
+              }),
+            });
+            const raw = await r.text();
+            return {
+              healthy: r.ok,
+              error: r.ok ? undefined : raw.slice(0, 200) || 'Falha na autenticação',
+              responseTime: Date.now() - startTime,
+            };
+          } catch (e: any) {
+            return { healthy: false, error: e?.message || 'Falha no health check', responseTime: Date.now() - startTime };
+          }
         }
 
       case 'anthropic':
         // Anthropic não tem endpoint simples de models público; validar apenas presença da key.
-        return { healthy: !!config.api_key, error: config.api_key ? undefined : 'API Key não configurada', responseTime: Date.now() - startTime };
+        return {
+          healthy: !!(config.api_key || process.env.ANTHROPIC_API_KEY),
+          error: config.api_key || process.env.ANTHROPIC_API_KEY ? undefined : 'API Key não configurada (db/env)',
+          responseTime: Date.now() - startTime,
+        };
 
       case 'gemini':
         // Validar apenas presença da key para evitar custos/chamadas.
-        return { healthy: !!config.api_key, error: config.api_key ? undefined : 'API Key não configurada', responseTime: Date.now() - startTime };
+        return {
+          healthy: !!(config.api_key || process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_CLOUD_API_KEY),
+          error:
+            config.api_key || process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_CLOUD_API_KEY
+              ? undefined
+              : 'API Key não configurada (db/env)',
+          responseTime: Date.now() - startTime,
+        };
 
       case 'openai':
-        if (!config.api_key) return { healthy: false, error: 'API Key não configurada' };
+        if (!(config.api_key || process.env.OPENAI_API_KEY)) return { healthy: false, error: 'API Key não configurada (db/env)' };
         const openaiResponse = await fetch('https://api.openai.com/v1/models', {
-          headers: { 'Authorization': `Bearer ${config.api_key}` }
+          headers: { 'Authorization': `Bearer ${config.api_key || process.env.OPENAI_API_KEY}` }
         });
         return { 
           healthy: openaiResponse.ok, 
@@ -201,9 +258,9 @@ async function checkIntegrationHealth(
         };
 
       case 'stripe':
-        if (!config.api_key) return { healthy: false, error: 'Secret Key não configurada' };
+        if (!(config.api_key || process.env.STRIPE_SECRET_KEY)) return { healthy: false, error: 'Secret Key não configurada (db/env)' };
         const stripeResponse = await fetch('https://api.stripe.com/v1/balance', {
-          headers: { 'Authorization': `Bearer ${config.api_key}` }
+          headers: { 'Authorization': `Bearer ${config.api_key || process.env.STRIPE_SECRET_KEY}` }
         });
         return { 
           healthy: stripeResponse.ok,
@@ -212,7 +269,7 @@ async function checkIntegrationHealth(
         };
 
       case 'sendgrid':
-        if (!config.api_key) return { healthy: false, error: 'API Key não configurada' };
+        if (!(config.api_key || process.env.SENDGRID_API_KEY)) return { healthy: false, error: 'API Key não configurada (db/env)' };
         // SendGrid não tem endpoint de health check simples, assumir OK se tem key
         return { healthy: true, responseTime: Date.now() - startTime };
 

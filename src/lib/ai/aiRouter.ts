@@ -20,6 +20,9 @@ export type LLMTask =
 
 export type LLMProvider = 'openrouter' | 'claude' | 'openai' | 'gemini';
 
+type OpenRouterPolicyKey = LLMTask | 'default';
+type OpenRouterModelPolicy = Partial<Record<OpenRouterPolicyKey, string[]>>;
+
 export interface LLMRequest {
   messages: LLMMessage[];
   task?: LLMTask;
@@ -54,22 +57,38 @@ function safeCorrelationId() {
   });
 }
 
-function pickOpenRouterModel(task: LLMTask = 'general') {
-  // Modelo automático do OpenRouter costuma escolher bem e permite fallback interno.
-  // Você pode fixar via env se quiser.
-  const envModel = process.env.OPENROUTER_MODEL;
-  if (envModel) return envModel;
-
-  switch (task) {
-    case 'analysis':
-    case 'strategy':
-      return 'openrouter/auto';
-    case 'sales':
-    case 'copywriting':
-      return 'openrouter/auto';
-    default:
-      return 'openrouter/auto';
+function safeParseJson<T>(value: string | undefined | null): T | null {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
   }
+}
+
+function normalizeModelList(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map((x) => String(x).trim()).filter(Boolean);
+  if (typeof value === 'string') return [value.trim()].filter(Boolean);
+  return [];
+}
+
+function defaultOpenRouterPolicy(): OpenRouterModelPolicy {
+  // Defaults seguros: tentam modelos conhecidos (via OpenRouter) e caem em `openrouter/auto`.
+  // Se algum nome não existir, a lógica de retry tenta o próximo.
+  return {
+    default: ['openrouter/auto'],
+    general: ['openrouter/auto'],
+    analysis: ['anthropic/claude-3.5-sonnet', 'openrouter/auto'],
+    strategy: ['anthropic/claude-3.5-sonnet', 'openrouter/auto'],
+    kanban_insights: ['anthropic/claude-3.5-sonnet', 'openrouter/auto'],
+    kanban_message: ['openai/gpt-4o-mini', 'openrouter/auto'],
+    copywriting: ['openai/gpt-4o-mini', 'openrouter/auto'],
+    sales: ['openai/gpt-4o-mini', 'openrouter/auto'],
+    sentiment: ['google/gemini-1.5-flash', 'openrouter/auto'],
+    classification: ['google/gemini-1.5-flash', 'openrouter/auto'],
+    hr: ['anthropic/claude-3.5-sonnet', 'openrouter/auto'],
+  };
 }
 
 function pickClaudeModel(task: LLMTask = 'general') {
@@ -117,19 +136,83 @@ async function logAiAttempt(params: {
   }
 }
 
-async function getOpenRouterKey(): Promise<string | null> {
+type OpenRouterConfig = {
+  model?: string | null;
+  model_policy?: OpenRouterModelPolicy | string | null;
+  modelPolicy?: OpenRouterModelPolicy | string | null;
+};
+
+let openRouterCache:
+  | { fetchedAt: number; apiKey: string | null; config: OpenRouterConfig | null }
+  | null = null;
+
+async function getOpenRouterConfigAndKey(): Promise<{ apiKey: string | null; config: OpenRouterConfig | null }> {
+  const ttlMs = 60_000;
+  if (openRouterCache && Date.now() - openRouterCache.fetchedAt < ttlMs) {
+    return { apiKey: openRouterCache.apiKey, config: openRouterCache.config };
+  }
+
+  let apiKey: string | null = null;
+  let config: OpenRouterConfig | null = null;
   try {
     const supabase = getSupabaseAdmin();
     const { data } = await supabase
       .from('integration_configs')
-      .select('api_key')
+      .select('api_key, config')
       .eq('integration_id', 'openrouter')
       .single();
-    if (data?.api_key) return data.api_key;
+    apiKey = data?.api_key || null;
+    config = (data?.config as any) || null;
   } catch {
     // ignore
   }
-  return process.env.OPENROUTER_API_KEY || null;
+
+  apiKey = apiKey || process.env.OPENROUTER_API_KEY || null;
+  openRouterCache = { fetchedAt: Date.now(), apiKey, config };
+  return { apiKey, config };
+}
+
+function parsePolicyFromUnknown(value: unknown): OpenRouterModelPolicy | null {
+  if (!value) return null;
+  if (typeof value === 'string') return safeParseJson<OpenRouterModelPolicy>(value);
+  if (typeof value === 'object') return value as OpenRouterModelPolicy;
+  return null;
+}
+
+async function pickOpenRouterModels(task: LLMTask = 'general'): Promise<string[]> {
+  // Forçar modelo único via env sempre vence (useful para debug/hard-pin).
+  const envFixedModel = process.env.OPENROUTER_MODEL;
+  if (envFixedModel) return [envFixedModel].filter(Boolean);
+
+  const { config } = await getOpenRouterConfigAndKey();
+  const fixedFromDb = config?.model ? String(config.model).trim() : '';
+  if (fixedFromDb) return [fixedFromDb];
+
+  // Política via env JSON (ex: {"analysis":["...","openrouter/auto"],"default":["openrouter/auto"]})
+  const envPolicy = safeParseJson<OpenRouterModelPolicy>(process.env.OPENROUTER_MODEL_POLICY_JSON);
+
+  // Política via DB (supporta config.model_policy ou config.modelPolicy)
+  const dbPolicy =
+    parsePolicyFromUnknown((config as any)?.model_policy) ||
+    parsePolicyFromUnknown((config as any)?.modelPolicy) ||
+    null;
+
+  const policy = dbPolicy || envPolicy || defaultOpenRouterPolicy();
+  const list = [
+    ...normalizeModelList((policy as any)[task]),
+    ...normalizeModelList((policy as any).default),
+    'openrouter/auto',
+  ];
+  // de-dup preservando ordem
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of list) {
+    const key = String(m).trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+  }
+  return out.length ? out : ['openrouter/auto'];
 }
 async function getAnthropicKey(): Promise<string | null> {
   try {
@@ -174,20 +257,31 @@ async function getGeminiKey(): Promise<string | null> {
   return process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_CLOUD_API_KEY || null;
 }
 
-async function callOpenRouter(req: LLMRequest): Promise<LLMResponse> {
-  const key = await getOpenRouterKey();
-  if (!key) throw new Error('OPENROUTER_API_KEY não configurada');
+function parseOpenRouterStatus(msg: string): number | null {
+  const m = msg.match(/OpenRouter error \\((\\d+)\\):/);
+  if (!m?.[1]) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : null;
+}
 
-  const model = pickOpenRouterModel(req.task);
+function isRetryableOpenRouterError(status: number | null, rawMsg: string): boolean {
+  if (!status) return true; // falhas de rede/timeout sem status
+  if (status === 401 || status === 403) return false;
+  if (status === 429) return true;
+  if (status === 408) return true;
+  if (status >= 500 && status <= 599) return true;
+  // Alguns erros de modelo (nome inválido/indisponível) vêm como 400.
+  if (status === 400 && /model|not found|no such|invalid/i.test(rawMsg)) return true;
+  return false;
+}
+
+async function callOpenRouterOnce(req: LLMRequest, model: string, apiKey: string): Promise<LLMResponse> {
   const url = 'https://openrouter.ai/api/v1/chat/completions';
-
-  const startedAt = Date.now();
   const res = await fetch(url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${key}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      // OpenRouter recomenda identificar a app (opcional)
       'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost',
       'X-Title': 'Valle 360',
     },
@@ -196,45 +290,64 @@ async function callOpenRouter(req: LLMRequest): Promise<LLMResponse> {
       messages: req.messages,
       temperature: req.temperature ?? 0.7,
       max_tokens: req.maxTokens ?? 1024,
-      // Nem todos os modelos respeitam, mas ajuda quando suportado.
       response_format: req.json ? { type: 'json_object' } : undefined,
     }),
   });
 
   const raw = await res.text();
-  if (!res.ok) {
-    throw new Error(`OpenRouter error (${res.status}): ${raw.slice(0, 500)}`);
-  }
+  if (!res.ok) throw new Error(`OpenRouter error (${res.status}): ${raw.slice(0, 500)}`);
 
   const data = JSON.parse(raw);
   const text: string = data?.choices?.[0]?.message?.content || '';
-  const out: LLMResponse = {
+  return {
     provider: 'openrouter',
     model: data?.model || model,
     text,
     usage: data?.usage,
   };
+}
 
-  await logAiAttempt({
-    userId: req.actorUserId || null,
-    action: 'ai.request',
-    entityType: req.entityType || 'ai',
-    entityId: req.entityId || null,
-    newValues: {
-      provider: out.provider,
-      model: out.model,
-      ok: true,
-      ms: Date.now() - startedAt,
-      task: req.task || 'general',
-      correlation_id: req.correlationId,
-      json: !!req.json,
-    },
-  });
+async function callOpenRouter(req: LLMRequest): Promise<LLMResponse> {
+  const { apiKey } = await getOpenRouterConfigAndKey();
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY não configurada');
 
-  if (req.json) {
-    out.json = extractJsonLoose(text);
+  const models = await pickOpenRouterModels(req.task);
+  const startedAt = Date.now();
+  const tried: Array<{ model: string; error: string }> = [];
+
+  for (const model of models) {
+    try {
+      const out = await callOpenRouterOnce(req, model, apiKey);
+
+      await logAiAttempt({
+        userId: req.actorUserId || null,
+        action: 'ai.request',
+        entityType: req.entityType || 'ai',
+        entityId: req.entityId || null,
+        newValues: {
+          provider: out.provider,
+          model: out.model,
+          ok: true,
+          ms: Date.now() - startedAt,
+          task: req.task || 'general',
+          correlation_id: req.correlationId,
+          json: !!req.json,
+          openrouter_models_tried: models,
+        },
+      });
+
+      if (req.json) out.json = extractJsonLoose(out.text);
+      return out;
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      tried.push({ model, error: msg });
+      const status = parseOpenRouterStatus(msg);
+      if (!isRetryableOpenRouterError(status, msg)) break;
+    }
   }
-  return out;
+
+  const summary = tried.map((t) => `${t.model}: ${t.error}`).join(' | ');
+  throw new Error(`OpenRouter falhou em ${tried.length} tentativa(s). ${summary}`);
 }
 
 async function callClaude(req: LLMRequest): Promise<LLMResponse> {

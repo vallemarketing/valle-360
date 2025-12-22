@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Brain, TrendingUp, Users, Target, Lightbulb, AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function MachineLearningPage() {
   const [patterns, setPatterns] = useState<any[]>([])
@@ -13,6 +14,7 @@ export default function MachineLearningPage() {
   const [insights, setInsights] = useState<any[]>([])
   const [behaviorPatterns, setBehaviorPatterns] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [runningJobs, setRunningJobs] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -60,6 +62,21 @@ export default function MachineLearningPage() {
     }
   }
 
+  const runNow = async () => {
+    setRunningJobs(true)
+    try {
+      const res = await fetch('/api/cron/ml', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Falha ao executar jobs')
+      toast.success('Jobs de ML executados. Atualizando painel…')
+      await loadData()
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao executar jobs')
+    } finally {
+      setRunningJobs(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -84,6 +101,13 @@ export default function MachineLearningPage() {
             Padrões aprendidos, predições e insights automáticos
           </p>
         </div>
+        <button
+          onClick={runNow}
+          disabled={runningJobs}
+          className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {runningJobs ? 'Executando…' : 'Executar jobs agora'}
+        </button>
       </div>
 
       {/* Stats Cards */}
