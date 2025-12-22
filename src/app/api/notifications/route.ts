@@ -57,10 +57,11 @@ export async function GET(request: NextRequest) {
 
     if (listError) throw listError;
 
-    // Filtrar "broadcast de área" para não-admins
+    // Filtrar apenas broadcasts "por área" (user_id = null) para não-admins.
+    // Notificações direcionadas ao usuário (user_id = auth.uid) devem continuar visíveis.
     const filtered = (rows || []).filter((n: any) => {
       const audience = n?.metadata?.audience;
-      if (audience === 'area' && !isAdmin) return false;
+      if (!isAdmin && audience === 'area' && (n.user_id === null || n.user_id === undefined)) return false;
       return true;
     });
 
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
 
     const unreadCount = (unreadRows || []).filter((n: any) => {
       const audience = n?.metadata?.audience;
-      if (audience === 'area' && !isAdmin) return false;
+      if (!isAdmin && audience === 'area' && (n.user_id === null || n.user_id === undefined)) return false;
       return true;
     }).length;
 

@@ -25,6 +25,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
+    // Somente admin pode configurar integrações
+    const { data: isAdmin, error: isAdminError } = await supabase.rpc('is_admin');
+    if (isAdminError || !isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
+    }
+
     const body: ConnectRequest = await request.json();
     const { integrationId, apiKey, apiSecret, accessToken, refreshToken, webhookSecret, config } = body;
 
@@ -52,26 +58,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Atualizar configuração da integração
+    const upsertPayload = {
+      integration_id: integrationId,
+      api_key: apiKey ?? null,
+      api_secret: apiSecret ?? null,
+      access_token: accessToken ?? null,
+      refresh_token: refreshToken ?? null,
+      webhook_secret: webhookSecret ?? null,
+      config: config || {},
+      status: 'connected',
+      last_sync: new Date().toISOString(),
+      error_message: null,
+      updated_at: new Date().toISOString(),
+    };
+
     const { data, error } = await supabase
       .from('integration_configs')
-      .upsert({
-        integration_id: integrationId,
-        api_key: apiKey,
-        api_secret: apiSecret,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        webhook_secret: webhookSecret,
-        config: config || {},
-        status: 'connected',
-        last_sync: new Date().toISOString(),
-        error_message: null
-      })
-      .select()
+      .upsert(upsertPayload, { onConflict: 'integration_id' })
+      .select('integration_id, display_name, status, last_sync')
       .single();
 
     if (error) {
       console.error('Erro ao atualizar integração:', error);
-      return NextResponse.json({ error: 'Erro ao salvar configuração' }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: 'Erro ao salvar configuração',
+          details: error.message,
+        },
+        { status: 500 }
+      );
     }
 
     // Registrar log de sucesso
@@ -84,10 +99,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `${data.display_name} conectado com sucesso`,
+      message: `${data.display_name || integrationId} conectado com sucesso`,
       integration: {
         id: data.integration_id,
-        name: data.display_name,
+        name: data.display_name || integrationId,
         status: data.status,
         lastSync: data.last_sync
       }

@@ -1,23 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Bell, Check, X, MessageSquare, UserPlus, Move, Edit } from 'lucide-react';
 
 interface Notification {
   id: string;
-  user_id: string;
-  task_id: string;
-  notification_type: string;
+  task_id?: string;
+  type: string;
   title: string;
   message: string;
-  triggered_by: string;
   is_read: boolean;
-  read_at?: string;
   created_at: string;
-  task_title?: string;
   triggered_by_name?: string;
 }
 
@@ -33,54 +28,28 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
 
   useEffect(() => {
     loadNotifications();
-
-    const channel = supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'kanban_notifications',
-        },
-        () => {
-          loadNotifications();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   const loadNotifications = async () => {
     try {
       setIsLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const res = await fetch('/api/notifications?limit=20');
+      const data = await res.json();
+      if (!data?.success) return;
 
-      const { data, error } = await supabase
-        .from('kanban_notifications')
-        .select(`
-          *,
-          task:kanban_tasks!kanban_notifications_task_id_fkey(title),
-          triggered_by_user:user_profiles!kanban_notifications_triggered_by_fkey(full_name)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-
-      const formattedNotifications = (data || []).map((notif: any) => ({
-        ...notif,
-        task_title: notif.task?.title,
-        triggered_by_name: notif.triggered_by_user?.full_name,
+      const normalized: Notification[] = (data.notifications || []).map((n: any) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        is_read: Boolean(n.read),
+        created_at: n.created_at,
+        task_id: (n.metadata as any)?.task_id || undefined,
+        triggered_by_name: (n.metadata as any)?.triggered_by_name || (n.metadata as any)?.from_name || undefined,
       }));
 
-      setNotifications(formattedNotifications);
-      setUnreadCount(formattedNotifications.filter((n: Notification) => !n.is_read).length);
+      setNotifications(normalized);
+      setUnreadCount(Number(data.unreadCount || 0));
     } catch (error) {
       console.error('Erro ao carregar notificações:', error);
     } finally {
@@ -90,12 +59,11 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const { error } = await supabase
-        .from('kanban_notifications')
-        .update({ is_read: true, read_at: new Date().toISOString() })
-        .eq('id', notificationId);
-
-      if (error) throw error;
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_read', notificationId }),
+      });
       await loadNotifications();
     } catch (error) {
       console.error('Erro ao marcar como lida:', error);
@@ -104,16 +72,11 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
 
   const markAllAsRead = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { error } = await supabase
-        .from('kanban_notifications')
-        .update({ is_read: true, read_at: new Date().toISOString() })
-        .eq('user_id', user.id)
-        .eq('is_read', false);
-
-      if (error) throw error;
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_all_read' }),
+      });
       await loadNotifications();
     } catch (error) {
       console.error('Erro ao marcar todas como lidas:', error);
@@ -122,13 +85,8 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
 
   const deleteNotification = async (notificationId: string) => {
     try {
-      const { error } = await supabase
-        .from('kanban_notifications')
-        .delete()
-        .eq('id', notificationId);
-
-      if (error) throw error;
-      await loadNotifications();
+      // Remoção não suportada pela API atual (mantemos simples por enquanto)
+      await markAsRead(notificationId);
     } catch (error) {
       console.error('Erro ao deletar notificação:', error);
     }
@@ -239,7 +197,7 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
                           ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                           : 'bg-orange-100 dark:bg-orange-900/30 text-orange-600'
                       }`}>
-                        {getNotificationIcon(notification.notification_type)}
+                        {getNotificationIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -253,9 +211,9 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                           {notification.message}
                         </p>
-                        {notification.task_title && (
+                        {notification.task_id && (
                           <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 italic">
-                            {notification.task_title}
+                            Abrir tarefa relacionada
                           </p>
                         )}
                         {notification.triggered_by_name && (

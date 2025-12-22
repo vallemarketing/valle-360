@@ -307,6 +307,7 @@ export default function IntegracoesPage() {
   const [testing, setTesting] = useState<string | null>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Carregar status das integrações
   useEffect(() => {
@@ -316,7 +317,18 @@ export default function IntegracoesPage() {
   const loadIntegrations = async () => {
     try {
       setLoading(true);
+      setAuthError(null);
       const response = await fetch('/api/integrations/status');
+      if (response.status === 401) {
+        setIntegrations(INTEGRATIONS_BASE.map(base => ({ ...base, connected: false, status: 'disconnected' })));
+        setAuthError('Você precisa estar logado para ver as integrações.');
+        return;
+      }
+      if (response.status === 403) {
+        setIntegrations(INTEGRATIONS_BASE.map(base => ({ ...base, connected: false, status: 'disconnected' })));
+        setAuthError('Acesso negado. Apenas Admin/Super Admin pode configurar integrações.');
+        return;
+      }
       const data = await response.json();
 
       if (data.success) {
@@ -405,7 +417,23 @@ export default function IntegracoesPage() {
       if (data.success) {
         toast.success(data.message);
         setSelectedIntegration(null);
-        loadIntegrations();
+        // Atualiza status e dispara health-check automaticamente
+        await loadIntegrations();
+        try {
+          const hc = await fetch('/api/integrations/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ integrationId: selectedIntegration.id }),
+          });
+          const hcData = await hc.json();
+          if (hcData?.healthy) {
+            toast.success(`${selectedIntegration.name} validado com sucesso.`);
+          } else {
+            toast.error(`${selectedIntegration.name}: ${hcData?.reason || hcData?.error || 'Falha no health check'}`);
+          }
+        } catch {
+          // best-effort
+        }
       } else {
         toast.error(data.error || 'Erro ao conectar');
         if (data.details) {
@@ -485,6 +513,19 @@ export default function IntegracoesPage() {
   return (
     <div className="min-h-screen p-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
       <div className="max-w-6xl mx-auto space-y-6">
+        
+        {authError && (
+          <div
+            className="p-4 rounded-xl border"
+            style={{
+              backgroundColor: 'var(--warning-100)',
+              borderColor: 'var(--warning-200)',
+              color: 'var(--warning-700)',
+            }}
+          >
+            {authError}
+          </div>
+        )}
         
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

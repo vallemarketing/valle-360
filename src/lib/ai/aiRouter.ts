@@ -14,7 +14,9 @@ export type LLMTask =
   | 'copywriting'
   | 'hr'
   | 'sentiment'
-  | 'classification';
+  | 'classification'
+  | 'kanban_message'
+  | 'kanban_insights';
 
 export type LLMProvider = 'openrouter' | 'claude' | 'openai' | 'gemini';
 

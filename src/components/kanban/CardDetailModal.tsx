@@ -1,164 +1,91 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs } from '@/components/ui/tabs';
-import {
-  X,
-  MessageSquare,
-  Paperclip,
-  Clock,
-  Send,
-  Download,
-  Trash2,
-  Upload,
-  File,
-  Image as ImageIcon,
-  FileText,
-  User,
-} from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { UserSelector } from '@/components/kanban/UserSelector';
+import { AREA_BOARDS, type AreaKey } from '@/lib/kanban/areaBoards';
+import { MessageSquare, Send, X } from 'lucide-react';
 
-interface Task {
+type Task = {
   id: string;
   title: string;
-  description?: string;
-  assignee_id?: string;
-  assignee_name?: string;
-  priority: string;
-  tags?: string[];
+  description?: string | null;
   column_id: string;
-  due_date?: string;
-}
+  priority?: string | null;
+  tags?: string[] | null;
+  due_date?: string | null;
+  assigned_to?: string | null;
+};
 
-interface Comment {
+type CommentRow = {
   id: string;
+  task_id: string;
   user_id: string;
-  content: string;
+  comment: string;
   created_at: string;
   user_name?: string;
-  user_avatar?: string;
-}
+};
 
-interface Attachment {
-  id: string;
-  file_name: string;
-  file_size: number;
-  file_type: string;
-  storage_path: string;
-  uploaded_by: string;
-  created_at: string;
-  uploader_name?: string;
-}
-
-interface HistoryEntry {
-  id: string;
-  user_id: string;
-  action_type: string;
-  field_changed?: string;
-  old_value?: string;
-  new_value?: string;
-  created_at: string;
-  user_name?: string;
-}
-
-interface CardDetailModalProps {
+type CardDetailModalProps = {
   task: Task;
   isOpen: boolean;
   onClose: () => void;
   onUpdate: () => void;
-}
+};
 
 export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailModalProps) {
-  const [activeTab, setActiveTab] = useState<'comments' | 'attachments' | 'history'>('comments');
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<'comments'>('comments');
+  const [comments, setComments] = useState<CommentRow[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [isUploadingFile, setIsUploadingFile] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [handoffAreaKey, setHandoffAreaKey] = useState<AreaKey>('designer_grafico');
+  const [handoffUserId, setHandoffUserId] = useState<string | undefined>(undefined);
+  const [handoffNote, setHandoffNote] = useState('');
+  const [returnNote, setReturnNote] = useState('');
 
   useEffect(() => {
-    if (isOpen && task) {
-      loadComments();
-      loadAttachments();
-      loadHistory();
-    }
+    if (!isOpen) return;
+    loadComments();
+    setActiveTab('comments');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, task?.id]);
 
   const loadComments = async () => {
     try {
       const { data, error } = await supabase
-        .from('kanban_comments')
-        .select(`
-          *,
-          user:user_profiles!kanban_comments_user_id_fkey(full_name, avatar_url)
-        `)
+        .from('kanban_task_comments')
+        .select('id, task_id, user_id, comment, created_at')
         .eq('task_id', task.id)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
 
-      const formattedComments = (data || []).map((comment: any) => ({
-        ...comment,
-        user_name: comment.user?.full_name,
-        user_avatar: comment.user?.avatar_url,
+      const userIds = Array.from(new Set((data || []).map((c: any) => c.user_id))).filter(Boolean) as string[];
+      const nameByUserId = new Map<string, string>();
+
+      if (userIds.length > 0) {
+        const { data: profiles, error: pErr } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name')
+          .in('user_id', userIds);
+        if (pErr) throw pErr;
+        (profiles || []).forEach((p: any) => nameByUserId.set(p.user_id, p.full_name));
+      }
+
+      const formatted: CommentRow[] = (data || []).map((c: any) => ({
+        ...c,
+        user_name: nameByUserId.get(c.user_id) || 'Usuário',
       }));
-
-      setComments(formattedComments);
-    } catch (error) {
-      console.error('Erro ao carregar comentários:', error);
-    }
-  };
-
-  const loadAttachments = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('kanban_attachments')
-        .select(`
-          *,
-          uploader:user_profiles!kanban_attachments_uploaded_by_fkey(full_name)
-        `)
-        .eq('task_id', task.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const formattedAttachments = (data || []).map((attachment: any) => ({
-        ...attachment,
-        uploader_name: attachment.uploader?.full_name,
-      }));
-
-      setAttachments(formattedAttachments);
-    } catch (error) {
-      console.error('Erro ao carregar anexos:', error);
-    }
-  };
-
-  const loadHistory = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('kanban_history')
-        .select(`
-          *,
-          user:user_profiles!kanban_history_user_id_fkey(full_name)
-        `)
-        .eq('task_id', task.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const formattedHistory = (data || []).map((entry: any) => ({
-        ...entry,
-        user_name: entry.user?.full_name || 'Sistema',
-      }));
-
-      setHistory(formattedHistory);
-    } catch (error) {
-      console.error('Erro ao carregar histórico:', error);
+      setComments(formatted);
+    } catch (e) {
+      console.error('Erro ao carregar comentários:', e);
     }
   };
 
@@ -168,371 +95,284 @@ export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailM
 
     setIsSubmittingComment(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth?.user;
       if (!user) throw new Error('Usuário não autenticado');
 
-      const { error } = await supabase
-        .from('kanban_comments')
-        .insert({
-          task_id: task.id,
-          user_id: user.id,
-          content: newComment.trim(),
-        });
-
+      const { error } = await supabase.from('kanban_task_comments').insert({
+        task_id: task.id,
+        user_id: user.id,
+        comment: newComment.trim(),
+      });
       if (error) throw error;
 
       setNewComment('');
       await loadComments();
       onUpdate();
-    } catch (error) {
-      console.error('Erro ao adicionar comentário:', error);
-      alert('Erro ao adicionar comentário');
+    } catch (e: any) {
+      console.error('Erro ao comentar:', e);
+      alert(e?.message || 'Erro ao comentar');
     } finally {
       setIsSubmittingComment(false);
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const handleAskOrigin = async () => {
+    const msg = newComment.trim();
+    if (!msg) return;
 
-    setIsUploadingFile(true);
+    setIsSubmittingComment(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // 1) salvar comentário no card atual
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth?.user;
       if (!user) throw new Error('Usuário não autenticado');
 
-      for (const file of Array.from(files)) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${task.id}/${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('kanban-attachments')
-          .upload(fileName, file);
-
-        if (uploadError) throw uploadError;
-
-        const { error: dbError } = await supabase
-          .from('kanban_attachments')
-          .insert({
-            task_id: task.id,
-            file_name: file.name,
-            file_size: file.size,
-            file_type: file.type,
-            storage_path: fileName,
-            uploaded_by: user.id,
-          });
-
-        if (dbError) throw dbError;
-      }
-
-      await loadAttachments();
-      onUpdate();
-    } catch (error) {
-      console.error('Erro ao fazer upload:', error);
-      alert('Erro ao fazer upload do arquivo');
-    } finally {
-      setIsUploadingFile(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleDownloadAttachment = async (attachment: Attachment) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('kanban-attachments')
-        .download(attachment.storage_path);
-
+      const { error } = await supabase.from('kanban_task_comments').insert({
+        task_id: task.id,
+        user_id: user.id,
+        comment: msg,
+      });
       if (error) throw error;
 
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = attachment.file_name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Erro ao baixar arquivo:', error);
-      alert('Erro ao baixar arquivo');
-    }
-  };
-
-  const handleDeleteAttachment = async (attachment: Attachment) => {
-    if (!confirm('Tem certeza que deseja deletar este anexo?')) return;
-
-    try {
-      const { error: storageError } = await supabase.storage
-        .from('kanban-attachments')
-        .remove([attachment.storage_path]);
-
-      if (storageError) throw storageError;
-
-      const { error: dbError } = await supabase
-        .from('kanban_attachments')
-        .delete()
-        .eq('id', attachment.id);
-
-      if (dbError) throw dbError;
-
-      await loadAttachments();
+      setNewComment('');
+      await loadComments();
       onUpdate();
-    } catch (error) {
-      console.error('Erro ao deletar anexo:', error);
-      alert('Erro ao deletar anexo');
+
+      // 2) enviar a mesma mensagem para a tarefa de origem (Head/origem), se houver vínculo de handoff
+      const res = await fetch('/api/kanban/handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'message_origin',
+          taskId: task.id,
+          message: msg,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        alert(data?.error || 'Comentário salvo, mas não consegui notificar o solicitante.');
+        return;
+      }
+      alert('Mensagem enviada ao solicitante.');
+    } catch (e: any) {
+      console.error('Erro ao perguntar ao solicitante:', e);
+      alert(e?.message || 'Erro ao perguntar ao solicitante');
+    } finally {
+      setIsSubmittingComment(false);
     }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  const handleHandoff = async () => {
+    try {
+      const res = await fetch('/api/kanban/handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'forward',
+          sourceTaskId: task.id,
+          targetAreaKey: handoffAreaKey,
+          targetUserId: handoffUserId,
+          note: handoffNote || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        alert(data?.error || 'Erro ao encaminhar');
+        return;
+      }
+      alert('Encaminhado com sucesso.');
+      setHandoffOpen(false);
+      setHandoffNote('');
+      setHandoffUserId(undefined);
+      onUpdate();
+    } catch (e: any) {
+      alert(e?.message || 'Erro ao encaminhar');
+    }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Agora mesmo';
-    if (diffMins < 60) return `${diffMins} min atrás`;
-    if (diffHours < 24) return `${diffHours}h atrás`;
-    if (diffDays < 7) return `${diffDays}d atrás`;
-    return date.toLocaleDateString('pt-BR');
-  };
-
-  const getFileIcon = (fileType: string) => {
-    if (fileType.startsWith('image/')) return <ImageIcon className="w-5 h-5" />;
-    if (fileType.includes('pdf')) return <FileText className="w-5 h-5" />;
-    return <File className="w-5 h-5" />;
-  };
-
-  const getActionLabel = (entry: HistoryEntry) => {
-    const actions: Record<string, string> = {
-      created: 'criou a tarefa',
-      moved: 'moveu de',
-      assigned: 'atribuiu para',
-      priority_changed: 'alterou a prioridade de',
-      due_date_changed: 'alterou a data de vencimento de',
-      updated: 'atualizou',
-    };
-    return actions[entry.action_type] || entry.action_type;
+  const handleReturnToHead = async () => {
+    try {
+      const res = await fetch('/api/kanban/handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'return',
+          taskId: task.id,
+          note: returnNote || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        alert(data?.error || 'Erro ao enviar para o Head');
+        return;
+      }
+      alert('Enviado para o Head com sucesso.');
+      setReturnOpen(false);
+      setReturnNote('');
+      onUpdate();
+    } catch (e: any) {
+      alert(e?.message || 'Erro ao enviar para o Head');
+    }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-3xl max-h-[90vh] flex flex-col">
-        <CardHeader className="flex-shrink-0 border-b">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <CardHeader className="border-b">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
               <CardTitle className="text-xl">{task.title}</CardTitle>
               {task.description && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{task.description}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 whitespace-pre-wrap">
+                  {task.description}
+                </p>
               )}
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose} className="ml-4">
+            <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <Button variant="outline" onClick={() => setHandoffOpen(true)}>
+              Encaminhar
+            </Button>
+            <Button className="bg-orange-600 hover:bg-orange-700" onClick={() => setReturnOpen(true)}>
+              Enviar para Head
             </Button>
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 overflow-hidden p-0">
-          <div className="border-b">
-            <div className="flex">
-              <button
-                onClick={() => setActiveTab('comments')}
-                className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                  activeTab === 'comments'
-                    ? 'border-orange-600 text-orange-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                }`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>Comentários ({comments.length})</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('attachments')}
-                className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                  activeTab === 'attachments'
-                    ? 'border-orange-600 text-orange-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                }`}
-              >
-                <Paperclip className="w-4 h-4" />
-                <span>Anexos ({attachments.length})</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('history')}
-                className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                  activeTab === 'history'
-                    ? 'border-orange-600 text-orange-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                }`}
-              >
-                <Clock className="w-4 h-4" />
-                <span>Histórico ({history.length})</span>
-              </button>
+        <CardContent className="flex-1 overflow-y-auto p-4">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+            <TabsList>
+              <TabsTrigger value="comments">
+                <span className="inline-flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  Comentários
+                </span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <div className="mt-4 space-y-4">
+            <div className="space-y-3">
+              {comments.length === 0 ? (
+                <p className="text-sm text-gray-500">Nenhum comentário ainda</p>
+              ) : (
+                comments.map((c) => (
+                  <div key={c.id} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{c.user_name || 'Usuário'}</p>
+                      <p className="text-xs text-gray-500">{new Date(c.created_at).toLocaleString('pt-BR')}</p>
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">{c.comment}</p>
+                  </div>
+                ))
+              )}
             </div>
-          </div>
 
-          <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 280px)' }}>
-            {activeTab === 'comments' && (
-              <div className="p-4 space-y-4">
-                {comments.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">Nenhum comentário ainda</p>
-                ) : (
-                  comments.map((comment) => (
-                    <div key={comment.id} className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xs text-white font-medium flex-shrink-0">
-                        {comment.user_name?.charAt(0) || <User className="w-4 h-4" />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-gray-900 dark:text-white">
-                              {comment.user_name || 'Usuário'}
-                            </span>
-                            <span className="text-xs text-gray-500">{formatDate(comment.created_at)}</span>
-                          </div>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                            {comment.content}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {activeTab === 'attachments' && (
-              <div className="p-4 space-y-3">
-                {attachments.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">Nenhum anexo ainda</p>
-                ) : (
-                  attachments.map((attachment) => (
-                    <div
-                      key={attachment.id}
-                      className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg group hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <div className="text-gray-600 dark:text-gray-400">
-                        {getFileIcon(attachment.file_type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {attachment.file_name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {formatFileSize(attachment.file_size)} • {attachment.uploader_name} • {formatDate(attachment.created_at)}
-                        </p>
-                      </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDownloadAttachment(attachment)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteAttachment(attachment)}
-                          className="h-8 w-8 p-0 text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {activeTab === 'history' && (
-              <div className="p-4 space-y-3">
-                {history.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">Nenhum histórico ainda</p>
-                ) : (
-                  history.map((entry) => (
-                    <div key={entry.id} className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-900 dark:text-white">
-                          <span className="font-medium">{entry.user_name}</span> {getActionLabel(entry)}
-                          {entry.old_value && entry.new_value && (
-                            <span>
-                              {' '}
-                              <span className="text-red-600">{entry.old_value}</span> para{' '}
-                              <span className="text-green-600">{entry.new_value}</span>
-                            </span>
-                          )}
-                          {!entry.old_value && entry.new_value && (
-                            <span> <span className="font-medium">{entry.new_value}</span></span>
-                          )}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">{formatDate(entry.created_at)}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </CardContent>
-
-        <div className="flex-shrink-0 border-t p-4 bg-gray-50 dark:bg-gray-900">
-          {activeTab === 'comments' && (
             <form onSubmit={handleAddComment} className="flex gap-2">
               <Input
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Escreva um comentário... (@mencione usuários)"
+                placeholder="Escreva um comentário..."
                 disabled={isSubmittingComment}
-                className="flex-1"
               />
-              <Button
-                type="submit"
-                disabled={!newComment.trim() || isSubmittingComment}
-                className="bg-orange-600 hover:bg-orange-700"
-              >
+              <Button type="submit" disabled={isSubmittingComment || !newComment.trim()} title="Comentar">
                 <Send className="w-4 h-4" />
               </Button>
-            </form>
-          )}
-
-          {activeTab === 'attachments' && (
-            <div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                onChange={handleFileUpload}
-                className="hidden"
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
-              />
               <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploadingFile}
-                className="w-full bg-orange-600 hover:bg-orange-700"
+                type="button"
+                variant="outline"
+                disabled={isSubmittingComment || !newComment.trim()}
+                onClick={handleAskOrigin}
+                title="Enviar esta mensagem também para o solicitante (Head/origem)"
               >
-                <Upload className="w-4 h-4 mr-2" />
-                {isUploadingFile ? 'Enviando...' : 'Adicionar Anexo'}
+                Perguntar ao solicitante
               </Button>
-            </div>
-          )}
-        </div>
+            </form>
+          </div>
+        </CardContent>
       </Card>
+
+      {/* Modal Encaminhar */}
+      {handoffOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-lg">
+            <CardHeader>
+              <CardTitle>Encaminhar para outra área</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Área destino</label>
+                <select
+                  value={handoffAreaKey}
+                  onChange={(e) => setHandoffAreaKey(e.target.value as AreaKey)}
+                  className="mt-1 w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                >
+                  {AREA_BOARDS.map((b) => (
+                    <option key={b.areaKey} value={b.areaKey}>
+                      {b.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <UserSelector
+                selectedUserId={handoffUserId}
+                onSelect={(id) => setHandoffUserId(id)}
+                label="Colaborador (opcional)"
+                placeholder="Selecione quem vai executar (opcional)"
+              />
+
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nota</label>
+                <Input value={handoffNote} onChange={(e) => setHandoffNote(e.target.value)} placeholder="Contexto para a área (opcional)" />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setHandoffOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button className="bg-orange-600 hover:bg-orange-700" onClick={handleHandoff}>
+                  Encaminhar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal Retorno */}
+      {returnOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-lg">
+            <CardHeader>
+              <CardTitle>Enviar para o Head</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nota de retorno</label>
+                <Input value={returnNote} onChange={(e) => setReturnNote(e.target.value)} placeholder="Resumo do que foi feito / pendências" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setReturnOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button className="bg-orange-600 hover:bg-orange-700" onClick={handleReturnToHead}>
+                  Enviar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
+
+

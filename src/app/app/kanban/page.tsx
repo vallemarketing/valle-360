@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   DndContext,
   DragOverlay,
@@ -27,34 +28,68 @@ import { UserSelector } from '@/components/kanban/UserSelector';
 import { CardDetailModal } from '@/components/kanban/CardDetailModal';
 import { KanbanFilters, KanbanFiltersState } from '@/components/kanban/KanbanFilters';
 import { NotificationCenter } from '@/components/kanban/NotificationCenter';
+import KanbanInsights from '@/components/kanban/KanbanInsights';
+import type { DbTaskPriority, DbTaskStatus } from '@/lib/kanban/types';
 
 interface Task {
   id: string;
   title: string;
   description?: string;
-  assignee_id?: string;
+  assigned_to?: string;
   assignee_name?: string;
-  priority: 'alta' | 'media' | 'baixa' | 'urgente';
+  priority: DbTaskPriority;
   tags?: string[];
   comments_count?: number;
   attachments_count?: number;
   column_id: string;
   position: number;
   due_date?: string;
+  reference_links?: any;
 }
 
 interface Column {
   id: string;
-  title: string;
+  name: string;
   color: string;
   position: number;
   board_id: string;
+  stage_key?: string | null;
+  sla_hours?: number | null;
+  wip_limit?: number | null;
 }
 
 interface Board {
   id: string;
   name: string;
   description?: string;
+  area_key?: string | null;
+}
+
+type KanbanBoardFilter = 'all' | 'area_only';
+
+function inferDbStatusFromColumn(column?: Column | null): DbTaskStatus {
+  const stage = String(column?.stage_key || '').toLowerCase();
+  const name = String(column?.name || '').toLowerCase();
+
+  const s = stage || name;
+
+  // Colunas do board "Super Admin" (sem stage_key)
+  if (name.includes('backlog')) return 'backlog';
+  if (name.includes('a fazer')) return 'todo';
+  if (name.includes('em progresso')) return 'in_progress';
+  if (name.includes('revis')) return 'in_review';
+  if (name.includes('conclu')) return 'done';
+  if (name.includes('bloque')) return 'blocked';
+  if (name.includes('cancel')) return 'cancelled';
+
+  // Boards por área (com stage_key)
+  if (s === 'finalizado' || s.includes('final')) return 'done';
+  if (s === 'bloqueado' || s.includes('bloque')) return 'blocked';
+  if (s === 'aprovacao' || s.includes('aprov')) return 'in_review';
+  if (s.includes('revisao')) return 'in_review';
+  if (s === 'demanda' || s.includes('lead_demanda') || s.includes('lead')) return 'todo';
+
+  return 'in_progress';
 }
 
 function TaskCard({
@@ -80,14 +115,28 @@ function TaskCard({
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'alta':
-        return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200';
-      case 'urgente':
+      case 'urgent':
         return 'bg-red-600 text-white';
-      case 'media':
+      case 'high':
+        return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200';
+      case 'medium':
         return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200';
       default:
         return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200';
+    }
+  };
+
+  const getPriorityLabel = (priority: DbTaskPriority) => {
+    switch (priority) {
+      case 'urgent':
+        return 'Urgente';
+      case 'high':
+        return 'Alta';
+      case 'medium':
+        return 'Média';
+      case 'low':
+      default:
+        return 'Baixa';
     }
   };
 
@@ -109,7 +158,7 @@ function TaskCard({
                 </p>
               )}
               <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge>
+                <Badge className={getPriorityColor(task.priority)}>{getPriorityLabel(task.priority)}</Badge>
                 {task.tags?.map((tag) => (
                   <Badge key={tag} variant="outline" className="text-xs">
                     {tag}
@@ -205,17 +254,17 @@ function ColumnHeader({
   canDelete: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState(column.title);
+  const [editedName, setEditedName] = useState(column.name);
 
   const handleSave = () => {
-    if (editedName.trim() && editedName !== column.title) {
+    if (editedName.trim() && editedName !== column.name) {
       onEdit(column.id, editedName.trim());
     }
     setIsEditing(false);
   };
 
   const handleCancel = () => {
-    setEditedName(column.title);
+    setEditedName(column.name);
     setIsEditing(false);
   };
 
@@ -246,15 +295,17 @@ function ColumnHeader({
       ) : (
         <>
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-gray-900 dark:text-white">{column.title}</h3>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setIsEditing(true)}
-              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <Edit2 className="w-3 h-3" />
-            </Button>
+            <h3 className="font-semibold text-gray-900 dark:text-white">{column.name}</h3>
+            {canDelete && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsEditing(true)}
+                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Edit2 className="w-3 h-3" />
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline">{taskCount}</Badge>
@@ -291,10 +342,10 @@ function TaskModal({
   const [formData, setFormData] = useState<Partial<Task>>({
     title: task?.title || '',
     description: task?.description || '',
-    priority: task?.priority || 'media',
+    priority: task?.priority || 'medium',
     tags: task?.tags || [],
     column_id: task?.column_id || columnId || '',
-    assignee_id: task?.assignee_id,
+    assigned_to: task?.assigned_to,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -334,8 +385,8 @@ function TaskModal({
             </div>
 
             <UserSelector
-              selectedUserId={formData.assignee_id}
-              onSelect={(userId) => setFormData({ ...formData, assignee_id: userId })}
+              selectedUserId={formData.assigned_to}
+              onSelect={(userId) => setFormData({ ...formData, assigned_to: userId })}
               label="Responsável"
               placeholder="Atribuir a alguém (opcional)"
             />
@@ -344,13 +395,13 @@ function TaskModal({
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Prioridade</label>
               <select
                 value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value as Task['priority'] })}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value as DbTaskPriority })}
                 className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               >
-                <option value="baixa">Baixa</option>
-                <option value="media">Média</option>
-                <option value="alta">Alta</option>
-                <option value="urgente">Urgente</option>
+                <option value="low">Baixa</option>
+                <option value="medium">Média</option>
+                <option value="high">Alta</option>
+                <option value="urgent">Urgente</option>
               </select>
             </div>
 
@@ -382,10 +433,18 @@ function TaskModal({
 }
 
 export default function KanbanPage() {
+  const pathname = usePathname();
+  const boardFilter: KanbanBoardFilter =
+    pathname.startsWith('/admin/kanban-app') || pathname.startsWith('/colaborador/kanban') ? 'area_only' : 'all';
+  const showBoardSelector = !pathname.startsWith('/colaborador/kanban');
+
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [dragContext, setDragContext] = useState<{ taskId: string; fromColumnId: string } | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
+  const [boards, setBoards] = useState<Board[]>([]);
   const [board, setBoard] = useState<Board | null>(null);
+  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
@@ -400,6 +459,37 @@ export default function KanbanPage() {
   });
   const [currentUserType, setCurrentUserType] = useState<string>('');
 
+  const insightsColumns = useMemo(() => {
+    return (columns || []).map((c) => {
+      const cards = (tasks || [])
+        .filter((t) => t.column_id === c.id)
+        .map((t) => {
+          const ref = (t.reference_links || {}) as any;
+          const clientName =
+            ref?.client?.company_name ||
+            ref?.client?.name ||
+            ref?.client_profile?.name ||
+            undefined;
+          return {
+            id: t.id,
+            title: t.title,
+            clientName,
+            assignees: [t.assigned_to].filter(Boolean) as string[],
+            dueDate: t.due_date ? new Date(String(t.due_date)) : undefined,
+            stageKey: c.stage_key || undefined,
+          };
+        });
+      return {
+        id: c.stage_key || c.name,
+        stageKey: c.stage_key || undefined,
+        title: c.name,
+        color: c.color,
+        cards,
+        wipLimit: c.wip_limit || undefined,
+      };
+    });
+  }, [columns, tasks]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -412,9 +502,50 @@ export default function KanbanPage() {
   );
 
   useEffect(() => {
-    loadKanbanData();
+    loadBoards();
     loadCurrentUser();
   }, []);
+
+  useEffect(() => {
+    if (selectedBoardId) {
+      loadKanbanData(selectedBoardId);
+    }
+  }, [selectedBoardId]);
+
+  const loadBoards = async () => {
+    try {
+      setIsLoading(true);
+
+      let query = supabase
+        .from('kanban_boards')
+        .select('id, name, description, area_key')
+        .order('name');
+
+      if (boardFilter === 'area_only') {
+        query = query.not('area_key', 'is', null);
+      }
+
+      const { data: boardsData, error: boardsError } = await query;
+
+      if (boardsError) throw boardsError;
+
+      setBoards(boardsData || []);
+
+      if (!boardsData || boardsData.length === 0) {
+        setBoard(null);
+        setColumns([]);
+        setTasks([]);
+        setSelectedBoardId(null);
+        return;
+      }
+
+      setSelectedBoardId((prev) => prev || boardsData[0].id);
+    } catch (error) {
+      console.error('Erro ao carregar quadros:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadCurrentUser = async () => {
     try {
@@ -424,7 +555,7 @@ export default function KanbanPage() {
       const { data, error } = await supabase
         .from('user_profiles')
         .select('user_type')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .maybeSingle();
 
       if (error) throw error;
@@ -434,30 +565,15 @@ export default function KanbanPage() {
     }
   };
 
-  const loadKanbanData = async () => {
+  const loadKanbanData = async (boardId: string) => {
     try {
       setIsLoading(true);
-
-      const { data: boardsData, error: boardsError } = await supabase
-        .from('kanban_boards')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-
-      if (boardsError) throw boardsError;
-
-      if (!boardsData) {
-        console.error('Nenhum quadro encontrado');
-        setIsLoading(false);
-        return;
-      }
-
-      setBoard(boardsData);
+      setBoard(boards.find((b) => b.id === boardId) || null);
 
       const { data: columnsData, error: columnsError } = await supabase
         .from('kanban_columns')
         .select('*')
-        .eq('board_id', boardsData.id)
+        .eq('board_id', boardId)
         .order('position');
 
       if (columnsError) throw columnsError;
@@ -465,18 +581,30 @@ export default function KanbanPage() {
 
       const { data: tasksData, error: tasksError } = await supabase
         .from('kanban_tasks')
-        .select(`
-          *,
-          assignee:user_profiles!kanban_tasks_assignee_id_fkey(full_name)
-        `)
-        .eq('board_id', boardsData.id)
+        .select('*')
+        .eq('board_id', boardId)
         .order('position');
 
       if (tasksError) throw tasksError;
 
+      const assigneeIds = Array.from(
+        new Set((tasksData || []).map((t: any) => t.assigned_to).filter(Boolean))
+      ) as string[];
+
+      const assigneeNameById = new Map<string, string>();
+      if (assigneeIds.length > 0) {
+        const { data: assignees, error: assigneesError } = await supabase
+          .from('user_profiles')
+          .select('id, full_name')
+          .in('id', assigneeIds);
+
+        if (assigneesError) throw assigneesError;
+        (assignees || []).forEach((u: any) => assigneeNameById.set(u.id, u.full_name));
+      }
+
       const formattedTasks = (tasksData || []).map((task: any) => ({
         ...task,
-        assignee_name: task.assignee?.full_name || undefined,
+        assignee_name: task.assigned_to ? assigneeNameById.get(task.assigned_to) : undefined,
       }));
 
       setTasks(formattedTasks);
@@ -507,7 +635,7 @@ export default function KanbanPage() {
       }
 
       if (filters.assignees.length > 0) {
-        if (!task.assignee_id || !filters.assignees.includes(task.assignee_id)) {
+        if (!task.assigned_to || !filters.assignees.includes(task.assigned_to)) {
           return false;
         }
       }
@@ -553,7 +681,10 @@ export default function KanbanPage() {
   }, [tasks, searchTerm, filters]);
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    const id = event.active.id as string;
+    setActiveId(id);
+    const t = tasks.find((x) => x.id === id);
+    if (t?.column_id) setDragContext({ taskId: id, fromColumnId: t.column_id });
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -603,14 +734,51 @@ export default function KanbanPage() {
     if (!activeTask) return;
 
     try {
+      const now = new Date().toISOString();
+      const targetColumn = columns.find((c) => c.id === activeTask.column_id) || null;
+      const nextStatus = inferDbStatusFromColumn(targetColumn);
+
       const columnTasks = tasks.filter(t => t.column_id === activeTask.column_id);
       const newPosition = columnTasks.findIndex(t => t.id === activeId);
+
+      // Se entrou em "aprovacao", registrar janela de aprovação do cliente (requested_at/due_at)
+      const fromColumnId =
+        dragContext?.taskId === activeId ? dragContext.fromColumnId : null;
+      const fromCol = fromColumnId ? columns.find((c) => c.id === fromColumnId) || null : null;
+      const enteredApproval =
+        String(targetColumn?.stage_key || '').toLowerCase() === 'aprovacao' &&
+        String(fromCol?.stage_key || '').toLowerCase() !== 'aprovacao';
+
+      const existingRef = (activeTask as any)?.reference_links || {};
+      const existingApproval = (existingRef?.client_approval || {}) as any;
+
+      function addHours(iso: string, hours: number) {
+        const d = new Date(iso);
+        d.setHours(d.getHours() + hours);
+        return d.toISOString();
+      }
+
+      const nextRef =
+        enteredApproval
+          ? {
+              ...existingRef,
+              client_approval: {
+                ...existingApproval,
+                status: 'pending',
+                requested_at: existingApproval.requested_at || now,
+                due_at: existingApproval.due_at || addHours(existingApproval.requested_at || now, Number(targetColumn?.sla_hours || 48)),
+              },
+            }
+          : existingRef;
 
       const { error } = await supabase
         .from('kanban_tasks')
         .update({
           column_id: activeTask.column_id,
           position: newPosition,
+          status: nextStatus,
+          updated_at: now,
+          ...(enteredApproval ? { reference_links: nextRef } : {}),
         })
         .eq('id', activeId);
 
@@ -626,7 +794,11 @@ export default function KanbanPage() {
       }
     } catch (error) {
       console.error('Erro ao atualizar tarefa:', error);
-      loadKanbanData();
+      if (selectedBoardId) {
+        loadKanbanData(selectedBoardId);
+      }
+    } finally {
+      setDragContext(null);
     }
   };
 
@@ -634,13 +806,13 @@ export default function KanbanPage() {
     try {
       const { error } = await supabase
         .from('kanban_columns')
-        .update({ title: newName })
+        .update({ name: newName })
         .eq('id', columnId);
 
       if (error) throw error;
 
       setColumns(prev =>
-        prev.map(col => (col.id === columnId ? { ...col, title: newName } : col))
+        prev.map(col => (col.id === columnId ? { ...col, name: newName } : col))
       );
     } catch (error) {
       console.error('Erro ao atualizar coluna:', error);
@@ -670,6 +842,10 @@ export default function KanbanPage() {
 
   const handleTaskSave = async (taskData: Partial<Task>) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+      const now = new Date().toISOString();
+
       if (editingTask) {
         const { error } = await supabase
           .from('kanban_tasks')
@@ -678,18 +854,23 @@ export default function KanbanPage() {
             description: taskData.description,
             priority: taskData.priority,
             tags: taskData.tags,
-            assignee_id: taskData.assignee_id,
+            assigned_to: taskData.assigned_to,
+            updated_at: now,
           })
           .eq('id', editingTask.id);
 
         if (error) throw error;
 
-        await loadKanbanData();
+        if (selectedBoardId) {
+          await loadKanbanData(selectedBoardId);
+        }
       } else {
         if (!board) return;
 
         const columnTasks = tasks.filter(t => t.column_id === taskData.column_id);
         const newPosition = columnTasks.length;
+        const targetColumn = columns.find((c) => c.id === taskData.column_id) || null;
+        const status = inferDbStatusFromColumn(targetColumn);
 
         const { data, error } = await supabase
           .from('kanban_tasks')
@@ -699,9 +880,12 @@ export default function KanbanPage() {
             title: taskData.title,
             description: taskData.description,
             priority: taskData.priority,
+            status,
             tags: taskData.tags,
             position: newPosition,
-            assignee_id: taskData.assignee_id,
+            assigned_to: taskData.assigned_to,
+            created_by: user.id,
+            updated_at: now,
           })
           .select()
           .single();
@@ -709,7 +893,9 @@ export default function KanbanPage() {
         if (error) throw error;
 
         if (data) {
-          await loadKanbanData();
+          if (selectedBoardId) {
+            await loadKanbanData(selectedBoardId);
+          }
         }
       }
 
@@ -781,6 +967,22 @@ export default function KanbanPage() {
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             {board?.description || 'Gerencie tarefas e projetos com drag & drop'}
           </p>
+          {showBoardSelector && boards.length > 1 && (
+            <div className="mt-4">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Quadro</label>
+              <select
+                value={selectedBoardId || ''}
+                onChange={(e) => setSelectedBoardId(e.target.value)}
+                className="mt-1 w-full max-w-sm px-3 py-2 border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              >
+                {boards.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div className="flex gap-2 items-center">
           <NotificationCenter onNotificationClick={handleNotificationTaskClick} />
@@ -794,6 +996,15 @@ export default function KanbanPage() {
           </Button>
         </div>
       </div>
+
+      {/* Insights (IA + métricas reais/fallback) */}
+      {board?.id && (
+        <KanbanInsights
+          boardId={board.id}
+          area={board?.name || 'Kanban'}
+          columns={insightsColumns as any}
+        />
+      )}
 
       <div className="flex gap-3 items-center">
         <div className="flex-1 relative">
@@ -835,7 +1046,7 @@ export default function KanbanPage() {
                     taskCount={columnTasks.length}
                     onEdit={handleColumnEdit}
                     onDelete={handleColumnDelete}
-                    canDelete={currentUserType === 'super_admin'}
+                    canDelete={currentUserType === 'super_admin' && !board?.area_key}
                   />
 
                   <SortableContext items={columnTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
@@ -895,7 +1106,9 @@ export default function KanbanPage() {
           task={viewingTask}
           isOpen={!!viewingTask}
           onClose={() => setViewingTask(null)}
-          onUpdate={loadKanbanData}
+          onUpdate={() => {
+            if (selectedBoardId) void loadKanbanData(selectedBoardId);
+          }}
         />
       )}
     </div>

@@ -5,12 +5,14 @@ import { supabase } from '@/lib/supabase';
 import { User, X, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-interface UserProfile {
-  id: string;
+interface EmployeeUser {
+  user_id: string;
   full_name: string;
   email: string;
-  user_type: string;
-  avatar_url?: string;
+  department?: string | null;
+  area_of_expertise?: string | null;
+  areas?: string[] | null;
+  is_active?: boolean | null;
 }
 
 interface UserSelectorProps {
@@ -21,11 +23,11 @@ interface UserSelectorProps {
 }
 
 export function UserSelector({ selectedUserId, onSelect, label = 'Responsável', placeholder = 'Selecione um responsável' }: UserSelectorProps) {
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
+  const [users, setUsers] = useState<EmployeeUser[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<EmployeeUser[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [selectedUser, setSelectedUser] = useState<EmployeeUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -34,7 +36,7 @@ export function UserSelector({ selectedUserId, onSelect, label = 'Responsável',
 
   useEffect(() => {
     if (selectedUserId && users.length > 0) {
-      const user = users.find(u => u.id === selectedUserId);
+      const user = users.find(u => u.user_id === selectedUserId);
       setSelectedUser(user || null);
     }
   }, [selectedUserId, users]);
@@ -44,7 +46,9 @@ export function UserSelector({ selectedUserId, onSelect, label = 'Responsável',
       const filtered = users.filter(user =>
         user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.user_type.toLowerCase().includes(searchTerm.toLowerCase())
+        (user.department || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.area_of_expertise || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.areas || []).some(a => a.toLowerCase().includes(searchTerm.toLowerCase()))
       );
       setFilteredUsers(filtered);
     } else {
@@ -56,8 +60,8 @@ export function UserSelector({ selectedUserId, onSelect, label = 'Responsável',
     try {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('id, full_name, email, user_type, avatar_url')
+        .from('employees')
+        .select('user_id, full_name, email, department, area_of_expertise, areas, is_active')
         .eq('is_active', true)
         .order('full_name');
 
@@ -71,9 +75,9 @@ export function UserSelector({ selectedUserId, onSelect, label = 'Responsável',
     }
   };
 
-  const handleSelect = (user: UserProfile) => {
+  const handleSelect = (user: EmployeeUser) => {
     setSelectedUser(user);
-    onSelect(user.id);
+    onSelect(user.user_id);
     setIsOpen(false);
     setSearchTerm('');
   };
@@ -83,41 +87,13 @@ export function UserSelector({ selectedUserId, onSelect, label = 'Responsável',
     onSelect(undefined);
   };
 
-  const getRoleLabel = (userType: string) => {
-    const roles: Record<string, string> = {
-      super_admin: 'Super Admin',
-      admin: 'Admin',
-      client: 'Cliente',
-      video_maker: 'Videomaker',
-      web_designer: 'Web Designer',
-      graphic_designer: 'Designer Gráfico',
-      social_media: 'Social Media',
-      traffic_manager: 'Tráfego',
-      marketing_head: 'Head de Marketing',
-      financial: 'Financeiro',
-      hr: 'RH',
-      commercial: 'Comercial',
-    };
-    return roles[userType] || userType;
+  const getRoleLabel = (u: EmployeeUser) => {
+    const parts = [u.department, u.area_of_expertise].filter(Boolean) as string[];
+    const label = parts.join(' • ').trim();
+    return label || 'Colaborador';
   };
 
-  const getRoleColor = (userType: string) => {
-    const colors: Record<string, string> = {
-      super_admin: 'bg-purple-500',
-      admin: 'bg-blue-500',
-      client: 'bg-green-500',
-      video_maker: 'bg-red-500',
-      web_designer: 'bg-cyan-500',
-      graphic_designer: 'bg-pink-500',
-      social_media: 'bg-orange-500',
-      traffic_manager: 'bg-indigo-500',
-      marketing_head: 'bg-yellow-500',
-      financial: 'bg-emerald-500',
-      hr: 'bg-teal-500',
-      commercial: 'bg-violet-500',
-    };
-    return colors[userType] || 'bg-gray-500';
-  };
+  const getRoleColor = () => 'bg-gray-600';
 
   const getInitials = (name: string) => {
     return name
@@ -136,12 +112,12 @@ export function UserSelector({ selectedUserId, onSelect, label = 'Responsável',
 
       {selectedUser ? (
         <div className="flex items-center gap-2 p-2 border rounded-md bg-gray-50 dark:bg-gray-800">
-          <div className={`w-8 h-8 rounded-full ${getRoleColor(selectedUser.user_type)} flex items-center justify-center text-xs text-white font-medium`}>
+          <div className={`w-8 h-8 rounded-full ${getRoleColor()} flex items-center justify-center text-xs text-white font-medium`}>
             {getInitials(selectedUser.full_name)}
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedUser.full_name}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{getRoleLabel(selectedUser.user_type)}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{getRoleLabel(selectedUser)}</p>
           </div>
           <button
             type="button"
@@ -186,18 +162,18 @@ export function UserSelector({ selectedUserId, onSelect, label = 'Responsável',
             ) : (
               filteredUsers.map((user) => (
                 <button
-                  key={user.id}
+                  key={user.user_id}
                   type="button"
                   onClick={() => handleSelect(user)}
                   className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <div className={`w-10 h-10 rounded-full ${getRoleColor(user.user_type)} flex items-center justify-center text-sm text-white font-medium flex-shrink-0`}>
+                  <div className={`w-10 h-10 rounded-full ${getRoleColor()} flex items-center justify-center text-sm text-white font-medium flex-shrink-0`}>
                     {getInitials(user.full_name)}
                   </div>
                   <div className="flex-1 text-left">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">{user.full_name}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">{getRoleLabel(user.user_type)}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{getRoleLabel(user)}</p>
                   </div>
                 </button>
               ))

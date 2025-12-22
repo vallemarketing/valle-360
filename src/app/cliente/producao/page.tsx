@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 import { motion } from 'framer-motion'
 import { 
   Clock, Calendar, CheckCircle2, AlertCircle, Package, 
@@ -19,6 +18,9 @@ interface Demand {
   status: 'demandas' | 'em_progresso' | 'revisao' | 'aprovacao' | 'concluido'
   priority: 'low' | 'medium' | 'high' | 'urgent'
   dueDate?: Date
+  approvalDueAt?: Date
+  approvalOverdue?: boolean
+  approvalRisk?: boolean
   createdAt: Date
   updatedAt: Date
   area: string
@@ -90,81 +92,60 @@ export default function ClienteProducaoPage() {
   const loadDemands = async () => {
     setLoading(true)
     try {
-      // Mock data - em produção, buscar do banco
-      const mockDemands: Demand[] = [
-        {
-          id: '1',
-          title: 'Redesign do Site Institucional',
-          description: 'Atualização completa do layout e funcionalidades do site',
-          status: 'em_progresso',
-          priority: 'high',
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-          updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-          area: 'Web Designer',
-          progress: 35,
-          assignees: ['João Silva'],
-          lastUpdate: 'Estrutura das páginas principais finalizada'
-        },
-        {
-          id: '2',
-          title: 'Campanha de Redes Sociais - Dezembro',
-          description: 'Criação de conteúdo para Instagram e Facebook',
-          status: 'revisao',
-          priority: 'medium',
-          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-          updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-          area: 'Social Media',
-          progress: 65,
-          assignees: ['Maria Santos'],
-          lastUpdate: 'Posts da primeira semana em revisão'
-        },
-        {
-          id: '3',
-          title: 'Vídeo Institucional',
-          description: 'Produção de vídeo de apresentação da empresa',
-          status: 'aprovacao',
-          priority: 'high',
-          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-          createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
-          updatedAt: new Date(),
-          area: 'Video Maker',
-          progress: 80,
-          assignees: ['Pedro Costa'],
-          lastUpdate: 'Vídeo final enviado para aprovação'
-        },
-        {
-          id: '4',
-          title: 'Landing Page Black Friday',
-          description: 'Página especial para promoções',
-          status: 'concluido',
-          priority: 'urgent',
-          dueDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-          createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
-          updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-          area: 'Web Designer',
-          progress: 100,
-          assignees: ['João Silva'],
-          lastUpdate: 'Entrega realizada com sucesso'
-        },
-        {
-          id: '5',
-          title: 'Campanha Google Ads',
-          description: 'Configuração e otimização de campanhas',
-          status: 'demandas',
-          priority: 'medium',
-          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          area: 'Tráfego',
-          progress: 0,
-          assignees: [],
-          lastUpdate: 'Aguardando início'
-        }
-      ]
+      const res = await fetch('/api/kanban/card?mine=1')
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao carregar demandas')
 
-      setDemands(mockDemands)
+      const mapped: Demand[] = (data.tasks || []).map((t: any) => {
+        const stageKey = String(t?.column?.stage_key || '').toLowerCase()
+        const ref = (t?.reference_links || {}) as any
+        const approval = (ref?.client_approval || {}) as any
+        const group =
+          stageKey === 'demanda' || stageKey.includes('lead') ? 'demandas'
+          : stageKey.includes('revisao') ? 'revisao'
+          : stageKey.includes('aprov') ? 'aprovacao'
+          : stageKey.includes('final') ? 'concluido'
+          : 'em_progresso'
+
+        const progress =
+          group === 'demandas' ? 0
+          : group === 'em_progresso' ? 40
+          : group === 'revisao' ? 65
+          : group === 'aprovacao' ? 75
+          : 100
+
+        const slaHours = Number(t?.column?.sla_hours || 48)
+        const requestedAtIso = String(approval?.requested_at || t?.updated_at || t?.created_at || new Date().toISOString())
+        const dueAtIso = String(
+          approval?.due_at || new Date(new Date(requestedAtIso).getTime() + slaHours * 60 * 60 * 1000).toISOString()
+        )
+        const dueAt = group === 'aprovacao' ? new Date(dueAtIso) : undefined
+        const approvalOverdue = group === 'aprovacao' ? new Date(dueAtIso).getTime() < Date.now() : false
+        const approvalRisk =
+          group === 'aprovacao'
+            ? !approvalOverdue && new Date(dueAtIso).getTime() - Date.now() <= 12 * 60 * 60 * 1000
+            : false
+
+        return {
+          id: String(t.id),
+          title: String(t.title || ''),
+          description: t.description || '',
+          status: group as Demand['status'],
+          priority: (t.priority || 'medium') as Demand['priority'],
+          dueDate: t.due_date ? new Date(String(t.due_date)) : undefined,
+          approvalDueAt: dueAt,
+          approvalOverdue,
+          approvalRisk,
+          createdAt: new Date(String(t.created_at || new Date().toISOString())),
+          updatedAt: new Date(String(t.updated_at || new Date().toISOString())),
+          area: String(t?.board?.name || t?.board?.area_key || 'Equipe'),
+          progress,
+          assignees: [],
+          lastUpdate: undefined,
+        }
+      })
+
+      setDemands(mapped)
     } catch (error) {
       console.error('Erro ao carregar demandas:', error)
     } finally {
@@ -279,6 +260,14 @@ export default function ClienteProducaoPage() {
               const priorityConfig = PRIORITY_CONFIG[demand.priority]
               const daysUntilDue = demand.dueDate ? differenceInDays(demand.dueDate, new Date()) : null
               const isOverdue = daysUntilDue !== null && daysUntilDue < 0 && demand.status !== 'concluido'
+              const approvalBadge =
+                demand.status === 'aprovacao'
+                  ? demand.approvalOverdue
+                    ? { text: 'Aprovação atrasada', cls: 'bg-red-100 text-red-700' }
+                    : demand.approvalRisk
+                      ? { text: 'Aprovação em risco', cls: 'bg-orange-100 text-orange-700' }
+                      : { text: 'Aguardando sua aprovação', cls: 'bg-emerald-100 text-emerald-700' }
+                  : null
 
               return (
                 <motion.div
@@ -299,6 +288,11 @@ export default function ClienteProducaoPage() {
                           <span className={cn("text-xs px-2 py-0.5 rounded", priorityConfig.color)}>
                             {priorityConfig.label}
                           </span>
+                          {approvalBadge && (
+                            <span className={cn("text-xs px-2 py-0.5 rounded", approvalBadge.cls)}>
+                              {approvalBadge.text}
+                            </span>
+                          )}
                         </div>
                         <h3 className="text-lg font-semibold text-gray-800">{demand.title}</h3>
                         {demand.description && (
@@ -460,6 +454,43 @@ export default function ClienteProducaoPage() {
                 </span>
               </div>
 
+              {/* Stepper */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h4 className="font-medium text-gray-800 mb-3">Etapas</h4>
+                <div className="flex items-center justify-between">
+                  {(['demandas','em_progresso','revisao','aprovacao','concluido'] as const).map((k, idx) => {
+                    const cfg = STATUS_CONFIG[k]
+                    const Icon = cfg.icon
+                    const isActive = selectedDemand.status === k
+                    const isDone =
+                      (k === 'demandas' && selectedDemand.progress > 0) ||
+                      (k === 'em_progresso' && selectedDemand.progress >= 40) ||
+                      (k === 'revisao' && selectedDemand.progress >= 65) ||
+                      (k === 'aprovacao' && selectedDemand.progress >= 75) ||
+                      (k === 'concluido' && selectedDemand.progress >= 100)
+
+                    return (
+                      <div key={k} className="flex items-center">
+                        <div className="flex flex-col items-center">
+                          <div
+                            className={cn(
+                              "w-10 h-10 rounded-full flex items-center justify-center border",
+                              isActive ? "border-blue-500 bg-white" : "border-gray-200 bg-white"
+                            )}
+                          >
+                            <Icon className="w-5 h-5" style={{ color: isDone || isActive ? cfg.color : '#9CA3AF' }} />
+                          </div>
+                          <span className={cn("text-xs mt-2 text-center max-w-[90px]", isActive ? "text-gray-800 font-medium" : "text-gray-500")}>
+                            {cfg.label}
+                          </span>
+                        </div>
+                        {idx < 4 && <div className="w-10 h-0.5 bg-gray-200 mx-2" />}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
               {/* Progress */}
               <div>
                 <div className="flex justify-between text-sm mb-2">
@@ -492,6 +523,41 @@ export default function ClienteProducaoPage() {
                 <div className="flex items-center gap-2 text-gray-600">
                   <Calendar className="w-4 h-4" />
                   <span>Previsão de entrega: {format(selectedDemand.dueDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
+                </div>
+              )}
+
+              {/* Aprovação do cliente (SLA) */}
+              {selectedDemand.status === 'aprovacao' && selectedDemand.approvalDueAt && (
+                <div className={cn(
+                  "p-4 rounded-xl border",
+                  selectedDemand.approvalOverdue ? "bg-red-50 border-red-200" :
+                  selectedDemand.approvalRisk ? "bg-orange-50 border-orange-200" :
+                  "bg-emerald-50 border-emerald-200"
+                )}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-gray-800">Sua aprovação está pendente</p>
+                      <p className="text-sm text-gray-600">
+                        Vence em {format(selectedDemand.approvalDueAt, "dd/MM 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
+                    <a
+                      href="/cliente/aprovacoes"
+                      className={cn(
+                        "px-4 py-2 rounded-lg font-medium text-white",
+                        selectedDemand.approvalOverdue ? "bg-red-600 hover:bg-red-700" :
+                        selectedDemand.approvalRisk ? "bg-orange-600 hover:bg-orange-700" :
+                        "bg-emerald-600 hover:bg-emerald-700"
+                      )}
+                    >
+                      Aprovar agora
+                    </a>
+                  </div>
+                  {selectedDemand.approvalOverdue && (
+                    <p className="text-sm text-red-700 mt-2">
+                      Atraso na aprovação pode impactar o prazo de entrega. Se precisar de ajustes, descreva no item de aprovação.
+                    </p>
+                  )}
                 </div>
               )}
 

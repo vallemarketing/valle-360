@@ -15,6 +15,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
+    // Somente admin deve ver/configurar status de integrações (evita vazar metadados)
+    const { data: isAdmin, error: isAdminError } = await supabase.rpc('is_admin');
+    if (isAdminError || !isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const integrationId = searchParams.get('id');
     const category = searchParams.get('category');
@@ -82,6 +88,11 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const { data: isAdmin, error: isAdminError } = await supabase.rpc('is_admin');
+    if (isAdminError || !isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
     }
 
     const { integrationId } = await request.json();

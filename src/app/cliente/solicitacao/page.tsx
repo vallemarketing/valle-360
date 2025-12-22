@@ -108,21 +108,31 @@ export default function ClientRequestPage() {
     setIsSubmitting(true)
 
     try {
-      // Simular envio para API
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const response = await fetch('/api/kanban/card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          serviceType: formData.serviceType,
+          priority: formData.priority,
+          dueDate: formData.dueDate || null,
+          observations: formData.observations || '',
+        }),
+      })
 
-      // Em produção, enviar para /api/kanban/card
-      // const response = await fetch('/api/kanban/card', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData)
-      // })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success) {
+        const msg = data?.error || 'Erro ao enviar solicitação'
+        throw new Error(msg)
+      }
 
       setIsSuccess(true)
       toast.success('Solicitação enviada com sucesso!')
 
     } catch (error) {
-      toast.error('Erro ao enviar solicitação')
+      const msg = error instanceof Error ? error.message : 'Erro ao enviar solicitação'
+      toast.error(msg)
     } finally {
       setIsSubmitting(false)
     }

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Check, X, MessageSquare, Clock, ZoomIn, ChevronDown, ChevronUp, Play } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Check, X, MessageSquare, Clock, ChevronDown, ChevronUp } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -12,90 +12,74 @@ import { Badge } from '@/components/ui/badge'
 // Cards empilhados com scroll, visualização completa no modal
 // ============================================
 
-interface Approval {
-  id: number;
+type ApprovalItem = {
+  id: string;
   title: string;
-  type: string;
-  image: string;
-  isVideo?: boolean;
-  designer: string;
-  date: string;
-  status: 'pending' | 'approved' | 'rejected';
-  description?: string;
+  description?: string | null;
+  board?: { id: string; name: string; area_key?: string | null } | null;
+  requested_at: string;
+  due_at: string;
+  overdue: boolean;
 }
 
-const approvals: Approval[] = [
-  {
-    id: 1,
-    title: 'Post Instagram - Campanha Black Friday',
-    type: 'Social Media',
-    image: 'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=500&q=80',
-    designer: 'Ana Silva',
-    date: '2025-11-22',
-    status: 'pending',
-    description: 'Post para feed do Instagram com promoção de Black Friday'
-  },
-  {
-    id: 2,
-    title: 'Banner Site - Lançamento Coleção',
-    type: 'Web Design',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500&q=80',
-    designer: 'Carlos Souza',
-    date: '2025-11-21',
-    status: 'pending',
-    description: 'Banner principal do site para nova coleção'
-  },
-  {
-    id: 3,
-    title: 'Vídeo Institucional - Teaser',
-    type: 'Videomaker',
-    image: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=500&q=80',
-    isVideo: true,
-    designer: 'Pedro Video',
-    date: '2025-11-23',
-    status: 'pending',
-    description: 'Vídeo teaser de 30 segundos para redes sociais'
-  },
-  {
-    id: 4,
-    title: 'Stories Instagram - Promoção',
-    type: 'Social Media',
-    image: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=500&q=80',
-    designer: 'Ana Silva',
-    date: '2025-11-24',
-    status: 'pending',
-    description: 'Sequência de 5 stories para promoção especial'
-  },
-  {
-    id: 5,
-    title: 'Post LinkedIn - Artigo',
-    type: 'Social Media',
-    image: 'https://images.unsplash.com/photo-1553484771-371a605b060b?w=500&q=80',
-    designer: 'Maria Costa',
-    date: '2025-11-25',
-    status: 'pending',
-    description: 'Post para LinkedIn sobre tendências do mercado'
-  }
-]
+function isRisk(dueAtIso: string) {
+  const ms = new Date(dueAtIso).getTime() - Date.now();
+  return ms > 0 && ms <= 12 * 60 * 60 * 1000;
+}
 
 export default function ClientApprovals() {
-  const [items, setItems] = useState(approvals)
-  const [selectedItem, setSelectedItem] = useState<Approval | null>(null)
+  const [items, setItems] = useState<ApprovalItem[]>([])
+  const [selectedItem, setSelectedItem] = useState<ApprovalItem | null>(null)
   const [comment, setComment] = useState('')
-  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
 
-  const pendingItems = items.filter(item => item.status === 'pending')
-  const completedItems = items.filter(item => item.status !== 'pending')
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      try {
+        const res = await fetch('/api/client/approvals')
+        const data = await res.json().catch(() => null)
+        if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao carregar aprovações')
+        setItems((data.approvals || []) as ApprovalItem[])
+      } catch (e) {
+        console.error(e)
+        setItems([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
 
-  const handleAction = (id: number, action: 'approve' | 'reject') => {
-    setItems(prev => prev.map(item => 
-      item.id === id ? { ...item, status: action === 'approve' ? 'approved' : 'rejected' } : item
-    ))
-    setSelectedItem(null)
-    setComment('')
+  const pendingItems = useMemo(() => items, [items])
+  const completedItems = useMemo<ApprovalItem[]>(() => [], [])
+
+  const handleAction = async (id: string, action: 'approve' | 'request_changes') => {
+    if (action === 'request_changes' && !comment.trim()) return
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/client/approvals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: id, action, comment: comment.trim() || undefined }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao enviar aprovação')
+
+      setItems((prev) => prev.filter((x) => x.id !== id))
+      setSelectedItem(null)
+      setComment('')
+    } catch (e) {
+      console.error(e)
+      alert(e instanceof Error ? e.message : 'Falha ao enviar')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const toggleExpand = (id: number) => {
+  const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id)
   }
 
@@ -105,7 +89,7 @@ export default function ClientApprovals() {
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-[#001533] dark:text-white">Aprovações</h1>
         <p className="text-[#001533]/60 dark:text-white/60 mt-1">
-          {pendingItems.length} itens aguardando sua aprovação
+          {loading ? 'Carregando...' : `${pendingItems.length} itens aguardando sua aprovação`}
         </p>
       </header>
 
@@ -120,6 +104,11 @@ export default function ClientApprovals() {
           </div>
         ) : (
           pendingItems.map((item) => (
+            (() => {
+              const risk = !item.overdue && isRisk(item.due_at);
+              const statusLabel = item.overdue ? 'Atrasado' : risk ? 'Em risco' : 'Dentro do prazo';
+              const statusCls = item.overdue ? 'text-red-600' : risk ? 'text-orange-600' : 'text-emerald-700';
+              return (
             <motion.div
               key={item.id}
               layout
@@ -140,23 +129,9 @@ export default function ClientApprovals() {
                     setSelectedItem(item)
                   }}
                 >
-                  <img 
-                    src={item.image} 
-                    alt={item.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                    {item.isVideo ? (
-                      <Play className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                    ) : (
-                      <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                    )}
+                  <div className="w-full h-full bg-[#001533]/5 dark:bg-white/5 flex items-center justify-center">
+                    <MessageSquare className="w-6 h-6 text-[#001533]/40 dark:text-white/40" />
                   </div>
-                  {item.isVideo && (
-                    <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">
-                      0:30
-                    </div>
-                  )}
                 </div>
 
                 {/* Info */}
@@ -168,17 +143,17 @@ export default function ClientApprovals() {
                       </h3>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="secondary" className="text-xs bg-[#1672d6]/10 text-[#1672d6]">
-                          {item.type}
+                          {item.board?.name || 'Kanban'}
                         </Badge>
-                        <span className="text-xs text-[#001533]/50 dark:text-white/50">
-                          por {item.designer}
+                        <span className={cn("text-xs", statusCls)}>
+                          {statusLabel}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-[#001533]/50 dark:text-white/50 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        vence {new Date(item.due_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                       </span>
                       {expandedId === item.id ? (
                         <ChevronUp className="w-5 h-5 text-[#001533]/40" />
@@ -219,9 +194,10 @@ export default function ClientApprovals() {
                       {/* Action Buttons */}
                       <div className="flex gap-3 mt-3">
                         <Button
-                          onClick={() => handleAction(item.id, 'reject')}
+                          onClick={() => handleAction(item.id, 'request_changes')}
                           variant="outline"
                           className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                          disabled={submitting}
                         >
                           <X className="w-4 h-4 mr-2" />
                           Solicitar Ajustes
@@ -229,6 +205,7 @@ export default function ClientApprovals() {
                         <Button
                           onClick={() => handleAction(item.id, 'approve')}
                           className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                          disabled={submitting}
                         >
                           <Check className="w-4 h-4 mr-2" />
                           Aprovar
@@ -239,40 +216,17 @@ export default function ClientApprovals() {
                 )}
               </AnimatePresence>
             </motion.div>
+              );
+            })()
           ))
         )}
       </div>
 
       {/* Histórico de Aprovações */}
-      {completedItems.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold text-[#001533] dark:text-white mb-4">
-            Histórico Recente
-          </h2>
-          <div className="space-y-2">
-            {completedItems.slice(0, 5).map((item) => (
-              <div 
-                key={item.id}
-                className="flex items-center gap-3 p-3 rounded-lg bg-[#001533]/5 dark:bg-white/5"
-              >
-                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[#001533] dark:text-white truncate">{item.title}</p>
-                  <p className="text-xs text-[#001533]/50 dark:text-white/50">{item.designer}</p>
-                </div>
-                <Badge className={cn(
-                  "text-xs",
-                  item.status === 'approved' ? "bg-emerald-500/10 text-emerald-600" : "bg-orange-500/10 text-orange-600"
-                )}>
-                  {item.status === 'approved' ? 'Aprovado' : 'Ajustes'}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Histórico de Aprovações
+          (v2) aqui entraremos com histórico real baseado em `reference_links.client_approval.history`.
+          Por enquanto mantemos só a lista de pendentes (completedItems é vazio).
+      */}
 
       {/* Modal de Visualização - Layout limpo focado no conteúdo */}
       <AnimatePresence>
@@ -283,7 +237,7 @@ export default function ClientApprovals() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black flex"
           >
-            {/* Área da Imagem/Vídeo - Ocupa toda a tela */}
+            {/* Área da Imagem/Vídeo - placeholder (sem mídia real por enquanto) */}
             <div className="flex-1 relative flex items-center justify-center bg-black">
               {/* Close button */}
               <button 
@@ -293,21 +247,12 @@ export default function ClientApprovals() {
                 <X className="w-6 h-6" />
               </button>
 
-              {/* Imagem Principal */}
-              <img 
-                src={selectedItem.image} 
-                alt={selectedItem.title}
-                className="max-w-full max-h-full object-contain"
-              />
-
-              {/* Play button para vídeo */}
-              {selectedItem.isVideo && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                    <Play className="w-12 h-12 text-white ml-1" />
-                  </div>
+              <div className="text-white/70 text-center px-8">
+                <div className="flex items-center justify-center mb-3">
+                  <MessageSquare className="w-10 h-10" />
                 </div>
-              )}
+                <p className="text-sm">Preview do arquivo será integrado via anexos (próximo passo).</p>
+              </div>
             </div>
 
             {/* Sidebar de Ações - Painel lateral */}
@@ -320,7 +265,7 @@ export default function ClientApprovals() {
               {/* Header */}
               <div className="p-6 border-b border-[#001533]/10 dark:border-white/10">
                 <Badge className="bg-[#1672d6]/10 text-[#1672d6] mb-3">
-                  {selectedItem.type}
+                  {selectedItem.board?.name || 'Kanban'}
                 </Badge>
                 <h2 className="text-xl font-bold text-[#001533] dark:text-white mb-2">
                   {selectedItem.title}
@@ -329,9 +274,9 @@ export default function ClientApprovals() {
                   {selectedItem.description}
                 </p>
                 <div className="flex items-center gap-2 mt-3 text-xs text-[#001533]/50 dark:text-white/50">
-                  <span>Por {selectedItem.designer}</span>
+                  <span>{selectedItem.overdue ? 'Atrasado' : 'Dentro do prazo'}</span>
                   <span>•</span>
-                  <span>{new Date(selectedItem.date).toLocaleDateString('pt-BR')}</span>
+                  <span>Vence {new Date(selectedItem.due_at).toLocaleDateString('pt-BR')}</span>
                 </div>
               </div>
 
@@ -355,15 +300,17 @@ export default function ClientApprovals() {
                   onClick={() => handleAction(selectedItem.id, 'approve')}
                   size="lg"
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12"
+                  disabled={submitting}
                 >
                   <Check className="w-5 h-5 mr-2" />
                   Aprovar Material
                 </Button>
                 <Button
-                  onClick={() => handleAction(selectedItem.id, 'reject')}
+                  onClick={() => handleAction(selectedItem.id, 'request_changes')}
                   variant="outline"
                   size="lg"
                   className="w-full border-red-200 text-red-600 hover:bg-red-50 h-12"
+                  disabled={submitting}
                 >
                   <X className="w-5 h-5 mr-2" />
                   Solicitar Ajustes

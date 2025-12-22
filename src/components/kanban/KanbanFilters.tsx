@@ -115,10 +115,10 @@ export function KanbanFilters({ onFiltersChange, availableTags }: KanbanFiltersP
   };
 
   const priorities = [
-    { value: 'urgente', label: 'Urgente', color: 'bg-red-600' },
-    { value: 'alta', label: 'Alta', color: 'bg-red-100 text-red-700' },
-    { value: 'media', label: 'Média', color: 'bg-yellow-100 text-yellow-700' },
-    { value: 'baixa', label: 'Baixa', color: 'bg-gray-100 text-gray-700' },
+    { value: 'urgent', label: 'Urgente', color: 'bg-red-600' },
+    { value: 'high', label: 'Alta', color: 'bg-red-100 text-red-700' },
+    { value: 'medium', label: 'Média', color: 'bg-yellow-100 text-yellow-700' },
+    { value: 'low', label: 'Baixa', color: 'bg-gray-100 text-gray-700' },
   ];
 
   const dueDateOptions = [

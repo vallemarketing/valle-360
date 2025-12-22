@@ -15,6 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
+    const { data: isAdmin, error: isAdminError } = await supabase.rpc('is_admin');
+    if (isAdminError || !isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
+    }
+
     const { integrationId } = await request.json();
 
     if (!integrationId) {
