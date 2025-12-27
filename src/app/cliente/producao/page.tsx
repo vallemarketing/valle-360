@@ -168,10 +168,10 @@ export default function ClienteProducaoPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-          <p className="text-gray-500">Carregando suas demandas...</p>
+          <p className="text-muted-foreground">Carregando suas demandas...</p>
         </div>
       </div>
     )
@@ -196,7 +196,7 @@ export default function ClienteProducaoPage() {
             </a>
             <button
               onClick={loadDemands}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-[#001533]/20 rounded-lg hover:bg-[#001533]/5 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-muted transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
               Atualizar
@@ -206,20 +206,20 @@ export default function ClienteProducaoPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 border">
-            <p className="text-sm text-gray-500">Total</p>
-            <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+          <div className="bg-card rounded-xl p-4 border border-border">
+            <p className="text-sm text-muted-foreground">Total</p>
+            <p className="text-2xl font-bold text-foreground">{stats.total}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 border">
-            <p className="text-sm text-gray-500">Em Andamento</p>
+          <div className="bg-card rounded-xl p-4 border border-border">
+            <p className="text-sm text-muted-foreground">Em Andamento</p>
             <p className="text-2xl font-bold text-orange-600">{stats.active}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 border">
-            <p className="text-sm text-gray-500">Concluídos</p>
+          <div className="bg-card rounded-xl p-4 border border-border">
+            <p className="text-sm text-muted-foreground">Concluídos</p>
             <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 border">
-            <p className="text-sm text-gray-500">Urgentes</p>
+          <div className="bg-card rounded-xl p-4 border border-border">
+            <p className="text-sm text-muted-foreground">Urgentes</p>
             <p className="text-2xl font-bold text-red-600">{stats.urgent}</p>
           </div>
         </div>
@@ -238,7 +238,7 @@ export default function ClienteProducaoPage() {
                 "px-4 py-2 rounded-lg font-medium transition-colors",
                 filter === f.value
                   ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-100"
+                  : "bg-card text-muted-foreground hover:bg-muted"
               )}
             >
               {f.label}
@@ -249,9 +249,9 @@ export default function ClienteProducaoPage() {
         {/* Demands List */}
         <div className="space-y-4">
           {filteredDemands.length === 0 ? (
-            <div className="bg-white rounded-xl p-12 text-center border">
-              <Package className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500">Nenhuma demanda encontrada</p>
+            <div className="bg-card rounded-xl p-12 text-center border border-border">
+              <Package className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              <p className="text-muted-foreground">Nenhuma demanda encontrada</p>
             </div>
           ) : (
             filteredDemands.map((demand, index) => {

@@ -118,6 +118,39 @@ const INTEGRATION_CONFIGS: Record<string, { fields: IntegrationField[] }> = {
       { key: 'config.businessAccountId', label: 'Business Account ID', type: 'text' }
     ]
   },
+  instagramback: {
+    fields: [
+      {
+        key: 'config.baseUrl',
+        label: 'Base URL',
+        type: 'text',
+        placeholder: 'https://instagramback-production-9211.up.railway.app',
+        required: true,
+        helpText: 'Base do Railway (com ou sem "/api"). Ex.: https://...up.railway.app',
+      },
+      {
+        key: 'config.email',
+        label: 'Email (opcional)',
+        type: 'text',
+        placeholder: 'seu@email.com',
+        helpText: 'Se informar email/senha, o sistema faz login e salva o Access Token automaticamente.',
+      },
+      {
+        key: 'config.password',
+        label: 'Senha (opcional)',
+        type: 'password',
+        placeholder: '••••••••',
+        helpText: 'Usada apenas para login no InstagramBack (token fica salvo no Valle 360).',
+      },
+      {
+        key: 'accessToken',
+        label: 'Access Token (opcional)',
+        type: 'password',
+        placeholder: 'Bearer ...',
+        helpText: 'Se você já tiver o token, pode colar aqui e não precisa informar email/senha.',
+      },
+    ]
+  },
   linkedin: {
     fields: [
       { key: 'accessToken', label: 'Access Token', type: 'password', required: true },
@@ -255,6 +288,15 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     color: '#E4405F',
     category: 'marketing',
     fields: INTEGRATION_CONFIGS.instagram.fields
+  },
+  {
+    id: 'instagramback',
+    name: 'InstagramBack',
+    description: 'Agendar Postagem (Railway) + token (sem expor no browser)',
+    icon: <IntegrationIcon integrationId="instagramback" className="w-6 h-6" fallback={<Globe className="w-6 h-6" />} />,
+    color: '#E1306C',
+    category: 'marketing',
+    fields: INTEGRATION_CONFIGS.instagramback.fields
   },
   {
     id: 'linkedin',

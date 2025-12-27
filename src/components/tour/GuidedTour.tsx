@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   X, 
@@ -35,7 +35,13 @@ interface TourStep {
   tip?: string;
 }
 
-const tourSteps: TourStep[] = [
+export type GuidedTourVariant = "admin" | "client" | "employee";
+
+function storageKeyForVariant(variant: GuidedTourVariant) {
+  return `valle_tour_completed:${variant}`;
+}
+
+const CLIENT_TOUR_STEPS: TourStep[] = [
   {
     id: "welcome",
     title: "Bem-vindo à Valle 360! 🎉",
@@ -46,7 +52,7 @@ const tourSteps: TourStep[] = [
       "Pode refazer o tour nas configurações"
     ],
     icon: <Sparkles className="size-8 text-white" />,
-    tip: "Dica: Use o menu lateral para navegar entre as seções"
+    tip: "Dica: Use o menu (☰) e a barra inferior no mobile para navegar"
   },
   {
     id: "dashboard",
@@ -167,18 +173,177 @@ const tourSteps: TourStep[] = [
   },
 ];
 
-export function GuidedTour() {
+const EMPLOYEE_TOUR_STEPS: TourStep[] = [
+  {
+    id: "welcome",
+    title: "Bem-vindo(a)! 🚀",
+    description: "Esse tour é rápido e vai te mostrar onde ficam as partes mais importantes do seu trabalho diário.",
+    details: [
+      "Tour de 1–2 minutos",
+      "Você pode pular a qualquer momento",
+      "Pode refazer depois nas configurações",
+    ],
+    icon: <Sparkles className="size-8 text-white" />,
+    tip: "Dica: No desktop use o menu lateral; no mobile use o botão de menu."
+  },
+  {
+    id: "dashboard",
+    title: "Dashboard da sua Área",
+    description: "Aqui você vê prioridades, KPIs e alertas do que precisa atenção agora.",
+    details: [
+      "📌 Ações rápidas (Kanban, Mensagens, Agenda)",
+      "📈 Indicadores específicos da sua área",
+      "🧠 Insights e alertas assistidos por IA",
+    ],
+    icon: <LayoutDashboard className="size-8 text-white" />,
+    tip: "Dica: Use o Kanban como sua central de execução."
+  },
+  {
+    id: "kanban",
+    title: "Kanban (Demandas)",
+    description: "Organize tarefas por status e acompanhe prazos, aprovações e responsáveis.",
+    details: [
+      "🧩 Arraste cards entre colunas",
+      "⏱️ SLA e prioridades",
+      "💬 Comentários e anexos",
+    ],
+    icon: <FileCheck className="size-8 text-white" />,
+    tip: "Dica: Abra um card para ver detalhes e histórico."
+  },
+  {
+    id: "messages",
+    title: "Mensagens",
+    description: "Fale com cliente e equipe em tempo real, mantendo tudo registrado por projeto.",
+    details: [
+      "💬 Conversas por contexto",
+      "📎 Arquivos e links",
+      "🔔 Notificações para não perder prazos",
+    ],
+    icon: <MessageCircle className="size-8 text-white" />,
+    tip: "Dica: Use @menções para agilizar aprovações."
+  },
+  {
+    id: "ia",
+    title: "Val e IA por Área",
+    description: "Use a Val para acelerar decisões, relatórios e próximos passos — com contexto da sua área.",
+    details: [
+      "✨ Sugestões e insights",
+      "📝 Resumos e relatórios rápidos",
+      "🎯 Próximas ações recomendadas",
+    ],
+    icon: <Brain className="size-8 text-white" />,
+    tip: "Dica: Quanto mais contexto você der, melhor a recomendação."
+  },
+  {
+    id: "finish",
+    title: "Pronto! ✅",
+    description: "Você já pode começar. Se quiser, explore sua área e seu Kanban agora.",
+    details: [
+      "🧭 Abra sua área no menu",
+      "📌 Confira prioridades no Dashboard",
+      "💬 Alinhe pelo chat quando necessário",
+    ],
+    icon: <Check className="size-8 text-white" />,
+    tip: "Se precisar, a Val fica no canto para ajudar."
+  },
+];
+
+const ADMIN_TOUR_STEPS: TourStep[] = [
+  {
+    id: "welcome",
+    title: "Bem-vindo(a), Admin! 👑",
+    description: "Esse tour foca no que você usa para operar a plataforma: clientes, equipe, inteligência e automações.",
+    details: [
+      "Tour de 2–3 minutos",
+      "Pode pular a qualquer momento",
+      "Refaça depois nas configurações",
+    ],
+    icon: <Sparkles className="size-8 text-white" />,
+    tip: "Dica: Use o menu lateral para navegar por módulos."
+  },
+  {
+    id: "dashboard",
+    title: "Dashboard & Operação",
+    description: "Visão geral do sistema e atalhos para rotinas do dia.",
+    details: [
+      "📊 Indicadores do negócio",
+      "📌 Alertas operacionais",
+      "⚡ Atalhos para ações frequentes",
+    ],
+    icon: <LayoutDashboard className="size-8 text-white" />,
+  },
+  {
+    id: "intelligence",
+    title: "Inteligência & Preditivo",
+    description: "Insights de performance e sinais de risco para agir antes do problema virar impacto.",
+    details: [
+      "🧠 Centro de Inteligência",
+      "📈 Analytics preditivo",
+      "🎯 Recomendações acionáveis",
+    ],
+    icon: <Brain className="size-8 text-white" />,
+  },
+  {
+    id: "social",
+    title: "Social (Post Center)",
+    description: "Agendamento de postagens com padrão unificado e rastreabilidade.",
+    details: [
+      "📅 Agenda de posts",
+      "✅ Fluxos de aprovação",
+      "📌 Organização por cliente/canal",
+    ],
+    icon: <Calendar className="size-8 text-white" />,
+    tip: "Dica: Social/Head também têm acesso ao Post Center; Designer não."
+  },
+  {
+    id: "finance",
+    title: "Financeiro",
+    description: "Acompanhe pagamentos, relatórios e saúde financeira.",
+    details: [
+      "💳 Cobranças e faturas",
+      "🧾 Relatórios",
+      "📌 Pendências e alertas",
+    ],
+    icon: <CreditCard className="size-8 text-white" />,
+  },
+  {
+    id: "finish",
+    title: "Pronto! ✅",
+    description: "Agora você está no controle. Vamos operar.",
+    details: [
+      "👥 Revise clientes e colaboradores",
+      "📊 Monitore performance e preditivo",
+      "🧠 Use a Val para acelerar decisões",
+    ],
+    icon: <Check className="size-8 text-white" />,
+  },
+];
+
+function stepsForVariant(variant: GuidedTourVariant): TourStep[] {
+  switch (variant) {
+    case "admin":
+      return ADMIN_TOUR_STEPS;
+    case "employee":
+      return EMPLOYEE_TOUR_STEPS;
+    case "client":
+    default:
+      return CLIENT_TOUR_STEPS;
+  }
+}
+
+export function GuidedTour({ variant = "client" }: { variant?: GuidedTourVariant }) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const tourSteps = useMemo(() => stepsForVariant(variant), [variant]);
 
   useEffect(() => {
     // Verificar se é a primeira visita
-    const hasSeenTour = localStorage.getItem("valle_tour_completed");
+    const hasSeenTour = localStorage.getItem(storageKeyForVariant(variant));
     if (!hasSeenTour) {
       // Esperar um pouco para o dashboard carregar
       setTimeout(() => setIsOpen(true), 2000);
     }
-  }, []);
+  }, [variant]);
 
   const handleNext = () => {
     if (currentStep < tourSteps.length - 1) {
@@ -199,13 +364,13 @@ export function GuidedTour() {
   };
 
   const completeTour = () => {
-    localStorage.setItem("valle_tour_completed", "true");
+    localStorage.setItem(storageKeyForVariant(variant), "true");
     setIsOpen(false);
     setCurrentStep(0);
   };
 
   const skipTour = () => {
-    localStorage.setItem("valle_tour_completed", "true");
+    localStorage.setItem(storageKeyForVariant(variant), "true");
     setIsOpen(false);
     setCurrentStep(0);
   };
@@ -235,16 +400,17 @@ export function GuidedTour() {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed z-[101] w-[95%] max-w-lg top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            className="fixed inset-0 z-[101] flex items-center justify-center p-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className="bg-white dark:bg-[#0a0f1a] rounded-2xl shadow-2xl overflow-hidden border border-[#001533]/10 dark:border-white/10 flex flex-col"
-              style={{
-                maxHeight: 'min(88vh, 720px)',
-                paddingBottom: 'env(safe-area-inset-bottom)',
-              }}
-            >
+            <div className="w-full max-w-lg">
+              <div
+                className="bg-white dark:bg-[#0a0f1a] rounded-2xl shadow-2xl overflow-hidden border border-[#001533]/10 dark:border-white/10 flex flex-col"
+                style={{
+                  maxHeight: 'min(90vh, 720px)',
+                  paddingBottom: 'env(safe-area-inset-bottom)',
+                }}
+              >
               
               {/* Header com ícone e botão fechar */}
               <div className="bg-gradient-to-br from-[#001533] to-[#1672d6] p-6 relative">
@@ -299,7 +465,7 @@ export function GuidedTour() {
               </div>
 
               {/* Conteúdo (rolável para não cortar em telas menores) */}
-              <div className="p-6 overflow-y-auto">
+              <div className="p-6 overflow-y-auto flex-1 min-h-0 pr-2">
                 <motion.div
                   key={currentStep}
                   initial={{ opacity: 0, x: 30 }}
@@ -393,7 +559,29 @@ export function GuidedTour() {
                   </button>
                 </div>
 
-                {/* Botões de texto */}
+                {/* Botões de texto (explícitos) */}
+                <div className="flex items-center justify-between gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={handlePrev}
+                    disabled={isFirstStep}
+                    className="h-11 px-4 rounded-xl border-[#001533]/20 dark:border-white/20"
+                  >
+                    Anterior
+                  </Button>
+
+                  <Button
+                    onClick={handleNext}
+                    className={cn(
+                      "h-11 px-5 rounded-xl",
+                      isLastStep ? "bg-emerald-500 hover:bg-emerald-600" : "bg-[#1672d6] hover:bg-[#1260b5]"
+                    )}
+                  >
+                    {isLastStep ? "Começar" : "Próximo"}
+                  </Button>
+                </div>
+
+                {/* Rodapé auxiliar */}
                 <div className="flex items-center justify-between">
                   <button
                     onClick={skipTour}
@@ -403,8 +591,9 @@ export function GuidedTour() {
                   </button>
                   
                   <p className="text-sm text-[#001533]/50 dark:text-white/50">
-                    {isLastStep ? "Clique ✓ para começar" : "Use as setas para navegar"}
+                    {isLastStep ? "Tudo pronto para começar" : "Use Próximo/Anterior para navegar"}
                   </p>
+                </div>
                 </div>
               </div>
             </div>
@@ -417,8 +606,12 @@ export function GuidedTour() {
 
 // Botão para reiniciar o tour (usar em configurações)
 export function RestartTourButton() {
+  // Mantém compatibilidade: se não passar variant, reinicia o tour do cliente.
+  // (Esse botão pode ser usado em configurações específicas por persona futuramente.)
   const handleRestart = () => {
-    localStorage.removeItem("valle_tour_completed");
+    localStorage.removeItem(storageKeyForVariant("client"));
+    localStorage.removeItem(storageKeyForVariant("admin"));
+    localStorage.removeItem(storageKeyForVariant("employee"));
     window.location.reload();
   };
 

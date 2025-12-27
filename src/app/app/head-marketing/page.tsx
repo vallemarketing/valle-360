@@ -27,6 +27,7 @@ import {
   AlertCircle,
   ArrowUp,
   ArrowDown,
+  Upload,
 } from 'lucide-react';
 
 interface ConsolidatedMetrics {
@@ -148,7 +149,13 @@ export default function HeadMarketingPage() {
             Visão consolidada de todas as operações de marketing
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <Button asChild variant="outline" className="gap-2">
+            <a href="/app/head-marketing/upload">
+              <Upload className="w-4 h-4" />
+              Agendar Postagem
+            </a>
+          </Button>
           <Button
             size="sm"
             variant={selectedPeriod === 'week' ? 'default' : 'outline'}

@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { Card } from '@/components/ui/card';
-import { Sparkles, TrendingUp, Lightbulb, BookOpen } from 'lucide-react';
+import Link from 'next/link';
+import { Sparkles, TrendingUp, Lightbulb, BookOpen, ArrowRight } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'IA - Colaborador | Valle 360',
@@ -32,17 +33,32 @@ const suggestions = [
 
 export default function EmployeeIAPage() {
   return (
-    <div className="min-h-screen p-4 pb-24">
+    <div className="p-4 pb-24">
       <div className="max-w-2xl mx-auto">
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="w-6 h-6 text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Assistente IA</h1>
+            <h1 className="text-2xl font-bold text-foreground">Assistente IA</h1>
           </div>
-          <p className="text-sm text-gray-600">
-            Sugestões personalizadas para Tráfego Pago
+          <p className="text-sm text-muted-foreground">
+            Sugestões e atalhos para a Val (IA) por área
           </p>
         </div>
+
+        <Card className="p-5 mb-6 border border-border bg-card">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-foreground">Abrir a Val (IA)</p>
+              <p className="text-sm text-muted-foreground">Chat completo com contexto do seu perfil e da sua área.</p>
+            </div>
+            <Link
+              href="/colaborador/val"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1672d6] text-white hover:bg-[#1260b5] transition-colors"
+            >
+              Ir para Val <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </Card>
 
         <div className="space-y-4">
           {suggestions.map((suggestion, i) => {
@@ -54,17 +70,17 @@ export default function EmployeeIAPage() {
                     <Icon className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-1">
+                    <h3 className="font-semibold text-foreground mb-1">
                       {suggestion.title}
                     </h3>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       {suggestion.description}
                     </p>
                     <div className="flex items-center gap-3">
                       <button className="text-sm font-medium text-blue-600 hover:text-blue-700">
                         Ver detalhes →
                       </button>
-                      <button className="text-sm text-gray-500 hover:text-gray-700">
+                      <button className="text-sm text-muted-foreground hover:text-foreground">
                         Útil 👍
                       </button>
                     </div>

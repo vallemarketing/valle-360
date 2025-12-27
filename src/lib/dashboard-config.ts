@@ -9,15 +9,16 @@ export type DashboardConfig = {
 };
 
 export const DASHBOARD_ROLES: Record<string, DashboardConfig> = {
-  designer: {
-    role: "designer",
+  // AreaKey compat (novo padrão)
+  designer_grafico: {
+    role: "designer_grafico",
     title: "Designer Gráfico",
     widgets: ["trends", "tools", "my-tasks", "notifications"],
     primaryColor: "bg-pink-500",
     icon: PenTool
   },
-  web_designer: {
-    role: "web_designer",
+  webdesigner: {
+    role: "webdesigner",
     title: "Web Designer",
     widgets: ["trends", "tools", "project-status", "val-chat"],
     primaryColor: "bg-purple-500",
@@ -37,8 +38,15 @@ export const DASHBOARD_ROLES: Record<string, DashboardConfig> = {
     primaryColor: "bg-green-500",
     icon: Users
   },
-  financeiro: {
-    role: "financeiro",
+  financeiro_pagar: {
+    role: "financeiro_pagar",
+    title: "Financeiro",
+    widgets: ["revenue", "cash-flow", "pending-invoices"],
+    primaryColor: "bg-emerald-600",
+    icon: DollarSign
+  },
+  financeiro_receber: {
+    role: "financeiro_receber",
     title: "Financeiro",
     widgets: ["revenue", "cash-flow", "pending-invoices"],
     primaryColor: "bg-emerald-600",
@@ -58,8 +66,8 @@ export const DASHBOARD_ROLES: Record<string, DashboardConfig> = {
     primaryColor: "bg-indigo-500",
     icon: Megaphone
   },
-  trafego: {
-    role: "trafego",
+  trafego_pago: {
+    role: "trafego_pago",
     title: "Gestor de Tráfego",
     widgets: ["roas-tracker", "active-campaigns", "budget-alert"],
     primaryColor: "bg-cyan-600",
@@ -78,12 +86,42 @@ export const DASHBOARD_ROLES: Record<string, DashboardConfig> = {
     widgets: ["company-overview", "financial-summary", "team-health"],
     primaryColor: "bg-slate-800",
     icon: ShieldCheck
-  }
+  },
+
+  // Aliases (compat com valores antigos/string-based)
+  designer: {
+    role: "designer",
+    title: "Designer Gráfico",
+    widgets: ["trends", "tools", "my-tasks", "notifications"],
+    primaryColor: "bg-pink-500",
+    icon: PenTool
+  },
+  web_designer: {
+    role: "web_designer",
+    title: "Web Designer",
+    widgets: ["trends", "tools", "project-status", "val-chat"],
+    primaryColor: "bg-purple-500",
+    icon: Monitor
+  },
+  financeiro: {
+    role: "financeiro",
+    title: "Financeiro",
+    widgets: ["revenue", "cash-flow", "pending-invoices"],
+    primaryColor: "bg-emerald-600",
+    icon: DollarSign
+  },
+  trafego: {
+    role: "trafego",
+    title: "Gestor de Tráfego",
+    widgets: ["roas-tracker", "active-campaigns", "budget-alert"],
+    primaryColor: "bg-cyan-600",
+    icon: BarChart
+  },
 };
 
 export const getDashboardConfig = (role: string): DashboardConfig => {
   // Normalizar role (caso venha como 'admin' mas o sistema use 'super_admin' ou similar)
-  const normalizedRole = role.toLowerCase().replace(' ', '_');
+  const normalizedRole = role.toLowerCase().trim().replace(/\s+/g, '_');
   
   return DASHBOARD_ROLES[normalizedRole] || {
     role: "employee",

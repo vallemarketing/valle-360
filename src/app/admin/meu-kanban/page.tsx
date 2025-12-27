@@ -31,6 +31,7 @@ import type { DbTaskPriority, DbTaskStatus, KanbanCard } from '@/lib/kanban/type
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { toast } from 'sonner'
 import ProfitabilityView from '@/components/dashboards/widgets/ProfitabilityView'
+import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles'
 
 interface KanbanColumn {
   id: string
@@ -207,13 +208,10 @@ function AdminKanbanContent() {
 
       const assignedNameById: Record<string, string> = {}
       if (assignedIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('user_profiles')
-          .select('user_id, full_name, email')
-          .in('user_id', assignedIds)
-
-        ;(profiles || []).forEach((p: any) => {
-          assignedNameById[p.user_id] = p.full_name || p.email || p.user_id
+        const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, assignedIds)
+        assignedIds.forEach((uid) => {
+          const p = profilesMap.get(uid)
+          assignedNameById[uid] = p?.full_name || p?.email || uid
         })
       }
 
@@ -314,8 +312,8 @@ function AdminKanbanContent() {
       if (sourceIndex !== destIndex) renumber(newColumns[destIndex])
 
       for (const u of updates) {
-        await supabase
-          .from('kanban_tasks')
+      await supabase
+        .from('kanban_tasks')
           .update({
             status: u.status,
             column_id: u.column_id,

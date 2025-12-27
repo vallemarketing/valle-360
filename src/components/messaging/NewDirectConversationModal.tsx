@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { X, Search, MessageCircle, User, Users } from 'lucide-react';
+import { fetchProfileByAuthId } from '@/lib/messaging/userProfiles';
 
 interface UserProfile {
   id: string;
@@ -34,31 +35,66 @@ export function NewDirectConversationModal({
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [currentUserType, setCurrentUserType] = useState<string>('');
 
   useEffect(() => {
     if (isOpen) {
+      loadCurrentUserType();
       loadUsers();
     }
   }, [isOpen]);
 
+  const loadCurrentUserType = async () => {
+    try {
+      const profile = await fetchProfileByAuthId(supabase as any, currentUserId);
+      setCurrentUserType(String(profile?.user_type || ''));
+    } catch {
+      setCurrentUserType('');
+    }
+  };
+
   const loadUsers = async () => {
     try {
-      let query = supabase
+      // Alguns ambientes usam `user_profiles.id = auth.uid()`, outros guardam o auth id em `user_id`.
+      // Para evitar quebra por schema drift, tentamos com `user_id` e fazemos fallback para `id`.
+      let data: any[] | null = null;
+
+      const attemptWithUserId = await supabase
         .from('user_profiles')
-        .select('id, full_name, email, user_type, avatar_url')
-        .neq('id', currentUserId)
+        .select('id, user_id, full_name, email, user_type, avatar_url, avatar')
         .order('full_name');
 
-      if (filterType === 'clients') {
-        query = query.eq('user_type', 'client');
-      } else if (filterType === 'team') {
-        query = query.neq('user_type', 'client');
+      if (!attemptWithUserId.error) {
+        data = attemptWithUserId.data || [];
+      } else {
+        const attemptWithId = await supabase
+          .from('user_profiles')
+          .select('id, full_name, email, user_type, avatar_url, avatar')
+          .order('full_name');
+        if (attemptWithId.error) throw attemptWithId.error;
+        data = attemptWithId.data || [];
       }
 
-      const { data, error } = await query;
+      if (filterType === 'clients') {
+        data = (data || []).filter((u) => String((u as any)?.user_type || '') === 'client');
+      } else if (filterType === 'team') {
+        data = (data || []).filter((u) => String((u as any)?.user_type || '') !== 'client');
+      }
+      const normalized: UserProfile[] = (data || [])
+        .map((u: any) => {
+          const authId = u?.user_id ? String(u.user_id) : u?.id ? String(u.id) : null;
+          if (!authId) return null;
+          return {
+            id: authId,
+            full_name: String(u?.full_name || 'Usuário'),
+            email: String(u?.email || ''),
+            user_type: String(u?.user_type || ''),
+            avatar_url: u?.avatar_url ? String(u.avatar_url) : u?.avatar ? String(u.avatar) : undefined,
+          };
+        })
+        .filter(Boolean) as UserProfile[];
 
-      if (error) throw error;
-      setUsers(data || []);
+      setUsers(normalized.filter((u) => u.id !== currentUserId));
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
     }
@@ -73,15 +109,18 @@ export function NewDirectConversationModal({
     );
   });
 
-  const handleCreateConversation = async (userId: string) => {
+  const handleCreateConversation = async (user: UserProfile) => {
     setIsCreating(true);
     try {
+      const isClientConversation =
+        currentUserType === 'client' || user.user_type === 'client';
+
       const { data: conversationId, error } = await supabase.rpc(
         'get_or_create_direct_conversation',
         {
           p_user_id_1: currentUserId,
-          p_user_id_2: userId,
-          p_is_client_conversation: false,
+          p_user_id_2: user.id,
+          p_is_client_conversation: isClientConversation,
         }
       );
 
@@ -173,7 +212,7 @@ export function NewDirectConversationModal({
               filteredUsers.map((user) => (
                 <button
                   key={user.id}
-                  onClick={() => handleCreateConversation(user.id)}
+                  onClick={() => handleCreateConversation(user)}
                   disabled={isCreating}
                   className="w-full p-4 border-b hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >

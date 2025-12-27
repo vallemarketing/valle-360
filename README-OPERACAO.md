@@ -8,6 +8,20 @@
   - `NEXT_PUBLIC_APP_URL` (URL do deploy)
   - `CRON_SECRET` (string forte)
   - `OPENROUTER_API_KEY` (IA primária)
+  - `SENDGRID_API_KEY` (Email transacional)
+  - `STRIPE_SECRET_KEY` (Stripe)
+
+### Recomendadas (produção)
+- **Email (SendGrid)**:
+  - `SENDGRID_FROM_EMAIL` (ex.: `noreply@suaempresa.com`)
+  - `SENDGRID_FROM_NAME` (ex.: `Valle 360`)
+- **Stripe Webhooks**:
+  - `STRIPE_WEBHOOK_SECRET` (ex.: `whsec_...`)
+- **Alertas Financeiro (opcional)**:
+  - `FINANCE_ALERT_EMAILS` (lista separada por vírgula, ex.: `financeiro@...,admin@...`)
+- **Hardening de setup**:
+  - `ENABLE_SETUP_ROUTES=0` (padrão). Para liberar rotas de setup temporariamente: `ENABLE_SETUP_ROUTES=1`
+  - `ADMIN_SECRET` (obrigatório para `/api/admin/create-users` quando setup estiver habilitado)
 
 > Não cole chaves no chat. Use Vercel Env Vars ou `/admin/integracoes`.
 

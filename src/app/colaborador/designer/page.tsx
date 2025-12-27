@@ -190,24 +190,24 @@ export default function DesignerPage() {
     : assets.filter(a => a.clientName === selectedClient)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
+      <div className="rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-sm">
               <Palette className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">Painel Designer</h1>
-              <p className="text-sm text-gray-500">Projetos, assets e referências</p>
+              <h1 className="text-2xl font-bold text-foreground">Painel Designer</h1>
+              <p className="text-sm text-muted-foreground">Projetos, assets e referências</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <select
               value={selectedClient}
               onChange={(e) => setSelectedClient(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-orange-500"
             >
               <option value="all">Todos os clientes</option>
               {clients.map(client => (
@@ -215,12 +215,12 @@ export default function DesignerPage() {
               ))}
             </select>
             <Link href="/colaborador/kanban">
-              <button className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors">
+              <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors text-sm">
                 <Layers className="w-4 h-4" />
                 Ver Kanban
               </button>
             </Link>
-            <button className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+            <button className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm">
               <Plus className="w-4 h-4" />
               Nova Peça
             </button>
@@ -228,77 +228,77 @@ export default function DesignerPage() {
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-6 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
                 <Palette className="w-5 h-5 text-orange-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-800">{stats.totalProjects}</p>
-                <p className="text-xs text-gray-500">Projetos</p>
+                <p className="text-2xl font-bold text-foreground">{stats.totalProjects}</p>
+                <p className="text-xs text-muted-foreground">Projetos</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
                 <Clock className="w-5 h-5 text-yellow-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-800">{stats.pendingApproval}</p>
-                <p className="text-xs text-gray-500">Aguardando</p>
+                <p className="text-2xl font-bold text-foreground">{stats.pendingApproval}</p>
+                <p className="text-xs text-muted-foreground">Aguardando</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-800">{stats.approved}</p>
-                <p className="text-xs text-gray-500">Aprovados</p>
+                <p className="text-2xl font-bold text-foreground">{stats.approved}</p>
+                <p className="text-xs text-muted-foreground">Aprovados</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-800">{stats.avgApprovalRate}%</p>
-                <p className="text-xs text-gray-500">Taxa Aprovação</p>
+                <p className="text-2xl font-bold text-foreground">{stats.avgApprovalRate}%</p>
+                <p className="text-xs text-muted-foreground">Taxa Aprovação</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
                 <Image className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-800">{stats.piecesThisMonth}</p>
-                <p className="text-xs text-gray-500">Peças/Mês</p>
+                <p className="text-2xl font-bold text-foreground">{stats.piecesThisMonth}</p>
+                <p className="text-xs text-muted-foreground">Peças/Mês</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-cyan-100 flex items-center justify-center">
                 <Folder className="w-5 h-5 text-cyan-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-800">{assets.length}</p>
-                <p className="text-xs text-gray-500">Assets</p>
+                <p className="text-2xl font-bold text-foreground">{assets.length}</p>
+                <p className="text-xs text-muted-foreground">Assets</p>
               </div>
             </div>
           </div>

@@ -19,6 +19,23 @@ interface CollectionMessage {
   actions?: string[];
 }
 
+function getBaseUrlForServerFetch(): string | null {
+  // No browser, usamos URL relativa.
+  if (typeof window !== 'undefined') return '';
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').trim();
+  if (appUrl) return appUrl.replace(/\/+$/, '');
+  // fallback Vercel (sem protocolo em VERCEL_URL)
+  const vercel = (process.env.VERCEL_URL || '').trim();
+  if (vercel) return `https://${vercel.replace(/\/+$/, '')}`;
+  return null;
+}
+
+function getCronAuthHeader() {
+  // Quando rodando em cron/server, podemos autenticar /api/email/send com CRON_SECRET.
+  const secret = (process.env.CRON_SECRET || '').trim();
+  return secret ? `Bearer ${secret}` : '';
+}
+
 // Templates de mensagens para colaboradores
 const EMPLOYEE_TEMPLATES: Record<string, (ctx: any) => string> = {
   task_overdue: (ctx) => `Oi ${ctx.name.split(' ')[0]}! 👋
@@ -315,6 +332,8 @@ export async function getCollectionTargets(): Promise<CollectionTarget[]> {
 export async function sendCollection(target: CollectionTarget): Promise<boolean> {
   try {
     const messages = generateCollectionMessage(target);
+    const baseUrl = getBaseUrlForServerFetch();
+    const cronAuth = getCronAuthHeader();
     
     for (const msg of messages) {
       if (msg.platform === 'internal') {
@@ -352,7 +371,8 @@ export async function sendCollection(target: CollectionTarget): Promise<boolean>
       
       if (msg.platform === 'whatsapp' && target.phone) {
         // Enviar via WhatsApp Business API
-        await fetch('/api/whatsapp/send', {
+        if (baseUrl === null) continue;
+        await fetch(`${baseUrl}/api/whatsapp/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -364,9 +384,13 @@ export async function sendCollection(target: CollectionTarget): Promise<boolean>
       
       if (msg.platform === 'email') {
         // Enviar via email
-        await fetch('/api/email/send', {
+        if (baseUrl === null) continue;
+        await fetch(`${baseUrl}/api/email/send`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(cronAuth ? { Authorization: cronAuth } : {}),
+          },
           body: JSON.stringify({
             to: target.email,
             subject: getEmailSubject(target.reason),

@@ -20,6 +20,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { PresenceIndicator } from './PresenceIndicator';
+import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 
 interface GroupMember {
   id: string;
@@ -133,13 +134,7 @@ export function GroupManagementModal({
     try {
       const { data, error } = await supabase
         .from('group_participants')
-        .select(`
-          id,
-          user_id,
-          role,
-          joined_at,
-          user_profiles!group_participants_user_id_fkey(full_name, email, avatar_url)
-        `)
+        .select('id, user_id, role, joined_at')
         .eq('group_id', groupId)
         .eq('is_active', true)
         .order('role', { ascending: false })
@@ -147,14 +142,17 @@ export function GroupManagementModal({
 
       if (error) throw error;
 
+      const userIds = Array.from(new Set((data || []).map((i: any) => String(i?.user_id || '')).filter(Boolean)));
+      const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, userIds);
+
       const formattedMembers = (data || []).map((item: any) => ({
         id: item.id,
         user_id: item.user_id,
         role: item.role,
         joined_at: item.joined_at,
-        full_name: item.user_profiles?.full_name || 'Usuário',
-        email: item.user_profiles?.email || '',
-        avatar_url: item.user_profiles?.avatar_url,
+        full_name: profilesMap.get(String(item.user_id))?.full_name || 'Usuário',
+        email: profilesMap.get(String(item.user_id))?.email || '',
+        avatar_url: profilesMap.get(String(item.user_id))?.avatar_url,
       }));
 
       setMembers(formattedMembers);
@@ -165,17 +163,42 @@ export function GroupManagementModal({
 
   const loadAvailableUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // Alguns ambientes usam `user_profiles.id = auth.uid()`, outros guardam o auth id em `user_id`.
+      // Tentamos com `user_id` e fazemos fallback se a coluna não existir.
+      let rows: any[] = [];
+      const attemptWithUserId = await supabase
         .from('user_profiles')
-        .select('id, full_name, email, user_type, avatar_url')
+        .select('id, user_id, full_name, email, user_type, avatar_url, avatar')
         .neq('user_type', 'client');
 
-      if (error) throw error;
+      if (!attemptWithUserId.error) {
+        rows = attemptWithUserId.data || [];
+      } else {
+        const attemptWithId = await supabase
+          .from('user_profiles')
+          .select('id, full_name, email, user_type, avatar_url, avatar')
+          .neq('user_type', 'client');
+        if (attemptWithId.error) throw attemptWithId.error;
+        rows = attemptWithId.data || [];
+      }
 
-      const memberIds = members.map(m => m.user_id);
-      const available = (data || []).filter(user => !memberIds.includes(user.id));
+      const memberIds = new Set(members.map((m) => String(m.user_id)));
+      const available = (rows || [])
+        .map((u: any) => {
+          const authId = u?.user_id ? String(u.user_id) : u?.id ? String(u.id) : null;
+          if (!authId) return null;
+          return {
+            id: authId,
+            full_name: String(u?.full_name || 'Usuário'),
+            email: String(u?.email || ''),
+            user_type: String(u?.user_type || ''),
+            avatar_url: u?.avatar_url ? String(u.avatar_url) : u?.avatar ? String(u.avatar) : undefined,
+          };
+        })
+        .filter(Boolean)
+        .filter((u: any) => !memberIds.has(String(u.id)));
 
-      setAvailableUsers(available);
+      setAvailableUsers(available as any);
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
     }

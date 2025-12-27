@@ -37,6 +37,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { resolveEmployeeAreaKey, areaKeyToCompatArea } from '@/lib/employee/areaKey'
+import type { AreaKey } from '@/lib/kanban/areaBoards'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -72,6 +74,7 @@ export default function ColaboradorDashboardPage() {
   const [userArea, setUserArea] = useState('')
   const [userAreaDisplay, setUserAreaDisplay] = useState('')
   const [userId, setUserId] = useState('')
+  const [userAreaKey, setUserAreaKey] = useState<AreaKey | null>(null)
   const [notifications, setNotifications] = useState<any[]>([])
   const [viewMode, setViewMode] = useState<'specific' | 'customizable'>('specific')
   const [showSettings, setShowSettings] = useState(false)
@@ -147,9 +150,14 @@ export default function ColaboradorDashboardPage() {
         .eq('user_id', user.id)
         .single()
 
-      // Usar area_of_expertise diretamente da tabela employees
-      const rawArea = employee?.area_of_expertise || 'Web Designer';
-      const area = rawArea.toLowerCase().replace(/ /g, '_');
+      // Área estável (areaKey) + compat para dashboards/IA
+      const areaKey = resolveEmployeeAreaKey({
+        department: employee?.department ?? null,
+        area_of_expertise: employee?.area_of_expertise ?? null,
+        areas: (employee as any)?.areas ?? null,
+      });
+      const area = areaKeyToCompatArea(areaKey);
+      const rawArea = employee?.area_of_expertise || employee?.department || 'Colaborador';
       
       // Buscar nome completo do employee se profile não tiver
       const fullName = profile?.full_name || employee?.full_name || 'Colaborador';
@@ -158,6 +166,7 @@ export default function ColaboradorDashboardPage() {
       setUserName(firstName)
       setUserArea(area)
       setUserAreaDisplay(rawArea)
+      setUserAreaKey(areaKey)
 
       // Carregar notificações
       const notifs = loadNotifications(rawArea)
@@ -218,7 +227,7 @@ export default function ColaboradorDashboardPage() {
     return baseNotifications
   }
 
-  const panelConfig = AREA_PANEL_MAP[userArea.toLowerCase()]
+  const panelConfig = AREA_PANEL_MAP[String(userArea || '').toLowerCase()]
 
   if (loading) {
     return (

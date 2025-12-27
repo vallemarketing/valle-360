@@ -13,6 +13,7 @@ import { BehavioralTests } from '@/components/rh/BehavioralTests';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Employee {
   id: string;
@@ -118,6 +119,7 @@ const INTERVIEW_SCRIPT = [
 ];
 
 export default function RHPage() {
+  const router = useRouter();
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showTest, setShowTest] = useState(false);
   const [showInterviewScript, setShowInterviewScript] = useState(false);
@@ -310,6 +312,16 @@ Venha fazer parte de uma equipe que transforma negócios através do marketing d
           </div>
 
           <div className="flex items-center gap-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push('/admin/rh/nine-box')}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-white"
+              style={{ backgroundColor: 'var(--primary-500)' }}
+            >
+              <BarChart3 className="w-4 h-4" />
+              9 Box
+            </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

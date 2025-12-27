@@ -11,6 +11,17 @@ function statusFromBool(ok: boolean): ReadinessStatus {
   return ok ? 'pass' : 'fail';
 }
 
+function hasFirebaseEnv(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+      process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN &&
+      process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID &&
+      process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET &&
+      process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID &&
+      process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  );
+}
+
 export async function GET(request: NextRequest) {
   const cookieStore = cookies();
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
@@ -52,7 +63,7 @@ export async function GET(request: NextRequest) {
       error: i.error_message,
     }));
 
-    const critical = ['openrouter', 'openai', 'stripe', 'sendgrid', 'whatsapp'];
+    const critical = ['openrouter', 'openai', 'stripe', 'sendgrid', 'whatsapp', 'instagramback'];
     const criticalStatus: Record<string, ReadinessStatus> = {};
     for (const id of critical) {
       const row = (integrations || []).find((x: any) => x.integration_id === id);
@@ -62,7 +73,9 @@ export async function GET(request: NextRequest) {
         (id === 'openai' && !!process.env.OPENAI_API_KEY) ||
         (id === 'stripe' && !!process.env.STRIPE_SECRET_KEY) ||
         (id === 'sendgrid' && !!process.env.SENDGRID_API_KEY) ||
-        (id === 'whatsapp' && !!process.env.WHATSAPP_ACCESS_TOKEN);
+        (id === 'whatsapp' && !!process.env.WHATSAPP_ACCESS_TOKEN) ||
+        // InstagramBack é configurado via DB (não env)
+        false;
 
       criticalStatus[id] = connectedInDb || connectedInEnv ? 'pass' : 'warn';
     }
@@ -190,6 +203,9 @@ export async function GET(request: NextRequest) {
       timestamp: now,
       overall,
       checks,
+      firebase: {
+        status: hasFirebaseEnv() ? ('pass' as ReadinessStatus) : ('warn' as ReadinessStatus),
+      },
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Erro interno' }, { status: 500 });

@@ -145,6 +145,56 @@ export class MetaClient {
     });
   }
 
+  async createInstagramVideoPost(instagramAccountId: string, videoUrl: string, caption: string): Promise<{ id: string }> {
+    const container = await this.request<{ id: string }>(`/${instagramAccountId}/media`, {
+      method: 'POST',
+      body: JSON.stringify({
+        video_url: videoUrl,
+        media_type: 'VIDEO',
+        caption,
+      }),
+    });
+
+    return this.request(`/${instagramAccountId}/media_publish`, {
+      method: 'POST',
+      body: JSON.stringify({ creation_id: container.id }),
+    });
+  }
+
+  async createInstagramCarouselPost(
+    instagramAccountId: string,
+    items: Array<{ type: 'image' | 'video'; url: string }>,
+    caption: string
+  ): Promise<{ id: string }> {
+    const childIds: string[] = [];
+
+    for (const item of items.slice(0, 10)) {
+      const container = await this.request<{ id: string }>(`/${instagramAccountId}/media`, {
+        method: 'POST',
+        body: JSON.stringify(
+          item.type === 'video'
+            ? { video_url: item.url, media_type: 'VIDEO', is_carousel_item: true }
+            : { image_url: item.url, is_carousel_item: true }
+        ),
+      });
+      childIds.push(container.id);
+    }
+
+    const carouselContainer = await this.request<{ id: string }>(`/${instagramAccountId}/media`, {
+      method: 'POST',
+      body: JSON.stringify({
+        media_type: 'CAROUSEL',
+        caption,
+        children: childIds.join(','),
+      }),
+    });
+
+    return this.request(`/${instagramAccountId}/media_publish`, {
+      method: 'POST',
+      body: JSON.stringify({ creation_id: carouselContainer.id }),
+    });
+  }
+
   // ========== FACEBOOK ADS ==========
 
   // Obter campanhas
@@ -233,6 +283,49 @@ export class MetaClient {
       body: JSON.stringify(body)
     });
 
+    return response.json();
+  }
+
+  async createPagePhotoPost(
+    pageId: string,
+    pageAccessToken: string,
+    imageUrl: string,
+    caption?: string
+  ): Promise<{ id: string }> {
+    const url = new URL(`${GRAPH_API_BASE}/${pageId}/photos`);
+    url.searchParams.set('access_token', pageAccessToken);
+
+    const body = new URLSearchParams();
+    body.set('url', imageUrl);
+    if (caption) body.set('caption', caption);
+    body.set('published', 'true');
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+    return response.json();
+  }
+
+  async createPageVideoPost(
+    pageId: string,
+    pageAccessToken: string,
+    videoUrl: string,
+    description?: string
+  ): Promise<{ id: string }> {
+    const url = new URL(`${GRAPH_API_BASE}/${pageId}/videos`);
+    url.searchParams.set('access_token', pageAccessToken);
+
+    const body = new URLSearchParams();
+    body.set('file_url', videoUrl);
+    if (description) body.set('description', description);
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
     return response.json();
   }
 

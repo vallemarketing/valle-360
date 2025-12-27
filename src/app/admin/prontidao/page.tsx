@@ -43,6 +43,7 @@ export default function ProntidaoPage() {
 
   const overall: ReadinessStatus | null = useMemo(() => data?.overall ?? null, [data]);
   const checks = data?.checks;
+  const firebase = data?.firebase;
 
   return (
     <div className="min-h-screen p-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -87,6 +88,21 @@ export default function ProntidaoPage() {
 
         {!loading && !error && data && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Firebase */}
+            <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Firebase (Storage)</h2>
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(firebase?.status || 'warn')}`}>
+                  {label(firebase?.status || 'warn')}
+                </span>
+              </div>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {firebase?.status === 'pass'
+                  ? 'Env vars do Firebase estão configuradas.'
+                  : 'Configure as env vars NEXT_PUBLIC_FIREBASE_* para habilitar upload direto.'}
+              </p>
+            </div>
+
             {/* Hub */}
             <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">

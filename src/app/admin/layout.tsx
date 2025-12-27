@@ -286,7 +286,7 @@ export default function AdminLayout({
         <ValFloatingChat userName={firstName} />
 
         {/* Tour Guiado - Primeira Visita */}
-        <GuidedTour />
+        <GuidedTour variant="admin" />
       </div>
     </ProtectedRoute>
   );

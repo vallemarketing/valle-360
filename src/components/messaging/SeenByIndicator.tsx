@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CheckCheck } from 'lucide-react';
+import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 
 interface SeenByUser {
   user_id: string;
@@ -57,27 +58,21 @@ export function SeenByIndicator({
     try {
       const { data, error } = await supabase
         .from('message_read_receipts')
-        .select(`
-          user_id,
-          read_at,
-          user_profiles!message_read_receipts_user_id_fkey(
-            full_name,
-            avatar_url
-          )
-        `)
+        .select('user_id, read_at')
         .eq('message_id', messageId)
         .eq('message_type', 'group')
         .neq('user_id', currentUserId);
 
       if (error) throw error;
 
-      const users = (data || []).map((item: any) => {
-        const profile = Array.isArray(item.user_profiles)
-          ? item.user_profiles[0]
-          : item.user_profiles;
+      const ids = Array.from(new Set((data || []).map((i: any) => String(i?.user_id || '')).filter(Boolean)));
+      const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, ids);
 
+      const users = (data || []).map((item: any) => {
+        const uid = String(item.user_id || '');
+        const profile = profilesMap.get(uid);
         return {
-          user_id: item.user_id,
+          user_id: uid,
           full_name: profile?.full_name || 'Usuário',
           avatar_url: profile?.avatar_url,
           read_at: item.read_at,

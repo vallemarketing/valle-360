@@ -1,11 +1,13 @@
 'use client';
 
-import { Bell, ChevronDown, Layout, Menu, Search, Settings, MessageSquare, HelpCircle, User as UserIcon } from 'lucide-react';
+import { ChevronDown, Layout, Menu, Search, Settings, MessageSquare, HelpCircle, User as UserIcon, Moon, Sun } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Link from 'next/link';
 import Image from 'next/image';
+import { labelFromAreaKey, resolveEmployeeAreaKey } from '@/lib/employee/areaKey';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface ColaboradorHeaderProps {
   onMenuClick?: () => void;
@@ -17,6 +19,7 @@ export function ColaboradorHeader({ onMenuClick }: ColaboradorHeaderProps) {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
+  const [isDark, setIsDark] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClientComponentClient();
@@ -25,6 +28,18 @@ export function ColaboradorHeader({ onMenuClick }: ColaboradorHeaderProps) {
     fetchUser();
   }, []);
 
+  // Detectar preferência de tema (igual Admin/Cliente)
+  useEffect(() => {
+    const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setIsDark(isDarkMode);
+    document.documentElement.classList.toggle("dark", isDarkMode);
+  }, []);
+
+  const toggleTheme = () => {
+    setIsDark(!isDark);
+    document.documentElement.classList.toggle("dark");
+  };
+
   const fetchUser = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -32,19 +47,20 @@ export function ColaboradorHeader({ onMenuClick }: ColaboradorHeaderProps) {
         // Buscar dados do employee (incluindo avatar)
         const { data: employee } = await supabase
           .from('employees')
-          .select('full_name, avatar, area_of_expertise')
+          .select('full_name, avatar, area_of_expertise, department, areas')
           .eq('user_id', user.id)
           .single();
         
         if (employee) {
           setUserName(employee.full_name || user.email?.split('@')[0] || 'Colaborador');
           setUserAvatar(employee.avatar || '');
-          // Formatar área de expertise
-          const areaFormatted = employee.area_of_expertise
-            ?.split('_')
-            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ') || 'Colaborador';
-          setUserRole(areaFormatted);
+          // Resolver área estável (AreaKey) e mostrar label padronizada
+          const areaKey = resolveEmployeeAreaKey({
+            department: (employee as any)?.department ?? null,
+            area_of_expertise: (employee as any)?.area_of_expertise ?? null,
+            areas: (employee as any)?.areas ?? null,
+          });
+          setUserRole(labelFromAreaKey(areaKey));
         } else {
           // Fallback para user_profiles
           const { data: profile } = await supabase
@@ -83,7 +99,7 @@ export function ColaboradorHeader({ onMenuClick }: ColaboradorHeaderProps) {
   }, []);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm h-[73px]">
+    <header className="fixed top-0 left-0 right-0 z-50 h-[73px] border-b border-[#001533]/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0f1a]/95 backdrop-blur">
       <div className="flex items-center justify-between px-6 h-full">
         {/* Menu Mobile + Logo Valle 360 */}
         <div className="flex items-center gap-3 lg:w-64">
@@ -91,7 +107,7 @@ export function ColaboradorHeader({ onMenuClick }: ColaboradorHeaderProps) {
           {onMenuClick && (
             <button
               onClick={onMenuClick}
-              className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              className="lg:hidden p-2 text-[#001533]/60 hover:text-[#001533] hover:bg-[#001533]/5 dark:text-white/60 dark:hover:text-white dark:hover:bg-white/10 rounded-lg transition-colors"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -143,32 +159,38 @@ export function ColaboradorHeader({ onMenuClick }: ColaboradorHeaderProps) {
         </button>
 
         {/* Ações do Usuário */}
-        <div className="flex items-center gap-4">
-          {/* Notificações */}
-          <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+        <div className="flex items-center gap-3">
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg transition-colors text-[#001533]/70 dark:text-white/70 hover:bg-[#001533]/5 dark:hover:bg-white/10"
+            aria-label="Alternar tema"
+          >
+            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </button>
 
+          {/* Notificações (reais) */}
+          <NotificationBell context="colaborador" />
+
           {/* Ajuda */}
-          <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+          <button className="p-2 text-[#001533]/60 hover:text-[#001533] hover:bg-[#001533]/5 dark:text-white/60 dark:hover:text-white dark:hover:bg-white/10 rounded-lg transition-colors">
             <HelpCircle className="h-5 w-5" />
           </button>
 
           {/* Perfil */}
-          <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
+          <div className="flex items-center gap-3 pl-4 border-l border-[#001533]/10 dark:border-white/10">
             <div className="flex flex-col text-right hidden md:block">
-              <span className="text-sm font-semibold text-gray-900">{userName}</span>
-              <span className="text-xs text-gray-500">{userRole}</span>
+              <span className="text-sm font-semibold text-[#001533] dark:text-white">{userName}</span>
+              <span className="text-xs text-[#001533]/50 dark:text-white/50">{userRole}</span>
             </div>
             {userAvatar ? (
               <img 
                 src={userAvatar} 
                 alt={userName}
-                className="h-10 w-10 rounded-full object-cover shadow-md cursor-pointer hover:shadow-lg transition-all ring-2 ring-blue-100"
+                className="h-10 w-10 rounded-full object-cover shadow-md cursor-pointer hover:shadow-lg transition-all ring-2 ring-[#1672d6]/20"
               />
             ) : (
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold shadow-md cursor-pointer hover:shadow-lg transition-all">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#001533] to-[#1672d6] flex items-center justify-center text-white font-bold shadow-md cursor-pointer hover:shadow-lg transition-all">
                 {userName.charAt(0).toUpperCase()}
               </div>
             )}

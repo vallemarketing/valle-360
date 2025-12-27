@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function POST() {
   try {
+    // Hardening: por padrão, rotas de setup ficam bloqueadas em produção.
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_SETUP_ROUTES !== '1') {
+      return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+    }
+
     // Criar cliente Supabase com Service Role (admin powers)
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

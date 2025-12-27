@@ -3,6 +3,11 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST() {
   try {
+    // Hardening: por padrão, rotas de setup ficam bloqueadas em produção.
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_SETUP_ROUTES !== '1') {
+      return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+    }
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: 'admin@valle360.com',
       password: 'Admin123!',

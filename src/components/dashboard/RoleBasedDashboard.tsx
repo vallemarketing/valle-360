@@ -42,19 +42,26 @@ interface RoleBasedDashboardProps {
 
 export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ role }) => {
   const config = getDashboardConfig(role);
-  const normalizedRole = role.toLowerCase().replace(/ /g, '_');
+  const normalizedRole = role
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ /g, '_');
 
   // Renderizar dashboard específico por área
   switch (normalizedRole) {
     case 'web_designer':
     case 'web_design':
+    // AreaKey (fonte de verdade) + compat
+    case 'designer_grafico':
+    case 'webdesigner':
     case 'designer':
       return <WebDesignerDashboard config={config} />;
     case 'social_media':
     case 'social':
       return <SocialMediaDashboard config={config} />;
     case 'trafego':
-    case 'tráfego':
+    case 'trafego_pago':
     case 'gestor_de_trafego':
       return <TrafegoDashboard config={config} />;
     case 'video_maker':
@@ -66,6 +73,8 @@ export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ role }) 
     case 'comercial':
       return <ComercialDashboard config={config} />;
     case 'financeiro':
+    case 'financeiro_pagar':
+    case 'financeiro_receber':
       return <FinanceiroDashboard config={config} />;
     case 'rh':
     case 'recursos_humanos':

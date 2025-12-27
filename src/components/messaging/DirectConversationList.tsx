@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Plus, User, MessageCircle, Users } from 'lucide-react';
 import { PresenceIndicator } from './PresenceIndicator';
+import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 
 interface DirectConversation {
   id: string;
@@ -27,6 +28,8 @@ interface DirectConversationListProps {
   onNewConversation: () => void;
   currentUserId: string;
   filterType?: 'all' | 'team' | 'clients';
+  peerTypeFilter?: 'all' | 'client' | 'non_client';
+  titleOverride?: string;
 }
 
 export function DirectConversationList({
@@ -35,6 +38,8 @@ export function DirectConversationList({
   onNewConversation,
   currentUserId,
   filterType = 'all',
+  peerTypeFilter = 'all',
+  titleOverride,
 }: DirectConversationListProps) {
   const [conversations, setConversations] = useState<DirectConversation[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -105,42 +110,42 @@ export function DirectConversationList({
 
       if (error) throw error;
 
-      const conversationsWithUsers = await Promise.all(
-        (participations || []).map(async (p: any) => {
-          const conv = p.direct_conversations;
+      const convIds = (participations || [])
+        .map((p: any) => p?.direct_conversations?.id)
+        .filter(Boolean);
 
-          const { data: otherParticipant } = await supabase
-            .from('direct_conversation_participants')
-            .select(`
-              user_id,
-              user_profiles!direct_conversation_participants_user_id_fkey(
-                full_name,
-                email,
-                avatar_url,
-                user_type
-              )
-            `)
-            .eq('conversation_id', conv.id)
-            .neq('user_id', currentUserId)
-            .maybeSingle();
+      const { data: others } = await supabase
+        .from('direct_conversation_participants')
+        .select('conversation_id, user_id')
+        .in('conversation_id', convIds)
+        .neq('user_id', currentUserId);
 
-          if (!otherParticipant) return null;
+      const otherByConvId = new Map<string, string>();
+      for (const row of (others || []) as any[]) {
+        if (!row?.conversation_id || !row?.user_id) continue;
+        otherByConvId.set(String(row.conversation_id), String(row.user_id));
+      }
 
-          const profile = Array.isArray(otherParticipant.user_profiles)
-            ? otherParticipant.user_profiles[0]
-            : otherParticipant.user_profiles;
+      const otherUserIds = Array.from(new Set(Array.from(otherByConvId.values())));
+      const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, otherUserIds);
 
-          return {
-            ...conv,
-            unread_count: p.unread_count,
-            other_user_id: otherParticipant.user_id,
-            other_user_name: profile?.full_name || 'Usuário',
-            other_user_email: profile?.email || '',
-            other_user_avatar: profile?.avatar_url,
-            other_user_type: profile?.user_type || '',
-          };
-        })
-      );
+      const conversationsWithUsers = (participations || []).map((p: any) => {
+        const conv = p.direct_conversations;
+        const otherUserId = otherByConvId.get(String(conv?.id || '')) || null;
+        if (!conv?.id || !otherUserId) return null;
+
+        const profile = profilesMap.get(otherUserId);
+
+        return {
+          ...conv,
+          unread_count: p.unread_count,
+          other_user_id: otherUserId,
+          other_user_name: profile?.full_name || 'Usuário',
+          other_user_email: profile?.email || '',
+          other_user_avatar: profile?.avatar_url,
+          other_user_type: profile?.user_type || '',
+        };
+      });
 
       const validConversations = conversationsWithUsers.filter(c => c !== null);
 
@@ -167,6 +172,9 @@ export function DirectConversationList({
   const filteredConversations = conversations.filter((conv) => {
     if (filterType === 'clients' && !conv.is_client_conversation) return false;
     if (filterType === 'team' && conv.is_client_conversation) return false;
+
+    if (peerTypeFilter === 'client' && conv.other_user_type !== 'client') return false;
+    if (peerTypeFilter === 'non_client' && conv.other_user_type === 'client') return false;
 
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
@@ -215,7 +223,7 @@ export function DirectConversationList({
       <div className="p-4 border-b">
         <div className="flex items-center gap-2 mb-3">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex-1">
-            {filterType === 'clients' ? 'Clientes' : filterType === 'team' ? 'Equipe' : 'Conversas'}
+            {titleOverride || (filterType === 'clients' ? 'Clientes' : filterType === 'team' ? 'Equipe' : 'Conversas')}
           </h2>
           <Button
             onClick={onNewConversation}

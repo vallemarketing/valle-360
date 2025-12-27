@@ -86,9 +86,9 @@ export async function POST(request: NextRequest) {
 
   const clientId = clientRow?.id || null;
   if (!clientId && !isAdmin) {
-    return NextResponse.json(
+      return NextResponse.json(
       { success: false, error: 'Cliente não vinculado. Crie/associe um registro em `clients` para este usuário.' },
-      { status: 400 }
+        { status: 400 }
     );
   }
 
@@ -185,9 +185,9 @@ export async function POST(request: NextRequest) {
     // ignore
   }
 
-  return NextResponse.json({
-    success: true,
-    message: 'Solicitação criada com sucesso',
+    return NextResponse.json({
+      success: true,
+      message: 'Solicitação criada com sucesso',
     task: created,
     target: { area_key: areaKey, board_id: board.id, column_id: demandCol.id },
   });

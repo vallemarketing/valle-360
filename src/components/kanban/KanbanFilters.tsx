@@ -43,14 +43,36 @@ export function KanbanFilters({ onFiltersChange, availableTags }: KanbanFiltersP
 
   const loadUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // Alguns ambientes usam `user_profiles.id = auth.uid()`, outros guardam em `user_id`.
+      // Para manter os filtros compatíveis com `kanban_tasks.assigned_to` (auth id), normalizamos para `authId`.
+      let rows: any[] = [];
+      const attemptWithUserId = await supabase
         .from('user_profiles')
-        .select('id, full_name')
+        .select('id, user_id, full_name')
         .eq('is_active', true)
         .order('full_name');
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (!attemptWithUserId.error) {
+        rows = attemptWithUserId.data || [];
+      } else {
+        const attemptWithId = await supabase
+          .from('user_profiles')
+          .select('id, full_name')
+          .eq('is_active', true)
+          .order('full_name');
+        if (attemptWithId.error) throw attemptWithId.error;
+        rows = attemptWithId.data || [];
+      }
+
+      const normalized: UserProfile[] = (rows || [])
+        .map((u: any) => {
+          const authId = u?.user_id ? String(u.user_id) : u?.id ? String(u.id) : null;
+          if (!authId) return null;
+          return { id: authId, full_name: String(u?.full_name || 'Usuário') };
+        })
+        .filter(Boolean) as UserProfile[];
+
+      setUsers(normalized);
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
     }

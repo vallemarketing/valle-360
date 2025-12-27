@@ -5,7 +5,6 @@ export const dynamic = 'force-dynamic';
 // Facebook OAuth Configuration
 const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID;
 const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET;
-const REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL + '/api/oauth/facebook/callback';
 
 // Scopes necessários
 const SCOPES = [
@@ -16,6 +15,15 @@ const SCOPES = [
   'pages_read_user_content'
 ].join(',');
 
+function buildClientCallbackUrl(request: NextRequest, params: { platform: string; ok: boolean; error?: string }) {
+  const origin = new URL(request.url).origin;
+  const url = new URL('/cliente/redes/callback', origin);
+  url.searchParams.set('platform', params.platform);
+  url.searchParams.set('ok', params.ok ? '1' : '0');
+  if (params.error) url.searchParams.set('error', params.error.slice(0, 180));
+  return url.toString();
+}
+
 // Iniciar fluxo OAuth
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -23,11 +31,14 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get('state') || Math.random().toString(36).substring(7);
 
   if (!FACEBOOK_APP_ID) {
-    return NextResponse.json(
-      { error: 'Facebook App ID não configurado' },
-      { status: 500 }
-    );
+    return NextResponse.redirect(buildClientCallbackUrl(request, { platform: 'facebook', ok: false, error: 'Facebook App ID não configurado' }));
   }
+  if (!clientId) {
+    return NextResponse.redirect(buildClientCallbackUrl(request, { platform: 'facebook', ok: false, error: 'client_id é obrigatório' }));
+  }
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/+$/, '');
+  const REDIRECT_URI = `${appUrl}/api/oauth/facebook/callback`;
 
   // Construir URL de autorização
   const authUrl = new URL('https://www.facebook.com/v18.0/dialog/oauth');
@@ -46,6 +57,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { code, state } = body;
 
+    if (!FACEBOOK_APP_ID || !FACEBOOK_APP_SECRET) {
+      return NextResponse.json({ error: 'Credenciais do Facebook não configuradas' }, { status: 500 });
+    }
+
     if (!code) {
       return NextResponse.json(
         { error: 'Código de autorização não fornecido' },
@@ -53,11 +68,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/+$/, '');
+    const redirectUri = `${appUrl}/api/oauth/facebook/callback`;
+
     // Trocar código por token
     const tokenResponse = await fetch(
       `https://graph.facebook.com/v18.0/oauth/access_token?` +
       `client_id=${FACEBOOK_APP_ID}` +
-      `&redirect_uri=${REDIRECT_URI}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&client_secret=${FACEBOOK_APP_SECRET}` +
       `&code=${code}`
     );

@@ -12,11 +12,13 @@ import {
   Calendar,
   BarChart3,
   DollarSign,
-  Sparkles
+  Sparkles,
+  Upload
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { inferAreaKeyFromLabel, type AreaKey } from '@/lib/kanban/areaBoards';
 
 const appNavItems = [
   { href: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -33,6 +35,8 @@ const appNavItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [areaKeys, setAreaKeys] = useState<AreaKey[]>([]);
+  const [uploadHref, setUploadHref] = useState<string | null>(null);
 
   useEffect(() => {
     const getUserRole = async () => {
@@ -48,6 +52,63 @@ export function Sidebar() {
     };
     getUserRole();
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.id) return;
+        const { data: emp } = await supabase
+          .from('employees')
+          .select('department, area_of_expertise, areas, is_active')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        const labels: string[] = [];
+        if (emp?.department) labels.push(String(emp.department));
+        if ((emp as any)?.area_of_expertise) labels.push(String((emp as any).area_of_expertise));
+        if (Array.isArray((emp as any)?.areas)) labels.push(...((emp as any).areas as any[]).map((x) => String(x)));
+
+        const keys = Array.from(
+          new Set(
+            labels
+              .map((l) => inferAreaKeyFromLabel(l))
+              .filter(Boolean)
+              .map((k) => k as AreaKey)
+          )
+        );
+
+        const href = keys.includes('social_media')
+          ? '/app/social-media/upload'
+          : keys.includes('head_marketing')
+            ? '/app/head-marketing/upload'
+            : null;
+
+        if (!mounted) return;
+        setAreaKeys(keys);
+        setUploadHref(href);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const computedNavItems = (() => {
+    // Admin/Super Admin sempre vê; Social/Head vê via áreas
+    const canSeeUpload = userRole === 'admin' || userRole === 'super_admin' || !!uploadHref;
+    if (!canSeeUpload) return appNavItems;
+
+    const href = uploadHref || '/app/social-media/upload';
+    // inserir perto de Solicitações
+    const base = [...appNavItems];
+    const insertAt = Math.max(0, base.findIndex((x) => x.href === '/app/solicitacoes') + 1);
+    base.splice(insertAt, 0, { href, label: 'Agendar Postagem', icon: Upload });
+    return base;
+  })();
 
   return (
     <aside className="w-64 bg-gradient-to-b from-valle-navy-900 to-valle-navy-950 border-r border-valle-navy-800 min-h-screen flex flex-col">
@@ -67,7 +128,7 @@ export function Sidebar() {
       </div>
 
       <nav className="p-4 space-y-2 flex-1">
-        {appNavItems.map((item) => {
+        {computedNavItems.map((item) => {
           // Hide Financeiro if not admin/finance
           if (item.href === '/app/financeiro' && userRole && !['admin', 'financeiro', 'super_admin'].includes(userRole)) {
             return null;

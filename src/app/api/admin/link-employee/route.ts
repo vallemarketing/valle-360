@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
           email,
           full_name: fullName,
           user_type: 'employee',
-          role: 'user',
+          role: 'employee',
           is_active: true,
         },
         { onConflict: 'id' }

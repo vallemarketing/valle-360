@@ -133,26 +133,62 @@ export default function ClienteInsightsPage() {
         setInsights(mappedInsights);
       }
 
-      // Gerar resumo semanal
-      setSummary({
-        period: getWeekPeriod(),
-        highlights: [
-          'Alcance nas redes sociais aumentou 23%',
-          '5 novas oportunidades de negócio identificadas',
-          'Taxa de engajamento acima da média do setor'
-        ],
-        metrics: [
-          { label: 'Alcance', value: '45.2K', change: 23, icon: Eye },
-          { label: 'Engajamento', value: '4.8%', change: 12, icon: Users },
-          { label: 'Conversões', value: '127', change: -5, icon: Target },
-          { label: 'ROI', value: '3.2x', change: 8, icon: DollarSign }
-        ],
-        opportunities: [
-          'Investir mais em Reels - formato com maior engajamento',
-          'Explorar TikTok para alcançar público mais jovem',
-          'Criar campanha promocional para o próximo mês'
-        ]
-      });
+      // Resumo semanal (usa métricas reais do banco quando disponível)
+      try {
+        const metricsResp = await fetch('/api/client/social/metrics', { cache: 'no-store' });
+        const metricsJson = await metricsResp.json();
+        const latest = metricsResp.ok ? metricsJson?.latest : null;
+        const prev = metricsResp.ok && Array.isArray(metricsJson?.daily) && metricsJson.daily.length > 1
+          ? metricsJson.daily[metricsJson.daily.length - 2]
+          : null;
+
+        const pct = (curr: number, base: number) => {
+          if (!base) return 0;
+          return Math.round(((curr - base) / base) * 100);
+        };
+
+        const reach = Number(latest?.reach || 0);
+        const impressions = Number(latest?.impressions || 0);
+        const engaged = Number(latest?.engaged || 0);
+        const profileViews = Number(latest?.profile_views || 0);
+
+        const reachChange = prev ? pct(reach, Number(prev.reach || 0)) : 0;
+        const impressionsChange = prev ? pct(impressions, Number(prev.impressions || 0)) : 0;
+        const engagedChange = prev ? pct(engaged, Number(prev.engaged || 0)) : 0;
+        const viewsChange = prev ? pct(profileViews, Number(prev.profile_views || 0)) : 0;
+
+        setSummary({
+          period: getWeekPeriod(),
+          highlights: [
+            reach ? `Alcance nas redes sociais: ${reach.toLocaleString('pt-BR')}` : 'Conecte suas redes em /cliente/redes para começar a ver métricas',
+            impressions ? `Impressões: ${impressions.toLocaleString('pt-BR')}` : 'Sem dados de impressões no período ainda',
+            engaged ? `Engajamento (página): ${engaged.toLocaleString('pt-BR')}` : 'Sem dados de engajamento no período ainda',
+          ],
+          metrics: [
+            { label: 'Alcance', value: reach ? reach.toLocaleString('pt-BR') : '—', change: reachChange, icon: Eye },
+            { label: 'Impressões', value: impressions ? impressions.toLocaleString('pt-BR') : '—', change: impressionsChange, icon: BarChart3 },
+            { label: 'Engajamento', value: engaged ? engaged.toLocaleString('pt-BR') : '—', change: engagedChange, icon: Users },
+            { label: 'Visitas ao perfil', value: profileViews ? profileViews.toLocaleString('pt-BR') : '—', change: viewsChange, icon: Target },
+          ],
+          opportunities: [
+            'Conecte suas contas em /cliente/redes para habilitar métricas e publicação/agendamento no Post Center.',
+            'Use a Val IA para pedir recomendações de conteúdo com base nas métricas do período.',
+            'Acompanhe tendência e oportunidades semanalmente aqui nos Insights.',
+          ],
+        });
+      } catch {
+        setSummary({
+          period: getWeekPeriod(),
+          highlights: ['Conecte suas redes em /cliente/redes para habilitar métricas reais'],
+          metrics: [
+            { label: 'Alcance', value: '—', change: 0, icon: Eye },
+            { label: 'Impressões', value: '—', change: 0, icon: BarChart3 },
+            { label: 'Engajamento', value: '—', change: 0, icon: Users },
+            { label: 'Visitas ao perfil', value: '—', change: 0, icon: Target },
+          ],
+          opportunities: ['Conecte suas redes para começar a coletar métricas automaticamente.'],
+        });
+      }
 
     } catch (error) {
       console.error('Erro ao carregar insights:', error);
@@ -198,13 +234,13 @@ export default function ClienteInsightsPage() {
     <div className="min-h-screen p-6 bg-gray-50 dark:bg-gray-900">
       <div className="max-w-6xl mx-auto space-y-6">
         
-        {/* Header */}
+      {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
               <Sparkles className="w-7 h-7 text-white" />
             </div>
-            <div>
+      <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Insights Personalizados</h1>
               <p className="text-sm text-gray-500">Recomendações da Val IA para seu negócio</p>
             </div>
@@ -242,9 +278,9 @@ export default function ClienteInsightsPage() {
                     )}>
                       {metric.change >= 0 ? '+' : ''}{metric.change}%
                     </span>
-                  </div>
-                ))}
               </div>
+            ))}
+          </div>
 
               {/* Destaques */}
               <div className="space-y-2">
@@ -290,11 +326,11 @@ export default function ClienteInsightsPage() {
                           <Icon className={cn("w-5 h-5", config.color)} />
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1">
                             <Badge variant="outline" className="text-xs">
                               {insight.priority === 'high' ? '⚡ Alta' : insight.priority === 'medium' ? '📊 Média' : '📌 Baixa'}
                             </Badge>
-                          </div>
+                  </div>
                           <h3 className="font-semibold text-gray-900 dark:text-white">
                             {insight.title}
                           </h3>
@@ -307,9 +343,9 @@ export default function ClienteInsightsPage() {
                               {insight.impact}
                             </p>
                           )}
-                        </div>
+                  </div>
                         <ChevronRight className="w-5 h-5 text-gray-400" />
-                      </div>
+                </div>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -333,14 +369,14 @@ export default function ClienteInsightsPage() {
                   <div key={idx} className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center text-green-600 font-bold">
                       {idx + 1}
-                    </div>
+          </div>
                     <span className="text-gray-700 dark:text-gray-300">{opp}</span>
                     <Button variant="ghost" size="sm" className="ml-auto">
                       <ArrowRight className="w-4 h-4" />
                     </Button>
-                  </div>
-                ))}
               </div>
+            ))}
+          </div>
             </CardContent>
           </Card>
         )}
@@ -354,12 +390,12 @@ export default function ClienteInsightsPage() {
                 <div>
                   <h3 className="text-lg font-bold">Tem dúvidas sobre os insights?</h3>
                   <p className="text-gray-400">Nossa equipe está pronta para explicar e ajudar você a agir!</p>
-                </div>
+        </div>
               </div>
               <Button className="bg-white text-gray-900 hover:bg-gray-100">
                 Falar com a Agência
               </Button>
-            </div>
+          </div>
           </CardContent>
         </Card>
 
@@ -394,9 +430,9 @@ export default function ClienteInsightsPage() {
                       <Badge variant="outline" className="mt-1">
                         {selectedInsight.type}
                       </Badge>
-                    </div>
+                </div>
                   </div>
-
+                  
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     {selectedInsight.description}
                   </p>
@@ -422,9 +458,9 @@ export default function ClienteInsightsPage() {
                       <p className="text-blue-600 dark:text-blue-300 mt-1">
                         {selectedInsight.action}
                       </p>
-                    </div>
-                  )}
-
+                      </div>
+                    )}
+                    
                   <div className="flex gap-3">
                     <Button 
                       variant="outline" 

@@ -4,6 +4,8 @@ import { constructWebhookEvent } from '@/lib/integrations/stripe/client';
 import Stripe from 'stripe';
 import { emitEvent, markEventError, markEventProcessed } from '@/lib/admin/eventBus';
 import { handleEvent } from '@/lib/admin/eventHandlers';
+import { notifyAreaUsers } from '@/lib/admin/notifyArea';
+import { createSendGridClient, EMAIL_TEMPLATES } from '@/lib/integrations/email/sendgrid';
 
 export const dynamic = 'force-dynamic';
 
@@ -258,13 +260,13 @@ async function processStripeEvent(
           const { data: updatedInvoice, error: updErr } = await supabase
             .from('invoices')
             .update({
-              stripe_invoice_id: invoice.id,
+          stripe_invoice_id: invoice.id,
               stripe_customer_id: stripeCustomerId,
               stripe_subscription_id: stripeSubscriptionId,
               payment_method: (invoice.collection_method as string) || null,
               amount_paid: invoice.amount_paid || 0, // centavos
-              currency: invoice.currency,
-              status: 'paid',
+          currency: invoice.currency,
+          status: 'paid',
               paid_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             })
@@ -420,7 +422,7 @@ async function processStripeEvent(
             .from('invoices')
             .insert({
               client_id: clientId,
-              stripe_invoice_id: invoice.id,
+          stripe_invoice_id: invoice.id,
               stripe_customer_id: stripeCustomerId,
               stripe_subscription_id: stripeSubscriptionId,
               invoice_number: invoice.number || `STRIPE-${invoice.id}`,
@@ -429,7 +431,7 @@ async function processStripeEvent(
               currency: invoice.currency,
               issue_date: new Date((invoice.created || Date.now() / 1000) * 1000).toISOString().slice(0, 10),
               due_date: stripeDueDate,
-              status: 'payment_failed',
+          status: 'payment_failed',
               updated_at: new Date().toISOString(),
             })
             .select('id, client_id, contract_id, invoice_number')
@@ -469,8 +471,61 @@ async function processStripeEvent(
           await markEventError(emitted.id, e?.message || 'Erro ao processar evento invoice.payment_failed', supabase);
         }
         
-        // Notificar sobre falha no pagamento
-        // TODO: Enviar email/notificação
+        // Notificar sobre falha no pagamento (in-app + email best-effort)
+        const title = 'Pagamento falhou (Stripe)';
+        const hostedUrl = (invoice as any)?.hosted_invoice_url ? String((invoice as any).hosted_invoice_url) : '';
+        const msg = `Falha no pagamento da fatura ${invoice.number || invoice.id} (vencimento: ${stripeDueDate}).`;
+
+        try {
+          await notifyAreaUsers({
+            area: 'Financeiro',
+            title,
+            message: msg,
+            link: '/admin/dashboard',
+            type: 'stripe',
+            metadata: {
+              stripe_invoice_id: invoice.id,
+              stripe_customer_id: stripeCustomerId,
+              client_id: dbInvoice?.client_id || clientId,
+              invoice_id: dbInvoice?.id || null,
+              invoice_number: invoice.number || null,
+              hosted_invoice_url: hostedUrl || null,
+            },
+          });
+        } catch {
+          // ignore
+        }
+
+        try {
+          const envKey = (process.env.SENDGRID_API_KEY || '').trim();
+          const { data: sg } = await supabase
+            .from('integration_configs')
+            .select('status, api_key, config')
+            .eq('integration_id', 'sendgrid')
+            .maybeSingle();
+          const dbKey = (sg?.status === 'connected' ? String(sg?.api_key || '') : '').trim();
+          const apiKey = dbKey || envKey;
+          if (apiKey) {
+            const fromEmail = sg?.config?.fromEmail || process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br';
+            const fromName = sg?.config?.fromName || process.env.SENDGRID_FROM_NAME || 'Valle 360';
+            const toList = String(process.env.FINANCE_ALERT_EMAILS || '')
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+            if (toList.length > 0) {
+              const client = createSendGridClient({ apiKey, fromEmail, fromName });
+              const tpl = EMAIL_TEMPLATES.notification(title, msg, hostedUrl || undefined, hostedUrl ? 'Abrir fatura' : undefined);
+              await client.sendEmail({
+                to: toList.map((e) => ({ email: e })),
+                subject: tpl.subject,
+                html: tpl.html,
+                categories: ['valle360', 'stripe'],
+              });
+            }
+          }
+        } catch {
+          // ignore
+        }
         
         return { success: true, action: 'invoice_payment_failed' };
       }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Pin, X } from 'lucide-react';
+import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 
 interface PinnedMessage {
   id: string;
@@ -100,16 +101,20 @@ export function PinnedMessages({
               `
               body,
               created_at,
-              sender:user_profiles!${tableName}_from_user_id_fkey(full_name)
+              from_user_id
             `
             )
             .eq('id', pinned.message_id)
             .maybeSingle();
 
+          const fromUserId = messageData?.from_user_id ? String((messageData as any).from_user_id) : '';
+          const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, fromUserId ? [fromUserId] : []);
+          const senderName = fromUserId ? profilesMap.get(fromUserId)?.full_name : undefined;
+
           return {
             ...pinned,
             message_body: messageData?.body,
-            sender_name: Array.isArray(messageData?.sender) ? messageData.sender[0]?.full_name : (messageData?.sender as any)?.full_name,
+            sender_name: senderName || 'Usuário',
             message_created_at: messageData?.created_at,
           };
         })

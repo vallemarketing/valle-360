@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       email,
       full_name: full_name || company_name || nome_fantasia || razao_social || email,
       user_type: 'client',
-      role: 'user',
+      role: 'client',
       is_active: true,
       metadata: { plan_id: plan_id || null },
     });

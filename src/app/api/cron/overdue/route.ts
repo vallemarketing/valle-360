@@ -64,12 +64,15 @@ async function trySendClientEmail(service: any, params: { to: string; title: str
       .select('status, api_key, config')
       .eq('integration_id', 'sendgrid')
       .maybeSingle();
-    if (!cfg || cfg.status !== 'connected' || !cfg.api_key) return false;
+    const envApiKey = (process.env.SENDGRID_API_KEY || '').trim();
+    const dbApiKey = (cfg?.status === 'connected' ? String(cfg?.api_key || '') : '').trim();
+    const apiKey = dbApiKey || envApiKey;
+    if (!apiKey) return false;
 
     const client = createSendGridClient({
-      apiKey: cfg.api_key,
-      fromEmail: cfg.config?.fromEmail || 'noreply@valle360.com.br',
-      fromName: cfg.config?.fromName || 'Valle 360',
+      apiKey,
+      fromEmail: cfg?.config?.fromEmail || process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br',
+      fromName: cfg?.config?.fromName || process.env.SENDGRID_FROM_NAME || 'Valle 360',
     });
 
     const tpl = EMAIL_TEMPLATES.notification(params.title, params.message, params.actionUrl, 'Abrir');

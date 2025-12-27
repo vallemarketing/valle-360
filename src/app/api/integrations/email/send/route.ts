@@ -21,13 +21,20 @@ export async function POST(request: NextRequest) {
       .from('integration_configs')
       .select('*')
       .eq('integration_id', 'sendgrid')
-      .single();
+      .maybeSingle();
 
-    if (configError || !config || config.status !== 'connected') {
-      return NextResponse.json({ 
-        error: 'SendGrid não está conectado',
-        needsSetup: true 
-      }, { status: 400 });
+    const envApiKey = process.env.SENDGRID_API_KEY || '';
+    const apiKey = (config?.api_key || envApiKey || '').trim();
+    const connectedVia = config?.status === 'connected' && !!config?.api_key ? 'db' : envApiKey ? 'env' : 'none';
+
+    if (!apiKey) {
+      return NextResponse.json(
+        {
+          error: 'SendGrid não está conectado (db/env)',
+          needsSetup: true,
+        },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
@@ -38,9 +45,9 @@ export async function POST(request: NextRequest) {
     }
 
     const client = createSendGridClient({
-      apiKey: config.api_key,
-      fromEmail: config.config?.fromEmail || 'noreply@valle360.com.br',
-      fromName: config.config?.fromName || 'Valle 360'
+      apiKey,
+      fromEmail: config?.config?.fromEmail || process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br',
+      fromName: config?.config?.fromName || process.env.SENDGRID_FROM_NAME || 'Valle 360'
     });
 
     let result;
@@ -161,7 +168,8 @@ export async function POST(request: NextRequest) {
       status: isSuccess ? 'success' : 'error',
       request_data: { type, to: Array.isArray(to) ? to.length : 1 },
       error_message: errorMessage,
-      duration_ms: duration
+      duration_ms: duration,
+      response_data: { connectedVia }
     });
 
     if (!isSuccess) {
@@ -204,15 +212,17 @@ export async function GET(request: NextRequest) {
       .from('integration_configs')
       .select('*')
       .eq('integration_id', 'sendgrid')
-      .single();
+      .maybeSingle();
 
-    if (!config || config.status !== 'connected') {
-      return NextResponse.json({ error: 'SendGrid não está conectado' }, { status: 400 });
+    const envApiKey = process.env.SENDGRID_API_KEY || '';
+    const apiKey = (config?.api_key || envApiKey || '').trim();
+    if (!apiKey) {
+      return NextResponse.json({ error: 'SendGrid não está conectado (db/env)' }, { status: 400 });
     }
 
     const client = createSendGridClient({
-      apiKey: config.api_key,
-      fromEmail: config.config?.fromEmail || 'noreply@valle360.com.br'
+      apiKey,
+      fromEmail: config?.config?.fromEmail || process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br'
     });
 
     const templates = await client.listTemplates();

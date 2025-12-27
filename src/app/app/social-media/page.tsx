@@ -11,6 +11,7 @@ import {
   CheckCircle,
   AlertCircle,
   Plus,
+  Upload,
   Users,
   TrendingUp,
   Heart,
@@ -181,10 +182,18 @@ export default function SocialMediaPage() {
             Gestão completa de conteúdo e publicações nas redes sociais
           </p>
         </div>
-        <Button className="bg-orange-600 hover:bg-orange-700">
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Post
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" className="gap-2">
+            <a href="/app/social-media/upload">
+              <Upload className="w-4 h-4" />
+              Agendar Postagem
+            </a>
+          </Button>
+          <Button className="bg-orange-600 hover:bg-orange-700">
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Post
+          </Button>
+        </div>
       </div>
 
       <Card>

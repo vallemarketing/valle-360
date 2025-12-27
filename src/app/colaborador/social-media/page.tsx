@@ -152,19 +152,26 @@ export default function SocialMediaPage() {
     : posts.filter(p => p.clientId === selectedClient)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
+      <div className="rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Painel Social Media</h1>
-            <p className="text-sm text-gray-500">Gerencie posts, agende conteúdo e acompanhe métricas</p>
+            <h1 className="text-2xl font-bold text-foreground">Painel Social Media</h1>
+            <p className="text-sm text-muted-foreground">Gerencie posts, agende conteúdo e acompanhe métricas</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <a
+              href="/colaborador/social-media/upload"
+              className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors text-sm"
+            >
+              <FileText className="w-4 h-4" />
+              Agendar Postagem
+            </a>
             <select
               value={selectedClient}
               onChange={(e) => setSelectedClient(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+              className="px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-pink-500"
             >
               <option value="all">Todos os clientes</option>
               {clients.map(client => (
@@ -182,65 +189,65 @@ export default function SocialMediaPage() {
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-5 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-pink-100 flex items-center justify-center">
                 <Calendar className="w-5 h-5 text-pink-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-800">{stats.scheduledPosts}</p>
-                <p className="text-xs text-gray-500">Agendados</p>
+                <p className="text-2xl font-bold text-foreground">{stats.scheduledPosts}</p>
+                <p className="text-xs text-muted-foreground">Agendados</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
                 <Check className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-800">{stats.publishedToday}</p>
-                <p className="text-xs text-gray-500">Publicados Hoje</p>
+                <p className="text-2xl font-bold text-foreground">{stats.publishedToday}</p>
+                <p className="text-xs text-muted-foreground">Publicados Hoje</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
                 <Heart className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-800">{stats.totalEngagement}</p>
-                <p className="text-xs text-gray-500">Engajamentos</p>
+                <p className="text-2xl font-bold text-foreground">{stats.totalEngagement}</p>
+                <p className="text-xs text-muted-foreground">Engajamentos</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-800">{stats.avgEngagement}%</p>
-                <p className="text-xs text-gray-500">Eng. Médio</p>
+                <p className="text-2xl font-bold text-foreground">{stats.avgEngagement}%</p>
+                <p className="text-xs text-muted-foreground">Eng. Médio</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
                 <Users className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-800">{clients.length}</p>
-                <p className="text-xs text-gray-500">Clientes Ativos</p>
+                <p className="text-2xl font-bold text-foreground">{clients.length}</p>
+                <p className="text-xs text-muted-foreground">Clientes Ativos</p>
               </div>
             </div>
           </div>

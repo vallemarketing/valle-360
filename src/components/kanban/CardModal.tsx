@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { DbTaskPriority, DbTaskStatus, KanbanCard } from '@/lib/kanban/types'
+import { fetchProfileByAuthId } from '@/lib/messaging/userProfiles'
 
 interface CardModalProps {
   card: KanbanCard | null
@@ -42,15 +43,11 @@ export function CardModal({ card, isOpen, onClose, onSave, onDelete, isSuperAdmi
     const checkPermissions = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('role')
-            .eq('user_id', user.id)
-            .single()
-        
+        const profile = await fetchProfileByAuthId(supabase as any, user.id)
         if (profile) {
-            setUserRole(profile.role)
-            setCanDelete(profile.role === 'super_admin' || profile.role === 'admin' || !!isSuperAdmin)
+          const role = String((profile as any).user_type || (profile as any).role || '')
+          setUserRole(role)
+          setCanDelete(role === 'super_admin' || role === 'admin' || !!isSuperAdmin)
         }
       }
     }

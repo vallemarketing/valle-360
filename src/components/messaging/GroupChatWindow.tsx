@@ -18,6 +18,7 @@ import { PinnedMessages } from './PinnedMessages';
 import { PinMessageButton } from './PinMessageButton';
 import { usePresence } from '@/hooks/usePresence';
 import { useMessageNotification } from '@/hooks/useMessageNotification';
+import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 
 interface Attachment {
   id: string;
@@ -132,15 +133,17 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
 
       const { data, error } = await supabase
         .from('messages')
-        .select(`
-          *,
-          sender:user_profiles!messages_from_user_id_fkey(full_name, avatar_url)
-        `)
+        .select('*')
         .eq('group_id', group.id)
         .order('created_at', { ascending: true })
         .limit(100);
 
       if (error) throw error;
+
+      const senderIds = Array.from(
+        new Set((data || []).map((m: any) => String(m?.from_user_id || '')).filter(Boolean))
+      );
+      const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, senderIds);
 
       const messagesWithAttachments = await Promise.all(
         (data || []).map(async (msg: any) => {
@@ -152,8 +155,8 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
 
           return {
             ...msg,
-            sender_name: msg.sender?.full_name,
-            sender_avatar: msg.sender?.avatar_url,
+            sender_name: profilesMap.get(String(msg.from_user_id))?.full_name,
+            sender_avatar: profilesMap.get(String(msg.from_user_id))?.avatar_url,
             attachments: attachments || [],
           };
         })
@@ -201,15 +204,18 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
     try {
       const { data, error } = await supabase
         .from('group_participants')
-        .select('user_id, user_profiles(id, full_name)')
+        .select('user_id')
         .eq('group_id', group.id)
         .eq('is_active', true);
 
       if (error) throw error;
 
-      const participants = (data || []).map((p: any) => ({
-        id: p.user_profiles.id,
-        full_name: p.user_profiles.full_name,
+      const userIds = Array.from(new Set((data || []).map((p: any) => String(p?.user_id || '')).filter(Boolean)));
+      const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, userIds);
+
+      const participants = (userIds || []).map((uid) => ({
+        id: uid,
+        full_name: profilesMap.get(uid)?.full_name || 'Usuário',
       }));
 
       setGroupParticipants(participants);

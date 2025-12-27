@@ -18,7 +18,8 @@ interface Notification {
   metadata?: any
 }
 
-export function NotificationBell() {
+export function NotificationBell(props?: { context?: 'admin' | 'colaborador' | 'cliente' }) {
+  const context = props?.context || 'admin'
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -101,6 +102,12 @@ export function NotificationBell() {
     const taskId = meta?.task_id as string | undefined
 
     if (boardId && taskId) {
+      if (context === 'colaborador') {
+        return `/colaborador/kanban?boardId=${encodeURIComponent(boardId)}&taskId=${encodeURIComponent(taskId)}`
+      }
+      if (context === 'cliente') {
+        return `/cliente/producao`
+      }
       return `/admin/meu-kanban?boardId=${encodeURIComponent(boardId)}&taskId=${encodeURIComponent(taskId)}`
     }
 
@@ -109,7 +116,8 @@ export function NotificationBell() {
     // Fallbacks úteis quando for evento do Hub
     const transitionId = meta?.workflow_transition_id as string | undefined
     if (transitionId) {
-      return `/admin/fluxos?tab=transitions&q=${encodeURIComponent(transitionId)}`
+      if (context === 'admin') return `/admin/fluxos?tab=transitions&q=${encodeURIComponent(transitionId)}`
+      return null
     }
 
     return null
@@ -251,7 +259,9 @@ export function NotificationBell() {
               >
                 <button
                   onClick={() => {
-                    router.push('/admin/fluxos')
+                    if (context === 'colaborador') router.push('/colaborador/notificacoes')
+                    else if (context === 'cliente') router.push('/cliente/dashboard')
+                    else router.push('/admin/fluxos')
                     setIsOpen(false)
                   }}
                   className="text-sm font-medium transition-colors"

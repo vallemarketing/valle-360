@@ -16,6 +16,7 @@ import { MessageReactions } from './MessageReactions';
 import { MessageSearch } from './MessageSearch';
 import { PinnedMessages } from './PinnedMessages';
 import { PinMessageButton } from './PinMessageButton';
+import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 
 interface Attachment {
   id: string;
@@ -138,10 +139,7 @@ export function DirectChatWindow({ conversation, currentUserId }: DirectChatWind
 
       const { data, error } = await supabase
         .from('direct_messages')
-        .select(`
-          *,
-          sender:user_profiles!direct_messages_from_user_id_fkey(full_name, avatar_url)
-        `)
+        .select('*')
         .eq('conversation_id', conversation.id)
         .order('created_at', { ascending: true })
         .limit(100);
@@ -161,6 +159,11 @@ export function DirectChatWindow({ conversation, currentUserId }: DirectChatWind
       );
 
       if (error) throw error;
+
+      const senderIds = Array.from(
+        new Set((messagesWithAttachments || []).map((m: any) => String(m?.from_user_id || '')).filter(Boolean))
+      );
+      const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, senderIds);
 
       const messagesWithReadStatus = await Promise.all(
         messagesWithAttachments.map(async (msg: any) => {
@@ -191,8 +194,8 @@ export function DirectChatWindow({ conversation, currentUserId }: DirectChatWind
           return {
             ...msg,
             is_read: isRead,
-            sender_name: msg.sender?.full_name,
-            sender_avatar: msg.sender?.avatar_url,
+            sender_name: profilesMap.get(String(msg.from_user_id))?.full_name,
+            sender_avatar: profilesMap.get(String(msg.from_user_id))?.avatar_url,
           };
         })
       );

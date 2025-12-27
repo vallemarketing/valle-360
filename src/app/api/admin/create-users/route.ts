@@ -8,8 +8,16 @@ export async function POST(request: Request) {
   try {
     const { users, adminSecret } = await request.json()
     
+    // Hardening: por padrão, rotas de setup ficam bloqueadas em produção.
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_SETUP_ROUTES !== '1') {
+      return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+    }
+
     // Verificação de segurança simples
-    if (adminSecret !== process.env.ADMIN_SECRET && adminSecret !== 'Valle@Admin2024') {
+    if (!process.env.ADMIN_SECRET) {
+      return NextResponse.json({ error: 'ADMIN_SECRET não configurado no ambiente' }, { status: 500 })
+    }
+    if (adminSecret !== process.env.ADMIN_SECRET) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 

@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserSelector } from '@/components/kanban/UserSelector';
 import { AREA_BOARDS, type AreaKey } from '@/lib/kanban/areaBoards';
 import { MessageSquare, Send, X } from 'lucide-react';
+import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 
 type Task = {
   id: string;
@@ -71,12 +72,11 @@ export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailM
       const nameByUserId = new Map<string, string>();
 
       if (userIds.length > 0) {
-        const { data: profiles, error: pErr } = await supabase
-          .from('user_profiles')
-          .select('user_id, full_name')
-          .in('user_id', userIds);
-        if (pErr) throw pErr;
-        (profiles || []).forEach((p: any) => nameByUserId.set(p.user_id, p.full_name));
+        const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, userIds);
+        userIds.forEach((uid) => {
+          const n = profilesMap.get(uid)?.full_name;
+          if (n) nameByUserId.set(uid, n);
+        });
       }
 
       const formatted: CommentRow[] = (data || []).map((c: any) => ({

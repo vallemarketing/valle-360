@@ -37,6 +37,7 @@ import {
   Building2,
   Workflow,
   CheckCircle2,
+  Instagram,
   LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -134,6 +135,14 @@ const navGroups: NavGroup[] = [
       { id: "performance", label: "Performance", href: "/admin/performance", icon: BarChart3 },
       { id: "traffic", label: "Tráfego", href: "/admin/trafego-comparativo", icon: TrendingUp },
       { id: "competitor", label: "Concorrência", href: "/admin/inteligencia-concorrencia", icon: Target },
+    ],
+  },
+  {
+    id: "social",
+    label: "Social",
+    icon: Instagram,
+    items: [
+      { id: "social-upload", label: "Agendar Postagem", href: "/admin/social-media/upload", icon: Instagram },
     ],
   },
   {

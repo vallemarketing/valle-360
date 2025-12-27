@@ -429,7 +429,7 @@ export default function SolicitacoesMaterialPage() {
                       <p className="text-gray-900 dark:text-white">{new Date(selectedRequest.deadline).toLocaleDateString('pt-BR')}</p>
                     </div>
                   </div>
-                  <div>
+      <div>
                     <label className="block text-sm font-medium text-gray-500 mb-2">Arquivos Anexados ({selectedRequest.attachments})</label>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => alert('📥 Baixando todos os arquivos...')}>

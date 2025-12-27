@@ -55,16 +55,16 @@ interface Feature {
 // =====================================================
 
 const mockClients: Client[] = [
-  {
-    id: '1',
-    companyName: 'Valle Store',
-    contactName: 'João Silva',
-    email: 'joao@vallestore.com.br',
-    phone: '(11) 98765-4321',
-    industry: 'E-commerce',
-    status: 'active',
-    monthlyValue: 8500,
-    startDate: '2024-01-15',
+    {
+      id: '1',
+      companyName: 'Valle Store',
+      contactName: 'João Silva',
+      email: 'joao@vallestore.com.br',
+      phone: '(11) 98765-4321',
+      industry: 'E-commerce',
+      status: 'active',
+      monthlyValue: 8500,
+      startDate: '2024-01-15',
     avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Valle+Store',
     address: 'Av. Paulista, 1000',
     city: 'São Paulo',
@@ -72,34 +72,34 @@ const mockClients: Client[] = [
     cnpj: '12.345.678/0001-90',
     website: 'www.vallestore.com.br',
     services: ['social_media', 'trafego_pago', 'design']
-  },
-  {
-    id: '2',
-    companyName: 'Tech Solutions Ltda',
-    contactName: 'Maria Santos',
-    email: 'maria@techsolutions.com',
-    phone: '(11) 97654-3210',
-    industry: 'Tecnologia',
-    status: 'active',
-    monthlyValue: 12000,
-    startDate: '2023-11-20',
+    },
+    {
+      id: '2',
+      companyName: 'Tech Solutions Ltda',
+      contactName: 'Maria Santos',
+      email: 'maria@techsolutions.com',
+      phone: '(11) 97654-3210',
+      industry: 'Tecnologia',
+      status: 'active',
+      monthlyValue: 12000,
+      startDate: '2023-11-20',
     avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Tech+Solutions',
     address: 'Rua das Flores, 500',
     city: 'São Paulo',
     state: 'SP',
     cnpj: '98.765.432/0001-10',
     services: ['social_media', 'trafego_pago', 'web']
-  },
-  {
-    id: '3',
-    companyName: 'Valle Boutique',
-    contactName: 'Ana Costa',
-    email: 'ana@valleboutique.com.br',
-    phone: '(11) 96543-2109',
-    industry: 'Moda',
-    status: 'active',
-    monthlyValue: 5500,
-    startDate: '2024-02-01',
+    },
+    {
+      id: '3',
+      companyName: 'Valle Boutique',
+      contactName: 'Ana Costa',
+      email: 'ana@valleboutique.com.br',
+      phone: '(11) 96543-2109',
+      industry: 'Moda',
+      status: 'active',
+      monthlyValue: 5500,
+      startDate: '2024-02-01',
     avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Valle+Boutique',
     city: 'Rio de Janeiro',
     state: 'RJ',
@@ -608,6 +608,8 @@ export default function ClientsListPage() {
   const [detailsModal, setDetailsModal] = useState<Client | null>(null)
   const [servicesModal, setServicesModal] = useState<Client | null>(null)
   const [toggleModal, setToggleModal] = useState<{ client: Client; action: 'activate' | 'deactivate' } | null>(null)
+  const [creatingTestClient, setCreatingTestClient] = useState(false)
+  const [testClientCreds, setTestClientCreds] = useState<{ email: string; password: string } | null>(null)
 
   const filteredClients = clients.filter(client => {
     const matchesSearch = 
@@ -645,6 +647,35 @@ export default function ClientsListPage() {
       return token ? { Authorization: `Bearer ${token}` } : {}
     } catch {
       return {}
+    }
+  }
+
+  const createTestClient = async () => {
+    try {
+      setCreatingTestClient(true)
+      const authHeaders = await getAuthHeaders()
+      const res = await fetch('/api/admin/create-test-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ company_name: 'Cliente Teste (Social)' }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Falha ao criar cliente de teste')
+
+      const email = String(data?.credentials?.email || '')
+      const password = String(data?.credentials?.password || '')
+      setTestClientCreds({ email, password })
+
+      try {
+        await navigator.clipboard.writeText(`Email: ${email}\nSenha: ${password}`)
+        toast.success('Cliente de teste criado (copiado)', { description: 'Credenciais copiadas para a área de transferência.' })
+      } catch {
+        toast.success('Cliente de teste criado', { description: 'Abra o modal para copiar as credenciais.' })
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao criar cliente de teste')
+    } finally {
+      setCreatingTestClient(false)
     }
   }
 
@@ -723,17 +754,92 @@ export default function ClientsListPage() {
             </p>
           </div>
 
-          <Link href="/admin/clientes/novo">
+          <div className="flex items-center gap-3">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white shadow-md bg-[#1672d6] hover:bg-[#1260b5] transition-colors"
+              onClick={createTestClient}
+              disabled={creatingTestClient}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl font-medium text-gray-900 shadow-sm bg-white border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-60"
+            >
+              <Sparkles className="w-5 h-5 text-[#1672d6]" />
+              {creatingTestClient ? 'Criando…' : 'Criar cliente de teste'}
+            </motion.button>
+
+            <Link href="/admin/clientes/novo">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white shadow-md bg-[#1672d6] hover:bg-[#1260b5] transition-colors"
             >
               <Plus className="w-5 h-5" />
               Novo Cliente
             </motion.button>
           </Link>
         </div>
+        </div>
+
+        {/* Modal: credenciais do cliente de teste */}
+        <AnimatePresence>
+          {testClientCreds && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+              onClick={() => setTestClientCreds(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.97, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.97, opacity: 0 }}
+                className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Cliente de teste criado</h3>
+                    <p className="text-sm text-gray-500">Use essas credenciais para logar em <span className="font-mono">/login</span>.</p>
+                  </div>
+                  <button onClick={() => setTestClientCreds(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-3">
+                  <div className="rounded-xl border bg-gray-50 dark:bg-gray-900 p-4">
+                    <p className="text-xs text-gray-500 mb-1">Email</p>
+                    <p className="text-sm font-mono text-gray-900 dark:text-white break-all">{testClientCreds.email}</p>
+                  </div>
+                  <div className="rounded-xl border bg-gray-50 dark:bg-gray-900 p-4">
+                    <p className="text-xs text-gray-500 mb-1">Senha</p>
+                    <p className="text-sm font-mono text-gray-900 dark:text-white break-all">{testClientCreds.password}</p>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(`Email: ${testClientCreds.email}\nSenha: ${testClientCreds.password}`)
+                          toast.success('Copiado!')
+                        } catch {
+                          toast.error('Não foi possível copiar')
+                        }
+                      }}
+                      className="px-4 py-2 rounded-lg border text-sm"
+                    >
+                      Copiar
+                    </button>
+                    <button
+                      onClick={() => setTestClientCreds(null)}
+                      className="px-4 py-2 rounded-lg bg-[#1672d6] text-white text-sm"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

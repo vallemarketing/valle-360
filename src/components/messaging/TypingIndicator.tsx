@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 
 interface TypingUser {
   user_id: string;
@@ -49,19 +50,19 @@ export function TypingIndicator({ groupId, currentUserId }: TypingIndicatorProps
     try {
       const { data, error } = await supabase
         .from('typing_indicators')
-        .select(`
-          user_id,
-          user_profiles!typing_indicators_user_id_fkey(full_name)
-        `)
+        .select('user_id')
         .eq('group_id', groupId)
         .neq('user_id', currentUserId)
         .gt('expires_at', new Date().toISOString());
 
       if (error) throw error;
 
-      const users = (data || []).map((item: any) => ({
-        user_id: item.user_id,
-        full_name: item.user_profiles?.full_name || 'Usuário',
+      const userIds = Array.from(new Set((data || []).map((i: any) => String(i?.user_id || '')).filter(Boolean)));
+      const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, userIds);
+
+      const users = userIds.map((uid) => ({
+        user_id: uid,
+        full_name: profilesMap.get(uid)?.full_name || 'Usuário',
       }));
 
       setTypingUsers(users);

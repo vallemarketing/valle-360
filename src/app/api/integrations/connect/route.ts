@@ -14,6 +14,48 @@ interface ConnectRequest {
   config?: Record<string, any>;
 }
 
+function normalizeBaseUrl(input: string) {
+  return String(input || '').trim().replace(/\/+$/, '');
+}
+
+function buildInstagramBackApiUrl(baseUrlRaw: string, path: string) {
+  const baseUrl = normalizeBaseUrl(baseUrlRaw);
+  const p = path.startsWith('/') ? path : `/${path}`;
+  // Aceita baseUrl com ou sem "/api"
+  if (baseUrl.endsWith('/api')) return `${baseUrl}${p}`;
+  return `${baseUrl}/api${p}`;
+}
+
+async function instagramBackLogin(params: { baseUrl: string; email: string; password: string }) {
+  const url = buildInstagramBackApiUrl(params.baseUrl, '/auth/login');
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: params.email, password: params.password }),
+  });
+  const raw = await r.text();
+  if (!r.ok) {
+    throw new Error(raw || `Falha no login (${r.status})`);
+  }
+  let json: any = null;
+  try {
+    json = raw ? JSON.parse(raw) : null;
+  } catch {
+    json = null;
+  }
+  const token =
+    json?.access_token ||
+    json?.accessToken ||
+    json?.token ||
+    json?.data?.access_token ||
+    json?.data?.accessToken ||
+    json?.data?.token;
+  if (!token) {
+    throw new Error('Login OK, mas não retornou access_token/token');
+  }
+  return String(token);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -32,14 +74,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body: ConnectRequest = await request.json();
-    const { integrationId, apiKey, apiSecret, accessToken, refreshToken, webhookSecret, config } = body;
+    const { integrationId, apiKey, apiSecret, accessToken, refreshToken, webhookSecret } = body;
+    const config = body.config || {};
 
     if (!integrationId) {
       return NextResponse.json({ error: 'ID da integração é obrigatório' }, { status: 400 });
     }
 
     // Validar credenciais baseado no tipo de integração
-    const validationResult = await validateCredentials(integrationId, { apiKey, apiSecret, accessToken });
+    const validationResult = await validateCredentials(integrationId, { apiKey, apiSecret, accessToken }, { config });
     
     if (!validationResult.valid) {
       // Registrar log de erro
@@ -57,12 +100,44 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Resolução de credenciais para integrações específicas
+    let resolvedAccessToken = accessToken;
+    if (integrationId === 'instagramback') {
+      const baseUrl = normalizeBaseUrl(config?.baseUrl);
+      if (!baseUrl) {
+        return NextResponse.json({ error: 'Base URL é obrigatória (config.baseUrl)' }, { status: 400 });
+      }
+      config.baseUrl = baseUrl;
+
+      if (!resolvedAccessToken) {
+        const email = String(config?.email || '').trim();
+        const password = String(config?.password || '').trim();
+        if (email && password) {
+          try {
+            resolvedAccessToken = await instagramBackLogin({ baseUrl, email, password });
+          } catch (e: any) {
+            return NextResponse.json(
+              { error: 'Falha no login do InstagramBack', details: e?.message || String(e) },
+              { status: 400 }
+            );
+          }
+        }
+      }
+    }
+
     // Atualizar configuração da integração
     const upsertPayload = {
       integration_id: integrationId,
+      // Para integrações novas, precisamos preencher metadados obrigatórios no insert.
+      ...(integrationId === 'instagramback'
+        ? {
+            display_name: 'InstagramBack',
+            category: 'marketing',
+          }
+        : {}),
       api_key: apiKey ?? null,
       api_secret: apiSecret ?? null,
-      access_token: accessToken ?? null,
+      access_token: resolvedAccessToken ?? null,
       refresh_token: refreshToken ?? null,
       webhook_secret: webhookSecret ?? null,
       config: config || {},
@@ -120,10 +195,12 @@ export async function POST(request: NextRequest) {
 // Função para validar credenciais
 async function validateCredentials(
   integrationId: string, 
-  credentials: { apiKey?: string; apiSecret?: string; accessToken?: string }
+  credentials: { apiKey?: string; apiSecret?: string; accessToken?: string },
+  extra?: { config?: Record<string, any> }
 ): Promise<{ valid: boolean; error?: string; details?: string }> {
   
   const { apiKey, apiSecret, accessToken } = credentials;
+  const cfg = extra?.config || {};
 
   switch (integrationId) {
     case 'openai':
@@ -219,6 +296,26 @@ async function validateCredentials(
     case 'slack':
       if (!accessToken) {
         return { valid: false, error: 'Bot Token é obrigatório' };
+      }
+      break;
+
+    case 'instagramback':
+      {
+        const baseUrl = String(cfg?.baseUrl || '').trim();
+        const email = String(cfg?.email || '').trim();
+        const password = String(cfg?.password || '').trim();
+
+        if (!baseUrl) {
+          return { valid: false, error: 'Base URL é obrigatória', details: 'Preencha config.baseUrl' };
+        }
+        // Permite token manual OU login via email/senha
+        if (!accessToken && !(email && password)) {
+          return {
+            valid: false,
+            error: 'Informe Access Token ou Email/Senha',
+            details: 'Para InstagramBack, você pode colar o token ou informar email/senha para login automático.',
+          };
+        }
       }
       break;
 

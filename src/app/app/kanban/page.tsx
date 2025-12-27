@@ -30,6 +30,7 @@ import { KanbanFilters, KanbanFiltersState } from '@/components/kanban/KanbanFil
 import { NotificationCenter } from '@/components/kanban/NotificationCenter';
 import KanbanInsights from '@/components/kanban/KanbanInsights';
 import type { DbTaskPriority, DbTaskStatus } from '@/lib/kanban/types';
+import { fetchProfileByAuthId, fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 
 interface Task {
   id: string;
@@ -552,14 +553,8 @@ export default function KanbanPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('user_type')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) throw error;
-      setCurrentUserType(data?.user_type || '');
+      const profile = await fetchProfileByAuthId(supabase as any, user.id);
+      setCurrentUserType(profile?.user_type || '');
     } catch (error) {
       console.error('Erro ao carregar usuário:', error);
     }
@@ -593,13 +588,11 @@ export default function KanbanPage() {
 
       const assigneeNameById = new Map<string, string>();
       if (assigneeIds.length > 0) {
-        const { data: assignees, error: assigneesError } = await supabase
-          .from('user_profiles')
-          .select('id, full_name')
-          .in('id', assigneeIds);
-
-        if (assigneesError) throw assigneesError;
-        (assignees || []).forEach((u: any) => assigneeNameById.set(u.id, u.full_name));
+        const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, assigneeIds);
+        assigneeIds.forEach((uid) => {
+          const name = profilesMap.get(uid)?.full_name;
+          if (name) assigneeNameById.set(uid, name);
+        });
       }
 
       const formattedTasks = (tasksData || []).map((task: any) => ({

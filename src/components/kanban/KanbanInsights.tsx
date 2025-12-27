@@ -279,16 +279,16 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
 
   return (
     <>
-      <div className="bg-white rounded-xl border shadow-sm p-4 mb-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-blue-500" />
-            Insights do Kanban
-          </h3>
+    <div className="bg-white rounded-xl border shadow-sm p-4 mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-blue-500" />
+          Insights do Kanban
+        </h3>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-              {area}
-            </span>
+        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+          {area}
+        </span>
             {/* Botões de Ação Rápida */}
             <div className="flex gap-1">
               <Button 
@@ -319,104 +319,104 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
               </Button>
             </div>
           </div>
-        </div>
+      </div>
 
         {/* Métricas principais - agora clicáveis */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          {insights.map((insight, index) => {
-            const Icon = insight.icon;
-            return (
-              <motion.div
-                key={insight.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        {insights.map((insight, index) => {
+          const Icon = insight.icon;
+          return (
+            <motion.div
+              key={insight.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
                 onClick={insight.clickable ? insight.onClick : undefined}
                 className={cn(
                   "p-3 rounded-xl border transition-all",
                   insight.alert ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-gray-50',
                   insight.clickable && 'cursor-pointer hover:shadow-md hover:scale-[1.02]'
                 )}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <div 
-                    className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: `${insight.color}20` }}
-                  >
-                    <Icon className="w-4 h-4" style={{ color: insight.color }} />
-                  </div>
-                  <span className="text-xs text-gray-500">{insight.title}</span>
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <div 
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: `${insight.color}20` }}
+                >
+                  <Icon className="w-4 h-4" style={{ color: insight.color }} />
+                </div>
+                <span className="text-xs text-gray-500">{insight.title}</span>
                   {insight.clickable && (
                     <Eye className="w-3 h-3 text-gray-400 ml-auto" />
                   )}
-                </div>
-                <div className="flex items-end justify-between">
-                  <span className="text-2xl font-bold" style={{ color: insight.color }}>
-                    {insight.value}
-                  </span>
-                  {insight.change && (
-                    <span className={`text-xs flex items-center gap-0.5 ${insight.positive ? 'text-green-600' : 'text-red-600'}`}>
-                      {insight.positive ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                      {insight.change}
-                    </span>
-                  )}
-                  {insight.subtitle && (
-                    <span className="text-xs text-gray-400">{insight.subtitle}</span>
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Insights inteligentes */}
-        <div className="space-y-2">
-          {/* Gargalo identificado */}
-          {bottleneck && bottleneck.cards.length > 3 && (
-            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-amber-800">Gargalo identificado</p>
-                <p className="text-xs text-amber-700">
-                  A fase <strong>{bottleneck.title}</strong> tem {bottleneck.cards.length} cards acumulados. 
-                  Considere redistribuir tarefas ou adicionar recursos.
-                </p>
               </div>
-            </div>
-          )}
+              <div className="flex items-end justify-between">
+                <span className="text-2xl font-bold" style={{ color: insight.color }}>
+                  {insight.value}
+                </span>
+                {insight.change && (
+                  <span className={`text-xs flex items-center gap-0.5 ${insight.positive ? 'text-green-600' : 'text-red-600'}`}>
+                    {insight.positive ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                    {insight.change}
+                  </span>
+                )}
+                {insight.subtitle && (
+                  <span className="text-xs text-gray-400">{insight.subtitle}</span>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
 
-          {/* Cards atrasados */}
-          {overdueCards.length > 0 && (
+      {/* Insights inteligentes */}
+      <div className="space-y-2">
+        {/* Gargalo identificado */}
+        {bottleneck && bottleneck.cards.length > 3 && (
+          <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">Gargalo identificado</p>
+              <p className="text-xs text-amber-700">
+                A fase <strong>{bottleneck.title}</strong> tem {bottleneck.cards.length} cards acumulados. 
+                Considere redistribuir tarefas ou adicionar recursos.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Cards atrasados */}
+        {overdueCards.length > 0 && (
             <div 
               className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
               onClick={() => handleInsightClick('overdue')}
             >
-              <Clock className="w-4 h-4 text-red-600 mt-0.5" />
+            <Clock className="w-4 h-4 text-red-600 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-red-800">
-                  {overdueCards.length} {overdueCards.length === 1 ? 'card atrasado' : 'cards atrasados'}
-                </p>
-                <p className="text-xs text-red-700">
-                  {overdueCards.slice(0, 3).map(c => c.title).join(', ')}
-                  {overdueCards.length > 3 && ` e mais ${overdueCards.length - 3}`}
-                </p>
-              </div>
+              <p className="text-sm font-medium text-red-800">
+                {overdueCards.length} {overdueCards.length === 1 ? 'card atrasado' : 'cards atrasados'}
+              </p>
+              <p className="text-xs text-red-700">
+                {overdueCards.slice(0, 3).map(c => c.title).join(', ')}
+                {overdueCards.length > 3 && ` e mais ${overdueCards.length - 3}`}
+              </p>
+            </div>
               <ChevronRight className="w-4 h-4 text-red-400" />
-            </div>
-          )}
+          </div>
+        )}
 
-          {/* Boa performance */}
-          {completionRate >= 70 && overdueCards.length === 0 && (
-            <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <TrendingUp className="w-4 h-4 text-green-600 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-green-800">Excelente performance!</p>
-                <p className="text-xs text-green-700">
-                  Sua taxa de conclusão está em {completionRate}% e não há cards atrasados. Continue assim!
-                </p>
-              </div>
+        {/* Boa performance */}
+        {completionRate >= 70 && overdueCards.length === 0 && (
+          <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <TrendingUp className="w-4 h-4 text-green-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-green-800">Excelente performance!</p>
+              <p className="text-xs text-green-700">
+                Sua taxa de conclusão está em {completionRate}% e não há cards atrasados. Continue assim!
+              </p>
             </div>
-          )}
+          </div>
+        )}
 
           {/* Risco (preditivo) */}
           {riskCount > 0 && topRisk.length > 0 && (
@@ -435,45 +435,45 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
               )}
             </div>
           )}
-        </div>
+      </div>
 
-        {/* Distribuição por fase */}
-        <div className="mt-4 pt-4 border-t">
-          <p className="text-xs text-gray-500 mb-2">Distribuição por fase</p>
-          <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
-            {columns.map((col, index) => {
-              const percentage = totalCards > 0 ? (col.cards.length / totalCards) * 100 : 0;
-              if (percentage === 0) return null;
-              return (
-                <motion.div
-                  key={col.id}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${percentage}%` }}
-                  transition={{ delay: index * 0.1, duration: 0.5 }}
-                  className="h-full"
-                  style={{ backgroundColor: col.color }}
-                  title={`${col.title}: ${col.cards.length} cards (${Math.round(percentage)}%)`}
-                />
-              );
-            })}
-          </div>
-          <div className="flex flex-wrap gap-3 mt-2">
-            {columns.map(col => (
-              <div key={col.id} className="flex items-center gap-1 text-xs">
-                <div 
-                  className="w-2 h-2 rounded-full" 
-                  style={{ backgroundColor: col.color }} 
-                />
-                <span className="text-gray-600">{col.title}</span>
-                <span className="text-gray-400">({col.cards.length})</span>
-              </div>
-            ))}
-          </div>
+      {/* Distribuição por fase */}
+      <div className="mt-4 pt-4 border-t">
+        <p className="text-xs text-gray-500 mb-2">Distribuição por fase</p>
+        <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
+          {columns.map((col, index) => {
+            const percentage = totalCards > 0 ? (col.cards.length / totalCards) * 100 : 0;
+            if (percentage === 0) return null;
+            return (
+              <motion.div
+                key={col.id}
+                initial={{ width: 0 }}
+                animate={{ width: `${percentage}%` }}
+                transition={{ delay: index * 0.1, duration: 0.5 }}
+                className="h-full"
+                style={{ backgroundColor: col.color }}
+                title={`${col.title}: ${col.cards.length} cards (${Math.round(percentage)}%)`}
+              />
+            );
+          })}
         </div>
+        <div className="flex flex-wrap gap-3 mt-2">
+          {columns.map(col => (
+            <div key={col.id} className="flex items-center gap-1 text-xs">
+              <div 
+                className="w-2 h-2 rounded-full" 
+                style={{ backgroundColor: col.color }} 
+              />
+              <span className="text-gray-600">{col.title}</span>
+              <span className="text-gray-400">({col.cards.length})</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
         {/* Colaboradores para Elogiar/Cobrar */}
         {allCollaborators.length > 0 && (
-          <div className="mt-4 pt-4 border-t">
+      <div className="mt-4 pt-4 border-t">
             <p className="text-xs text-gray-500 mb-2">Colaboradores Ativos</p>
             <div className="flex flex-wrap gap-2">
               {allCollaborators.map(collaborator => {
@@ -487,8 +487,8 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                   >
                     <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm">
                       {collaborator.charAt(0)}
-                    </div>
-                    <div>
+                </div>
+                <div>
                       <p className="text-sm font-medium text-gray-800">{collaborator}</p>
                       <p className="text-xs text-gray-500">{collabCards.length} cards</p>
                     </div>
@@ -513,8 +513,8 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                           <MessageSquare className="w-3.5 h-3.5" />
                         </Button>
                       )}
-                    </div>
-                  </div>
+                </div>
+              </div>
                 );
               })}
             </div>
@@ -525,7 +525,7 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
       {/* Modal de Cards */}
       <AnimatePresence>
         {(activeModal === 'overdue' || activeModal === 'pending' || activeModal === 'inProgress') && (
-          <motion.div
+          <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -540,7 +540,7 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
               className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[80vh] overflow-hidden"
             >
               <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={cn(
                       "p-3 rounded-xl",
@@ -550,8 +550,8 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                       {activeModal === 'overdue' ? <AlertTriangle className="w-6 h-6 text-red-600" /> :
                        activeModal === 'pending' ? <Clock className="w-6 h-6 text-indigo-600" /> :
                        <Zap className="w-6 h-6 text-orange-600" />}
-                    </div>
-                    <div>
+                </div>
+                <div>
                       <h2 className="text-xl font-bold text-gray-900">
                         {activeModal === 'overdue' ? 'Cards Atrasados' :
                          activeModal === 'pending' ? 'Cards Aguardando' : 'Cards em Andamento'}
@@ -631,7 +631,7 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                     </div>
                   </div>
                 ))}
-              </div>
+            </div>
             </motion.div>
           </motion.div>
         )}
@@ -647,7 +647,7 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
             className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
             onClick={() => !isGenerating && setActiveModal(null)}
           >
-            <motion.div
+            <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -658,8 +658,8 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                 <div className="flex items-center gap-3">
                   <div className="p-3 rounded-xl bg-emerald-100">
                     <ThumbsUp className="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <div>
+                </div>
+                <div>
                     <h2 className="text-xl font-bold text-gray-900">Elogiar Colaborador</h2>
                     <p className="text-sm text-gray-500">Mensagem para {selectedCollaborator}</p>
                   </div>
@@ -704,14 +704,14 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                 )}
               </div>
             </motion.div>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
       </AnimatePresence>
 
       {/* Modal de Cobrança */}
       <AnimatePresence>
         {activeModal === 'charge' && (
-          <motion.div
+          <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -729,8 +729,8 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                 <div className="flex items-center gap-3">
                   <div className="p-3 rounded-xl bg-orange-100">
                     <MessageSquare className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <div>
+                </div>
+                <div>
                     <h2 className="text-xl font-bold text-gray-900">Cobrar Colaborador</h2>
                     <p className="text-sm text-gray-500">Mensagem para {selectedCollaborator}</p>
                   </div>
@@ -769,8 +769,8 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                       >
                         <Send className="w-4 h-4 mr-2" />
                         Enviar
-                      </Button>
-                    </div>
+              </Button>
+            </div>
                   </>
                 )}
               </div>

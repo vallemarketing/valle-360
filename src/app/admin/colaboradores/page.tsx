@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Plus, Mail, Phone, Award, Calendar, MoreVertical, X, TrendingUp, Target, Clock, Star, AlertTriangle, CheckCircle, ChevronRight } from 'lucide-react'
+import { Search, Plus, Mail, Phone, Award, Calendar, MoreVertical, X, TrendingUp, Target, Clock, Star, AlertTriangle, CheckCircle, ChevronRight, Sparkles, Copy } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,6 +39,10 @@ export default function EmployeesListPage() {
   const [filterDepartment, setFilterDepartment] = useState('all')
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [creatingTestEmployees, setCreatingTestEmployees] = useState(false)
+  const [testEmployees, setTestEmployees] = useState<{ email: string; password: string; type?: 'employee' | 'client' }[] | null>(null)
+  const [testEmployeesWarnings, setTestEmployeesWarnings] = useState<{ email: string; warning: string }[] | null>(null)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   const handleViewDetails = (emp: Employee) => {
     setSelectedEmployee(emp)
@@ -144,6 +148,72 @@ export default function EmployeesListPage() {
     }
   }
 
+  const provisionTestEmployees = async () => {
+    try {
+      setCreatingTestEmployees(true)
+      const authHeaders = await getAuthHeaders()
+      const res = await fetch('/api/admin/provision-test-employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Falha ao criar colaboradores de teste')
+
+      const password = String(data?.password || 'Valle@Teste2024')
+      const creds = Array.isArray(data?.credentials) ? data.credentials : null
+      const warnings = Array.isArray(data?.warnings) ? data.warnings : null
+      setTestEmployeesWarnings(
+        warnings?.map((w: any) => ({ email: String(w.email || ''), warning: String(w.warning || '') })) || null
+      )
+      if (creds && creds.length > 0) {
+        setTestEmployees(
+          creds.map((c: any) => ({
+            email: String(c.email),
+            password: String(c.password || password),
+            type: c.type === 'client' ? 'client' : 'employee',
+          }))
+        )
+      } else {
+        const users = Array.isArray(data?.users) ? data.users : []
+        setTestEmployees(users.map((u: any) => ({ email: String(u.email), password, type: 'employee' })))
+      }
+
+      await loadEmployeesReal()
+    } catch (e: any) {
+      alert(e?.message || 'Erro ao criar colaboradores de teste')
+    } finally {
+      setCreatingTestEmployees(false)
+    }
+  }
+
+  const closeTestEmployeesModal = () => {
+    setTestEmployees(null)
+    setTestEmployeesWarnings(null)
+    setCopiedKey(null)
+  }
+
+  const sortedTestEmployees = useMemo(() => {
+    if (!testEmployees) return null
+    const copy = [...testEmployees]
+    copy.sort((a, b) => {
+      const ta = a.type === 'client' ? 0 : 1
+      const tb = b.type === 'client' ? 0 : 1
+      if (ta !== tb) return ta - tb
+      return a.email.localeCompare(b.email)
+    })
+    return copy
+  }, [testEmployees])
+
+  const safeCopy = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedKey(key)
+      window.setTimeout(() => setCopiedKey((prev) => (prev === key ? null : prev)), 1200)
+    } catch {
+      // fallback: nada
+    }
+  }
+
   const loadEmployeesReal = async () => {
     try {
       const authHeaders = await getAuthHeaders()
@@ -219,6 +289,22 @@ export default function EmployeesListPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={provisionTestEmployees}
+              disabled={creatingTestEmployees}
+              className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium border shadow-sm"
+              style={{
+                backgroundColor: 'var(--bg-primary)',
+                borderColor: 'var(--border-light)',
+                color: 'var(--text-primary)',
+                opacity: creatingTestEmployees ? 0.7 : 1,
+              }}
+            >
+              <Sparkles className="w-5 h-5" />
+              {creatingTestEmployees ? 'Criando testes…' : 'Criar testes (Equipe + Cliente)'}
+            </motion.button>
             <Link href="/admin/colaboradores/vincular">
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -246,6 +332,147 @@ export default function EmployeesListPage() {
             </Link>
           </div>
         </div>
+
+        {/* Modal de credenciais dos testes */}
+        <AnimatePresence>
+          {sortedTestEmployees && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/50 z-50"
+                onClick={closeTestEmployeesModal}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div
+                  className="w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden"
+                  style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}
+                >
+                  {/* Header (sticky) */}
+                  <div className="p-4 sm:p-6 border-b" style={{ borderColor: 'var(--border-light)' }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                          Acessos de teste ({sortedTestEmployees.length})
+                        </h3>
+                        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                          Use para testes provisórios. Depois vocês podem excluir.
+                        </p>
+                      </div>
+                      <button
+                        onClick={closeTestEmployeesModal}
+                        className="p-2 rounded-lg shrink-0"
+                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                        aria-label="Fechar"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        Senha padrão: <span className="font-mono" style={{ color: 'var(--text-primary)' }}>Valle@Teste2024</span>
+                      </div>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            const txt = sortedTestEmployees
+                              .map((t) => `${t.type === 'client' ? 'Cliente' : 'Colaborador'}\nEmail: ${t.email}\nSenha: ${t.password}`)
+                              .join('\n\n')
+                            safeCopy(txt, 'all')
+                          }}
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          {copiedKey === 'all' ? 'Copiado!' : 'Copiar tudo'}
+                        </Button>
+                        <Button onClick={closeTestEmployeesModal}>Fechar</Button>
+                      </div>
+                    </div>
+
+                    {testEmployeesWarnings && testEmployeesWarnings.length > 0 && (
+                      <div
+                        className="mt-3 rounded-xl border p-3 text-xs"
+                        style={{ borderColor: 'var(--border-light)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+                      >
+                        <div className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                          Avisos
+                        </div>
+                        <div className="max-h-20 overflow-y-auto space-y-1 pr-1">
+                          {testEmployeesWarnings.map((w) => (
+                            <div key={`${w.email}:${w.warning}`} className="break-words">
+                              <span className="font-mono">{w.email}</span>: {w.warning}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Body */}
+                  <div className="p-4 sm:p-6">
+                    <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-2">
+                      {sortedTestEmployees.map((t) => {
+                        const label = t.type === 'client' ? 'Cliente' : 'Colaborador'
+                        const rowKey = `row:${t.email}`
+                        return (
+                          <div
+                            key={t.email}
+                            className="rounded-xl border p-3 sm:p-4"
+                            style={{ borderColor: 'var(--border-light)' }}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div
+                                  className="mb-2 text-[11px] inline-flex items-center rounded-full border px-2 py-0.5"
+                                  style={{ borderColor: 'var(--border-light)', color: 'var(--text-secondary)' }}
+                                >
+                                  {label}
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div className="min-w-0">
+                                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Email</div>
+                                    <div className="font-mono text-sm break-all" style={{ color: 'var(--text-primary)' }}>
+                                      {t.email}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Senha</div>
+                                    <div className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
+                                      {t.password}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <Button
+                                variant="outline"
+                                className="shrink-0"
+                                onClick={() => safeCopy(`${t.email}\n${t.password}`, rowKey)}
+                              >
+                                <Copy className="w-4 h-4 mr-2" />
+                                {copiedKey === rowKey ? 'Copiado!' : 'Copiar'}
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

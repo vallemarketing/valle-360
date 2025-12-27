@@ -195,6 +195,32 @@ async function checkIntegrationHealth(
 
   try {
     switch (integrationId) {
+      case 'instagramback':
+        {
+          const baseUrlRaw = config?.config?.baseUrl;
+          const accessToken = config?.access_token;
+          const baseUrl = String(baseUrlRaw || '').trim().replace(/\/+$/, '');
+          if (!baseUrl) {
+            return { healthy: false, error: 'Base URL não configurada (config.baseUrl)', responseTime: Date.now() - startTime };
+          }
+          if (!accessToken) {
+            return { healthy: false, error: 'Access Token não configurado', responseTime: Date.now() - startTime };
+          }
+          const apiUrl = baseUrl.endsWith('/api') ? `${baseUrl}/auth/me` : `${baseUrl}/api/auth/me`;
+          const r = await fetch(apiUrl, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          const raw = await r.text();
+          return {
+            healthy: r.ok,
+            error: r.ok ? undefined : raw.slice(0, 200) || 'Falha na autenticação',
+            responseTime: Date.now() - startTime,
+          };
+        }
+
       case 'openrouter':
         {
           const key = config.api_key || process.env.OPENROUTER_API_KEY;

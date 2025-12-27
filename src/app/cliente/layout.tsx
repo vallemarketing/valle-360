@@ -42,6 +42,7 @@ import { AlertsPanel } from "@/components/alerts/AlertsPanel";
 import { NPSModal } from "@/components/nps/NPSModal";
 import { PushNotificationManager } from "@/components/notifications/PushNotifications";
 import { GuidedTour } from "@/components/tour/GuidedTour";
+import { BottomNavigation } from "@/components/layout/BottomNavigation";
 
 // Mapa de breadcrumbs
 const breadcrumbMap: Record<string, string> = {
@@ -72,7 +73,6 @@ export default function ClienteLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [userData, setUserData] = useState({
@@ -138,15 +138,7 @@ export default function ClienteLayout({
   return (
     <ProtectedRoute allowedRoles={["cliente"]}>
       <div className="min-h-screen bg-white dark:bg-[#0a0f1a]">
-        {/* Sidebar - Desktop */}
-        <div className="hidden lg:block">
-          <ClientSidebar
-            collapsed={sidebarCollapsed}
-            onCollapsedChange={setSidebarCollapsed}
-          />
-          </div>
-
-        {/* Mobile Menu */}
+        {/* Menu (Sheet) - navegação completa sem sidebar fixa */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetContent side="left" className="p-0 w-[280px] bg-[#001533] border-r border-white/10">
             <ClientSidebar collapsed={false} />
@@ -154,22 +146,17 @@ export default function ClienteLayout({
         </Sheet>
 
         {/* Main Content Area */}
-        <div
-          className={cn(
-            "transition-all duration-300",
-            sidebarCollapsed ? "lg:ml-[70px]" : "lg:ml-[260px]"
-          )}
-        >
+        <div className="transition-all duration-300">
           {/* Header */}
           <header className="sticky top-0 z-30 h-16 border-b border-[#001533]/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0f1a]/95 backdrop-blur">
             <div className="flex items-center justify-between h-full px-4 lg:px-6">
               {/* Left side */}
               <div className="flex items-center gap-4">
-                {/* Mobile menu button */}
+                {/* Menu button */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="lg:hidden"
+                  className="text-[#001533]/70 dark:text-white/70 hover:bg-[#001533]/5 dark:hover:bg-white/10"
                   onClick={() => setMobileMenuOpen(true)}
                 >
                   <Menu className="size-5" />
@@ -267,9 +254,14 @@ export default function ClienteLayout({
       </header>
 
           {/* Page Content - Responsivo */}
-          <main className="min-h-[calc(100vh-4rem)] p-4 lg:p-6">
+          <main className="min-h-[calc(100vh-4rem)] p-4 pb-24 lg:p-6">
             {children}
           </main>
+        </div>
+
+        {/* Navegação inferior (mobile) */}
+        <div className="lg:hidden">
+          <BottomNavigation />
         </div>
 
         {/* Val Floating Chat */}
@@ -289,7 +281,7 @@ export default function ClienteLayout({
         />
 
         {/* Tour Guiado - Primeira Visita */}
-        <GuidedTour />
+        <GuidedTour variant="client" />
       </div>
     </ProtectedRoute>
   );

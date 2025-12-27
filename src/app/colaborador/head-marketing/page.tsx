@@ -168,24 +168,30 @@ export default function HeadMarketingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
+      <div className="rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-sm">
               <Briefcase className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">Painel Head Marketing</h1>
-              <p className="text-sm text-gray-500">Visão consolidada de clientes, equipe e campanhas</p>
+              <h1 className="text-2xl font-bold text-foreground">Painel Head Marketing</h1>
+              <p className="text-sm text-muted-foreground">Visão consolidada de clientes, equipe e campanhas</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Link href="/colaborador/head-marketing/upload">
+              <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors text-sm">
+                <Layers className="w-4 h-4" />
+                Agendar Postagem
+              </button>
+            </Link>
             <button
               onClick={handleGenerateReport}
               disabled={generatingReport}
-              className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50 text-sm"
             >
               {generatingReport ? (
                 <>
@@ -200,7 +206,7 @@ export default function HeadMarketingPage() {
               )}
             </button>
             <Link href="/colaborador/dashboard">
-              <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+              <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm">
                 <Layers className="w-4 h-4" />
                 Dashboard
               </button>
@@ -209,15 +215,15 @@ export default function HeadMarketingPage() {
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="space-y-6">
         {/* KPIs Principais */}
-        <div className="grid grid-cols-5 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-500">MRR Total</span>
+              <span className="text-sm text-muted-foreground">MRR Total</span>
               <DollarSign className="w-4 h-4 text-green-500" />
             </div>
-            <p className="text-2xl font-bold text-gray-800">
+            <p className="text-2xl font-bold text-foreground">
               R$ {stats.totalMRR.toLocaleString('pt-BR')}
             </p>
             <div className="flex items-center gap-1 mt-1 text-xs text-green-600">
@@ -226,12 +232,12 @@ export default function HeadMarketingPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-500">Health Score</span>
+              <span className="text-sm text-muted-foreground">Health Score</span>
               <Activity className="w-4 h-4 text-blue-500" />
             </div>
-            <p className="text-2xl font-bold text-gray-800">{stats.avgHealthScore}%</p>
+            <p className="text-2xl font-bold text-foreground">{stats.avgHealthScore}%</p>
             <div className="h-2 bg-gray-200 rounded-full mt-2 overflow-hidden">
               <div 
                 className={cn(
