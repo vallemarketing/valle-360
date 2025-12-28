@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Plus, Search, Filter, CheckCircle, Clock, AlertTriangle,
@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/lib/supabase';
+import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 
 interface MaterialRequest {
   id: string;
@@ -26,72 +28,36 @@ interface MaterialRequest {
   comments: number;
 }
 
-const mockRequests: MaterialRequest[] = [
-  {
-    id: '1',
-    title: 'Banner Black Friday - Instagram',
-    description: 'Banner promocional para campanha de Black Friday com foco em conversão',
-    client: 'Tech Solutions Ltda',
-    type: 'arte',
-    priority: 'high',
-    status: 'in_progress',
-    requestedAt: '2024-12-01',
-    deadline: '2024-12-10',
-    assignee: 'Maria Santos',
-    attachments: 3,
-    comments: 5
-  },
-  {
-    id: '2',
-    title: 'Vídeo Institucional',
-    description: 'Vídeo de 60s para apresentação da empresa nas redes sociais',
-    client: 'Valle Boutique',
-    type: 'video',
-    priority: 'medium',
-    status: 'review',
-    requestedAt: '2024-11-28',
-    deadline: '2024-12-15',
-    assignee: 'João Silva',
-    attachments: 2,
-    comments: 8
-  },
-  {
-    id: '3',
-    title: 'Copy para Landing Page',
-    description: 'Textos persuasivos para nova landing page de captação de leads',
-    client: 'Digital Plus',
-    type: 'texto',
-    priority: 'urgent',
-    status: 'pending',
-    requestedAt: '2024-12-05',
-    deadline: '2024-12-08',
-    assignee: 'Ana Oliveira',
-    attachments: 1,
-    comments: 2
-  },
-  {
-    id: '4',
-    title: 'Stories de Natal',
-    description: 'Kit com 10 stories temáticos para campanha de Natal',
-    client: 'E-commerce Pro',
-    type: 'arte',
-    priority: 'low',
-    status: 'approved',
-    requestedAt: '2024-11-25',
-    deadline: '2024-12-20',
-    assignee: 'Pedro Costa',
-    attachments: 10,
-    comments: 12
-  }
-];
+type ClientRow = { id: string; company_name?: string | null };
+type BoardRow = { id: string; area_key?: string | null; name?: string | null };
+type ColumnRow = { id: string; stage_key?: string | null; name?: string | null };
 
 export default function SolicitacoesMaterialPage() {
-  const [requests, setRequests] = useState<MaterialRequest[]>(mockRequests);
+  const [requests, setRequests] = useState<MaterialRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [clients, setClients] = useState<ClientRow[]>([]);
+  const [boards, setBoards] = useState<BoardRow[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
   const [showNewModal, setShowNewModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<MaterialRequest | null>(null);
+
+  const [newForm, setNewForm] = useState<{
+    title: string;
+    description: string;
+    type: MaterialRequest['type'];
+    priority: MaterialRequest['priority'];
+    deadline: string;
+    clientId: string;
+  }>({
+    title: '',
+    description: '',
+    type: 'arte',
+    priority: 'medium',
+    deadline: '',
+    clientId: '',
+  });
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
@@ -119,6 +85,200 @@ export default function SolicitacoesMaterialPage() {
     };
     const c = config[priority] || config.low;
     return <span className={`px-2 py-0.5 rounded text-xs font-medium ${c.color}`}>{c.label}</span>;
+  };
+
+  const materialAreaKeys = useMemo(
+    () => ['designer_grafico', 'video_maker', 'social_media', 'head_marketing', 'web_designer'],
+    []
+  );
+
+  const normalizePriority = (p: any): MaterialRequest['priority'] => {
+    const s = String(p || '').toLowerCase();
+    if (s === 'urgent' || s === 'urgente') return 'urgent';
+    if (s === 'high' || s === 'alta') return 'high';
+    if (s === 'low' || s === 'baixa') return 'low';
+    return 'medium';
+  };
+
+  const normalizeStatus = (stageKey: any): MaterialRequest['status'] => {
+    const s = String(stageKey || '').toLowerCase();
+    if (!s) return 'pending';
+    if (s.includes('aprov')) return 'review';
+    if (s.includes('demanda') || s.includes('backlog')) return 'pending';
+    if (s.includes('escopo') || s.includes('produc') || s.includes('execu')) return 'in_progress';
+    if (s.includes('concl') || s.includes('entreg') || s.includes('done')) return 'delivered';
+    return 'in_progress';
+  };
+
+  const inferTypeFromAreaKey = (areaKey: string): MaterialRequest['type'] => {
+    const s = String(areaKey || '').toLowerCase();
+    if (s.includes('video')) return 'video';
+    if (s.includes('designer') || s.includes('design')) return 'arte';
+    if (s.includes('head') || s.includes('social')) return 'texto';
+    return 'outro';
+  };
+
+  const mapTypeToAreaKey = (t: MaterialRequest['type']) => {
+    if (t === 'video') return 'video_maker';
+    if (t === 'texto') return 'head_marketing';
+    if (t === 'arte') return 'designer_grafico';
+    return 'social_media';
+  };
+
+  const mapPriorityToDb = (p: MaterialRequest['priority']) => {
+    if (p === 'urgent') return 'urgente';
+    if (p === 'high') return 'alta';
+    if (p === 'low') return 'baixa';
+    return 'media';
+  };
+
+  const loadBaseLookups = async () => {
+    const [{ data: clientsData }, { data: boardsData }] = await Promise.all([
+      supabase.from('clients').select('id, company_name').order('company_name').limit(500),
+      supabase.from('kanban_boards').select('id, area_key, name').limit(500),
+    ]);
+    setClients((clientsData || []) as any);
+    setBoards((boardsData || []) as any);
+  };
+
+  const loadRequests = async () => {
+    setLoading(true);
+    try {
+      await loadBaseLookups();
+
+      // Usar o resultado mais recente do state (ou buscar no banco caso ainda não tenha)
+      const localBoards = boards.length ? boards : ((await supabase.from('kanban_boards').select('id, area_key, name').limit(500)).data || []);
+      const boardsForMaterial = (localBoards as any[]).filter((b) => materialAreaKeys.includes(String(b.area_key || '')));
+      const boardIds = boardsForMaterial.map((b) => b.id).filter(Boolean);
+
+      const { data: tasks, error } = await supabase
+        .from('kanban_tasks')
+        .select('id,title,description,priority,created_at,due_date,attachments_count,comments_count,client_id,board_id,column_id,assigned_to')
+        .in('board_id', boardIds.length ? boardIds : ['00000000-0000-0000-0000-000000000000'])
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+
+      const clientIds = Array.from(new Set((tasks || []).map((t: any) => t.client_id).filter(Boolean))) as string[];
+      const colIds = Array.from(new Set((tasks || []).map((t: any) => t.column_id).filter(Boolean))) as string[];
+
+      const [{ data: clientsRows }, { data: colsRows }] = await Promise.all([
+        clientIds.length
+          ? supabase.from('clients').select('id, company_name').in('id', clientIds)
+          : Promise.resolve({ data: [] as any[] } as any),
+        colIds.length
+          ? supabase.from('kanban_columns').select('id, stage_key, name').in('id', colIds)
+          : Promise.resolve({ data: [] as any[] } as any),
+      ]);
+
+      const clientById = new Map<string, ClientRow>((clientsRows || []).map((c: any) => [String(c.id), c]));
+      const colById = new Map<string, ColumnRow>((colsRows || []).map((c: any) => [String(c.id), c]));
+      const boardById = new Map<string, BoardRow>((localBoards as any[]).map((b: any) => [String(b.id), b]));
+
+      const firstAssigneeIds: string[] = [];
+      for (const t of tasks || []) {
+        const a = (t as any).assigned_to;
+        const id =
+          typeof a === 'string'
+            ? a
+            : Array.isArray(a) && a.length
+              ? String(a[0])
+              : '';
+        if (id) firstAssigneeIds.push(id);
+      }
+      const assigneeMap = firstAssigneeIds.length
+        ? await fetchProfilesMapByAuthIds(supabase as any, Array.from(new Set(firstAssigneeIds)))
+        : new Map();
+
+      const mapped: MaterialRequest[] = (tasks || []).map((t: any) => {
+        const board = boardById.get(String(t.board_id));
+        const col = colById.get(String(t.column_id));
+        const client = t.client_id ? clientById.get(String(t.client_id)) : null;
+        const stageKey = col?.stage_key || '';
+
+        const a = t.assigned_to;
+        const firstId = typeof a === 'string' ? a : Array.isArray(a) && a.length ? String(a[0]) : '';
+        const assigneeName = firstId ? assigneeMap.get(String(firstId))?.full_name || 'Atribuído' : 'Não atribuído';
+
+        const createdAt = t.created_at ? String(t.created_at).slice(0, 10) : new Date().toISOString().slice(0, 10);
+        const due = t.due_date ? String(t.due_date).slice(0, 10) : new Date().toISOString().slice(0, 10);
+
+        return {
+          id: String(t.id),
+          title: String(t.title || 'Sem título'),
+          description: String(t.description || ''),
+          client: String(client?.company_name || '—'),
+          type: inferTypeFromAreaKey(String(board?.area_key || '')),
+          priority: normalizePriority(t.priority),
+          status: normalizeStatus(stageKey),
+          requestedAt: createdAt,
+          deadline: due,
+          assignee: assigneeName,
+          attachments: Number(t.attachments_count || 0) || 0,
+          comments: Number(t.comments_count || 0) || 0,
+        };
+      });
+
+      setRequests(mapped);
+    } catch (e) {
+      console.error('Erro ao carregar solicitações (kanban_tasks):', e);
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCreateRequest = async () => {
+    try {
+      if (!newForm.title.trim()) {
+        alert('Título é obrigatório');
+        return;
+      }
+
+      const areaKey = mapTypeToAreaKey(newForm.type);
+      const board = boards.find((b) => String(b.area_key) === areaKey) || null;
+      if (!board?.id) {
+        alert('Board da área não encontrado');
+        return;
+      }
+
+      const { data: demandCol, error: colErr } = await supabase
+        .from('kanban_columns')
+        .select('id, stage_key')
+        .eq('board_id', board.id)
+        .eq('stage_key', 'demanda')
+        .maybeSingle();
+      if (colErr || !demandCol?.id) {
+        alert('Coluna "Demanda" não encontrada no board de destino');
+        return;
+      }
+
+      const dueIso = newForm.deadline ? new Date(`${newForm.deadline}T23:59:00.000Z`).toISOString() : null;
+
+      const { error: insErr } = await supabase.from('kanban_tasks').insert({
+        board_id: board.id,
+        column_id: demandCol.id,
+        title: newForm.title.trim(),
+        description: newForm.description?.trim() || null,
+        priority: mapPriorityToDb(newForm.priority),
+        due_date: dueIso,
+        client_id: newForm.clientId || null,
+      } as any);
+      if (insErr) throw insErr;
+
+      setShowNewModal(false);
+      setNewForm({ title: '', description: '', type: 'arte', priority: 'medium', deadline: '', clientId: '' });
+      await loadRequests();
+      alert('✅ Solicitação criada com sucesso!');
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || 'Erro ao criar solicitação');
+    }
   };
 
   const filteredRequests = requests.filter(req => {
@@ -258,6 +418,13 @@ export default function SolicitacoesMaterialPage() {
 
         {/* Requests List */}
         <div className="space-y-4">
+          {loading && (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-gray-500">Carregando solicitações...</p>
+              </CardContent>
+            </Card>
+          )}
           {filteredRequests.map((request, idx) => (
             <motion.div
               key={request.id}
@@ -295,7 +462,14 @@ export default function SolicitacoesMaterialPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); alert('📥 Baixando arquivos...'); }}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          alert('📎 Para baixar anexos, abra o card no Kanban (os arquivos ficam nos anexos do card).');
+                        }}
+                      >
                         <Download className="w-4 h-4" />
                       </Button>
                       <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedRequest(request); }}>
@@ -309,7 +483,7 @@ export default function SolicitacoesMaterialPage() {
           ))}
         </div>
 
-        {filteredRequests.length === 0 && (
+        {!loading && filteredRequests.length === 0 && (
           <div className="text-center py-12">
             <FileText className="w-12 h-12 mx-auto text-gray-300 mb-4" />
             <p className="text-gray-500">Nenhuma solicitação encontrada</p>
@@ -342,16 +516,47 @@ export default function SolicitacoesMaterialPage() {
                 <div className="p-6 space-y-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Título</label>
-                    <input type="text" className="w-full px-3 py-2 border rounded-lg" placeholder="Ex: Banner para Instagram" />
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="Ex: Banner para Instagram"
+                      value={newForm.title}
+                      onChange={(e) => setNewForm((p) => ({ ...p, title: e.target.value }))}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Descrição</label>
-                    <textarea className="w-full px-3 py-2 border rounded-lg" rows={3} placeholder="Descreva o que precisa..." />
+                    <textarea
+                      className="w-full px-3 py-2 border rounded-lg"
+                      rows={3}
+                      placeholder="Descreva o que precisa..."
+                      value={newForm.description}
+                      onChange={(e) => setNewForm((p) => ({ ...p, description: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Cliente (opcional)</label>
+                    <select
+                      className="w-full px-3 py-2 border rounded-lg"
+                      value={newForm.clientId}
+                      onChange={(e) => setNewForm((p) => ({ ...p, clientId: e.target.value }))}
+                    >
+                      <option value="">—</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.company_name || c.id}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1">Tipo</label>
-                      <select className="w-full px-3 py-2 border rounded-lg">
+                      <select
+                        className="w-full px-3 py-2 border rounded-lg"
+                        value={newForm.type}
+                        onChange={(e) => setNewForm((p) => ({ ...p, type: e.target.value as any }))}
+                      >
                         <option value="arte">Arte/Design</option>
                         <option value="video">Vídeo</option>
                         <option value="texto">Texto/Copy</option>
@@ -360,7 +565,11 @@ export default function SolicitacoesMaterialPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Prioridade</label>
-                      <select className="w-full px-3 py-2 border rounded-lg">
+                      <select
+                        className="w-full px-3 py-2 border rounded-lg"
+                        value={newForm.priority}
+                        onChange={(e) => setNewForm((p) => ({ ...p, priority: e.target.value as any }))}
+                      >
                         <option value="low">Baixa</option>
                         <option value="medium">Média</option>
                         <option value="high">Alta</option>
@@ -370,12 +579,17 @@ export default function SolicitacoesMaterialPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Prazo</label>
-                    <input type="date" className="w-full px-3 py-2 border rounded-lg" />
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border rounded-lg"
+                      value={newForm.deadline}
+                      onChange={(e) => setNewForm((p) => ({ ...p, deadline: e.target.value }))}
+                    />
                   </div>
                 </div>
                 <div className="p-6 border-t flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setShowNewModal(false)}>Cancelar</Button>
-                  <Button className="bg-[#1672d6]" onClick={() => { alert('✅ Solicitação criada com sucesso!'); setShowNewModal(false); }}>
+                  <Button className="bg-[#1672d6]" onClick={handleCreateRequest}>
                     Criar Solicitação
                   </Button>
                 </div>

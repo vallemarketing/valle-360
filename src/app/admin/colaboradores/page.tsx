@@ -49,94 +49,9 @@ export default function EmployeesListPage() {
     setShowModal(true)
   }
 
-  // Mock data - fallback (a tela tenta carregar dados reais via API)
-  const [employees, setEmployees] = useState<Employee[]>([
-    {
-      id: '1',
-      fullName: 'Ana Silva Santos',
-      email: 'ana.silva@valle360.com.br',
-      phone: '(11) 99876-5432',
-      position: 'Social Media Manager',
-      department: 'Marketing',
-      areaOfExpertise: 'Social Media',
-      status: 'active',
-      hireDate: '2023-03-15',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ana',
-      performanceScore: 92,
-      deliveriesOnTime: 45,
-      totalDeliveries: 48,
-      retentionStatus: 'reter',
-      clientsAssigned: 8,
-      feedbackHistory: [
-        { date: '2024-11-15', type: 'positive', comment: 'Excelente trabalho no projeto Valle Store!' },
-        { date: '2024-10-20', type: 'positive', comment: 'Muito proativa e organizada.' },
-        { date: '2024-09-10', type: 'neutral', comment: 'Pode melhorar comunicação com clientes.' }
-      ]
-    },
-    {
-      id: '2',
-      fullName: 'Carlos Eduardo Mendes',
-      email: 'carlos.mendes@valle360.com.br',
-      phone: '(11) 98765-4321',
-      position: 'Gestor de Tráfego Pago',
-      department: 'Marketing',
-      areaOfExpertise: 'Tráfego Pago',
-      status: 'active',
-      hireDate: '2022-11-20',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Carlos',
-      performanceScore: 88,
-      deliveriesOnTime: 38,
-      totalDeliveries: 42,
-      retentionStatus: 'reter',
-      clientsAssigned: 12,
-      feedbackHistory: [
-        { date: '2024-11-10', type: 'positive', comment: 'Ótimos resultados em campanhas.' },
-        { date: '2024-10-05', type: 'negative', comment: 'Atrasou entrega de relatório.' }
-      ]
-    },
-    {
-      id: '3',
-      fullName: 'Mariana Costa Lima',
-      email: 'mariana.lima@valle360.com.br',
-      phone: '(11) 97654-3210',
-      position: 'Designer Gráfico',
-      department: 'Design',
-      areaOfExpertise: 'Design',
-      status: 'active',
-      hireDate: '2023-06-01',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mariana',
-      performanceScore: 95,
-      deliveriesOnTime: 52,
-      totalDeliveries: 54,
-      retentionStatus: 'reter',
-      clientsAssigned: 15,
-      feedbackHistory: [
-        { date: '2024-11-20', type: 'positive', comment: 'Criatividade excepcional!' },
-        { date: '2024-11-01', type: 'positive', comment: 'Cliente muito satisfeito com artes.' }
-      ]
-    },
-    {
-      id: '4',
-      fullName: 'João Pedro Oliveira',
-      email: 'joao.pedro@valle360.com.br',
-      phone: '(11) 96543-2109',
-      position: 'Desenvolvedor Web',
-      department: 'Tecnologia',
-      areaOfExpertise: 'Web',
-      status: 'active',
-      hireDate: '2024-01-10',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Joao',
-      performanceScore: 65,
-      deliveriesOnTime: 18,
-      totalDeliveries: 25,
-      retentionStatus: 'melhorar',
-      clientsAssigned: 5,
-      feedbackHistory: [
-        { date: '2024-11-18', type: 'negative', comment: 'Precisa melhorar prazos.' },
-        { date: '2024-10-25', type: 'neutral', comment: 'Qualidade boa, mas atrasos frequentes.' }
-      ]
-    }
-  ])
+  // Lista real (via /api/admin/employees)
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [employeesLoading, setEmployeesLoading] = useState(true)
 
   const getAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
@@ -216,15 +131,17 @@ export default function EmployeesListPage() {
 
   const loadEmployeesReal = async () => {
     try {
+      setEmployeesLoading(true)
       const authHeaders = await getAuthHeaders()
       const res = await fetch('/api/admin/employees', { headers: authHeaders })
       const data = await res.json().catch(() => null)
-      if (!res.ok) return
-      if (Array.isArray(data?.employees) && data.employees.length > 0) {
-        setEmployees(data.employees)
-      }
+      if (!res.ok) throw new Error(data?.error || 'Falha ao carregar colaboradores')
+      setEmployees(Array.isArray(data?.employees) ? data.employees : [])
     } catch {
-      // mantém mock
+      setEmployees([])
+    }
+    finally {
+      setEmployeesLoading(false)
     }
   }
 
@@ -525,7 +442,9 @@ export default function EmployeesListPage() {
               Performance Média
             </p>
             <p className="text-3xl font-bold" style={{ color: 'var(--primary-500)' }}>
-              {Math.round(employees.reduce((sum, e) => sum + e.performanceScore, 0) / employees.length)}%
+              {employees.length > 0
+                ? `${Math.round(employees.reduce((sum, e) => sum + e.performanceScore, 0) / employees.length)}%`
+                : '—'}
             </p>
           </motion.div>
 
@@ -693,7 +612,13 @@ export default function EmployeesListPage() {
           })}
         </div>
 
-        {filteredEmployees.length === 0 && (
+        {employeesLoading ? (
+          <div className="text-center py-12">
+            <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
+              Carregando colaboradores...
+            </p>
+          </div>
+        ) : filteredEmployees.length === 0 && (
           <div className="text-center py-12">
             <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
               Nenhum colaborador encontrado

@@ -212,17 +212,48 @@ export default function ValIAPage() {
     setValue('')
     setIsTyping(true)
 
-    // Simular resposta da IA (integrar com OpenAI depois)
-    setTimeout(() => {
+    try {
+      const history = [...messages, userMessage]
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: m.content }))
+
+      const res = await fetch('/api/ai/val', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage.content,
+          context: { userArea },
+          history,
+        }),
+      })
+
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(data?.error || 'Erro ao conversar com a Val')
+      }
+
+      const aiText = String(data?.message || data?.data?.message || '').trim()
+      const finalText = aiText || 'Não consegui responder agora. Pode tentar novamente?'
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Olá ${userName}! Recebi sua mensagem: "${userMessage.content}". Como posso ajudar mais?`,
-        timestamp: new Date()
+        content: finalText,
+        timestamp: new Date(),
       }
-      setMessages(prev => [...prev, aiMessage])
+
+      setMessages((prev) => [...prev, aiMessage])
+    } catch (e: any) {
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: e?.message || 'Erro ao conversar com a Val',
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, aiMessage])
+    } finally {
       setIsTyping(false)
-    }, 2000)
+    }
   }
 
   const handleIcebreakerClick = (question: string) => {

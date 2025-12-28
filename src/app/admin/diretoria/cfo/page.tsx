@@ -72,12 +72,103 @@ const financialData = {
 };
 
 export default function CFOPage() {
+  const [remoteData, setRemoteData] = useState<any | null>(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([
     { role: 'assistant', content: 'Olá! Sou seu CFO Virtual. Como posso ajudá-lo com as finanças da empresa hoje?' }
   ]);
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+
+  const data = remoteData || financialData;
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      setLoadingDashboard(true);
+      try {
+        const res = await fetch('/api/csuite/cfo?action=dashboard', { cache: 'no-store' });
+        const j = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(j?.error || 'Falha ao carregar dashboard do CFO');
+
+        const k = j?.kpis || {};
+        const alerts = Array.isArray(j?.alerts) ? j.alerts : [];
+        const topClients = Array.isArray(j?.topClients) ? j.topClients : [];
+        const forecasts = Array.isArray(j?.forecasts) ? j.forecasts : [];
+        const pricingIssues = Array.isArray(j?.pricingIssues) ? j.pricingIssues : [];
+
+        const revenueByMonth = forecasts.slice(0, 6).map((f: any) => {
+          const label = String(f?.period || '').slice(0, 3) || '—';
+          const receita = Number(f?.expected || 0) || 0;
+          const despesas = 0;
+          const lucro = receita;
+          return { month: label, receita, despesas, lucro };
+        });
+
+        const revenueByClient = topClients.slice(0, 4).map((c: any, idx: number) => {
+          const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
+          return {
+            name: String(c?.client_name || c?.clientName || `Cliente ${idx + 1}`),
+            value: Number(c?.revenue || 0) || 0,
+            color: colors[idx] || '#8B5CF6',
+          };
+        });
+        const othersValue = topClients.slice(4).reduce((sum: number, c: any) => sum + (Number(c?.revenue || 0) || 0), 0);
+        if (othersValue > 0) revenueByClient.push({ name: 'Outros', value: othersValue, color: '#8B5CF6' });
+
+        const mapped = {
+          kpis: {
+            totalRevenue: Number(k?.totalRevenue || 0) || 0,
+            revenueGrowth: Number(k?.revenueGrowth || 0) || 0,
+            totalExpenses: Number(k?.totalCosts || 0) || 0,
+            expenseGrowth: 0,
+            profit: Number(k?.grossMargin || 0) || 0,
+            profitMargin: Number(k?.averageMargin || 0) || 0,
+            cashFlow: Number(k?.mrr || 0) || 0,
+            pendingReceivables: 0,
+          },
+          revenueByMonth: revenueByMonth.length ? revenueByMonth : financialData.revenueByMonth,
+          revenueByClient: revenueByClient.length ? revenueByClient : financialData.revenueByClient,
+          alerts: alerts.length
+            ? alerts.slice(0, 6).map((a: any, idx: number) => ({
+                id: a?.id || idx + 1,
+                type: a?.severity === 'critical' || a?.severity === 'high' ? 'danger' : a?.severity === 'medium' ? 'warning' : 'info',
+                message: String(a?.title || a?.description || 'Alerta financeiro'),
+                action: String(a?.recommendedAction || 'Ver detalhes'),
+              }))
+            : financialData.alerts,
+          recommendations: pricingIssues.length
+            ? pricingIssues.slice(0, 6).map((p: any, idx: number) => ({
+                id: idx + 1,
+                title: String(p?.service || 'Ajuste de preço'),
+                impact: `Preço recomendado: R$ ${Number(p?.recommendedPrice || 0).toLocaleString('pt-BR')}`,
+                confidence: 80,
+              }))
+            : financialData.recommendations,
+          pricing: {
+            services: pricingIssues.length
+              ? pricingIssues.slice(0, 6).map((p: any) => ({
+                  name: String(p?.service || 'Serviço'),
+                  currentPrice: Number(p?.currentPrice || 0) || 0,
+                  suggestedPrice: Number(p?.recommendedPrice || 0) || 0,
+                  marketAvg: Number(p?.maxPrice || 0) || 0,
+                  margin: Number(p?.margin || 0) || 0,
+                }))
+              : financialData.pricing.services,
+          },
+        };
+
+        setRemoteData(mapped);
+      } catch (e) {
+        console.error('Falha ao carregar dashboard CFO:', e);
+        setRemoteData(null);
+      } finally {
+        setLoadingDashboard(false);
+      }
+    };
+
+    loadDashboard();
+  }, []);
 
   const handleSendMessage = async () => {
     if (!chatInput.trim()) return;
@@ -87,21 +178,28 @@ export default function CFOPage() {
     setChatInput('');
     setIsTyping(true);
 
-    // Simular resposta da IA
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      const res = await fetch('/api/csuite/cfo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'chat',
+          message: userMessage,
+          context: {
+            kpis: data?.kpis,
+          },
+        }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(j?.error || 'Erro ao conversar com o CFO');
 
-    const responses: Record<string, string> = {
-      'margem': 'Analisando as margens atuais, identifiquei que o serviço de Social Media Básico está com margem de 35%, abaixo da meta de 40%. Recomendo aumentar o preço de R$ 1.500 para R$ 1.750, alinhando com a média de mercado.',
-      'receita': 'A receita atual é de R$ 287.450, com crescimento de 12.5% em relação ao mês anterior. Projeto R$ 310.000 para dezembro baseado na tendência e contratos ativos.',
-      'custos': 'Os custos operacionais estão em R$ 195.000. Identifiquei oportunidade de redução de R$ 3.200/mês renegociando com o fornecedor X.',
-      'default': 'Baseado na análise dos dados financeiros, posso ajudá-lo com: análise de margem, projeção de receita, controle de custos e precificação. Como posso ser mais específico?'
-    };
-
-    const keyword = Object.keys(responses).find(k => userMessage.toLowerCase().includes(k));
-    const response = responses[keyword || 'default'];
-
-    setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
-    setIsTyping(false);
+      const response = String(j?.response || '').trim() || 'Não consegui responder agora. Pode tentar novamente?';
+      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+    } catch (e: any) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: e?.message || 'Erro ao conversar com o CFO' }]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (
@@ -146,11 +244,11 @@ export default function CFOPage() {
                   <Wallet className="w-5 h-5 text-emerald-500" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
-                  R$ {financialData.kpis.totalRevenue.toLocaleString('pt-BR')}
+                  R$ {data.kpis.totalRevenue.toLocaleString('pt-BR')}
                 </p>
                 <div className="flex items-center gap-1 mt-1 text-emerald-600">
                   <ArrowUpRight className="w-4 h-4" />
-                  <span className="text-sm font-medium">+{financialData.kpis.revenueGrowth}%</span>
+                  <span className="text-sm font-medium">+{data.kpis.revenueGrowth}%</span>
                 </div>
               </CardContent>
             </Card>
@@ -164,11 +262,11 @@ export default function CFOPage() {
                   <Receipt className="w-5 h-5 text-red-500" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
-                  R$ {financialData.kpis.totalExpenses.toLocaleString('pt-BR')}
+                  R$ {data.kpis.totalExpenses.toLocaleString('pt-BR')}
                 </p>
                 <div className="flex items-center gap-1 mt-1 text-red-600">
                   <ArrowUpRight className="w-4 h-4" />
-                  <span className="text-sm font-medium">+{financialData.kpis.expenseGrowth}%</span>
+                  <span className="text-sm font-medium">+{data.kpis.expenseGrowth}%</span>
                 </div>
               </CardContent>
             </Card>
@@ -182,10 +280,10 @@ export default function CFOPage() {
                   <TrendingUp className="w-5 h-5 text-blue-500" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
-                  R$ {financialData.kpis.profit.toLocaleString('pt-BR')}
+                  R$ {data.kpis.profit.toLocaleString('pt-BR')}
                 </p>
                 <div className="flex items-center gap-1 mt-1 text-blue-600">
-                  <span className="text-sm font-medium">Margem: {financialData.kpis.profitMargin}%</span>
+                  <span className="text-sm font-medium">Margem: {data.kpis.profitMargin}%</span>
                 </div>
               </CardContent>
             </Card>
@@ -199,11 +297,11 @@ export default function CFOPage() {
                   <Banknote className="w-5 h-5 text-purple-500" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
-                  R$ {financialData.kpis.cashFlow.toLocaleString('pt-BR')}
+                  R$ {data.kpis.cashFlow.toLocaleString('pt-BR')}
                 </p>
                 <div className="flex items-center gap-1 mt-1 text-amber-600">
                   <Clock className="w-4 h-4" />
-                  <span className="text-sm">R$ {financialData.kpis.pendingReceivables.toLocaleString('pt-BR')} a receber</span>
+                  <span className="text-sm">R$ {data.kpis.pendingReceivables.toLocaleString('pt-BR')} a receber</span>
                 </div>
               </CardContent>
             </Card>
@@ -221,7 +319,7 @@ export default function CFOPage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={financialData.revenueByMonth}>
+                <AreaChart data={data.revenueByMonth}>
                   <defs>
                     <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
@@ -255,7 +353,7 @@ export default function CFOPage() {
               <ResponsiveContainer width="100%" height={300}>
                 <RechartsPieChart>
                   <Pie
-                    data={financialData.revenueByClient}
+                    data={data.revenueByClient}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -264,7 +362,7 @@ export default function CFOPage() {
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                   >
-                    {financialData.revenueByClient.map((entry, index) => (
+                    {data.revenueByClient.map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -286,7 +384,7 @@ export default function CFOPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {financialData.alerts.map((alert) => (
+              {data.alerts.map((alert: any) => (
                 <div 
                   key={alert.id}
                   className={cn(
@@ -326,7 +424,7 @@ export default function CFOPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {financialData.recommendations.map((rec) => (
+              {data.recommendations.map((rec: any) => (
                 <motion.div 
                   key={rec.id}
                   whileHover={{ x: 4 }}
@@ -373,7 +471,7 @@ export default function CFOPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {financialData.pricing.services.map((service, idx) => (
+                  {data.pricing.services.map((service: any, idx: number) => (
                     <tr key={idx} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 font-medium text-gray-900">{service.name}</td>
                       <td className="py-3 px-4 text-right">R$ {service.currentPrice.toLocaleString('pt-BR')}</td>

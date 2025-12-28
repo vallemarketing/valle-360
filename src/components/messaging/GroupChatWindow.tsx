@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,10 @@ import { PinMessageButton } from './PinMessageButton';
 import { usePresence } from '@/hooks/usePresence';
 import { useMessageNotification } from '@/hooks/useMessageNotification';
 import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
+import type { MentionCandidate } from '@/lib/mentions/types';
+import { MentionsText } from '@/lib/mentions/render';
+import { applyMentionReplacement, extractMentionUserIds, getActiveMentionQuery } from '@/lib/mentions/parse';
+import { filterCandidates } from '@/lib/mentions/suggestions';
 
 interface Attachment {
   id: string;
@@ -65,6 +69,11 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const [attachments, setAttachments] = useState<any[]>([]);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [mentionsProfilesById, setMentionsProfilesById] = useState<Map<string, any>>(new Map());
+  const messageInputRef = useRef<HTMLInputElement | null>(null);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionActiveRange, setMentionActiveRange] = useState<{ start: number; end: number } | null>(null);
   const [groupParticipants, setGroupParticipants] = useState<Array<{ id: string; full_name: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -175,6 +184,21 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
       previousMessageCountRef.current = formattedMessages.length;
 
       setMessages(formattedMessages);
+
+      // Resolver perfis para mentions (render)
+      try {
+        const mentionIds = Array.from(
+          new Set((formattedMessages || []).flatMap((m: any) => extractMentionUserIds(String(m?.body || ''))))
+        );
+        if (mentionIds.length > 0) {
+          const map = await fetchProfilesMapByAuthIds(supabase as any, mentionIds);
+          setMentionsProfilesById(map as any);
+        } else {
+          setMentionsProfilesById(new Map());
+        }
+      } catch {
+        // ignore
+      }
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
     } finally {
@@ -291,6 +315,23 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
         }
       }
 
+      // Processar mentions (best-effort)
+      if (messageData?.id) {
+        try {
+          await fetch('/api/mentions/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              entityType: 'group_message',
+              entityId: messageData.id,
+              groupId: group.id,
+            }),
+          });
+        } catch {
+          // ignore
+        }
+      }
+
       setNewMessage('');
       setAttachments([]);
     } catch (error) {
@@ -309,6 +350,66 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
     } else {
       stopTyping();
     }
+
+    requestAnimationFrame(() => refreshMentionStateFromInput());
+  };
+
+  const mentionCandidates: MentionCandidate[] = useMemo(() => {
+    const list = (groupParticipants || [])
+      .map((p: any) => ({
+        userId: String(p.id),
+        label: String(p.full_name || 'Usuário'),
+      }))
+      .filter((c: any) => !!c.userId && c.userId !== currentUserId);
+    return list;
+  }, [groupParticipants, currentUserId]);
+
+  const filteredMentionCandidates = useMemo(() => {
+    return filterCandidates(mentionCandidates, mentionQuery);
+  }, [mentionCandidates, mentionQuery]);
+
+  const refreshMentionStateFromInput = () => {
+    const el = messageInputRef.current;
+    if (!el) return;
+    const value = String(el.value || '');
+    const caret = typeof el.selectionStart === 'number' ? el.selectionStart : value.length;
+    const active = getActiveMentionQuery(value, caret);
+    if (!active.active) {
+      setMentionOpen(false);
+      setMentionQuery('');
+      setMentionActiveRange(null);
+      return;
+    }
+    setMentionOpen(true);
+    setMentionQuery(active.query);
+    setMentionActiveRange({ start: active.startIndex, end: active.endIndex });
+  };
+
+  const applyMention = (candidate: MentionCandidate) => {
+    const el = messageInputRef.current;
+    if (!el || !mentionActiveRange) return;
+    const value = String(el.value || '');
+    const { nextValue, nextCaretIndex } = applyMentionReplacement({
+      value,
+      startIndex: mentionActiveRange.start,
+      endIndex: mentionActiveRange.end,
+      userId: candidate.userId,
+      trailingSpace: true,
+    });
+
+    setNewMessage(nextValue);
+    setMentionOpen(false);
+    setMentionQuery('');
+    setMentionActiveRange(null);
+
+    requestAnimationFrame(() => {
+      try {
+        el.focus();
+        el.setSelectionRange(nextCaretIndex, nextCaretIndex);
+      } catch {
+        // ignore
+      }
+    });
   };
 
   const handleEmojiSelect = (emoji: string) => {
@@ -351,6 +452,7 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
 
   const renderMessage = (message: Message, index: number) => {
     const isOwnMessage = message.from_user_id === currentUserId;
+    const isMentioned = !isOwnMessage && !!currentUserId && String(message.body || '').includes(`@{${currentUserId}}`);
     const showDate =
       index === 0 ||
       new Date(messages[index - 1].created_at).toDateString() !==
@@ -370,7 +472,9 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
           id={`message-${message.id}`}
           className={`flex gap-3 mb-4 group ${isOwnMessage ? 'flex-row-reverse' : ''} ${
             newMessageIds.has(message.id) ? 'animate-slide-in' : ''
-          } ${highlightedMessageId === message.id ? 'bg-yellow-100 dark:bg-yellow-900/20 p-2 rounded-lg' : ''}`}
+          } ${highlightedMessageId === message.id ? 'bg-yellow-100 dark:bg-yellow-900/20 p-2 rounded-lg' : ''} ${
+            isMentioned ? 'ring-2 ring-yellow-300/60 dark:ring-yellow-500/30 rounded-lg p-2' : ''
+          }`}
           style={{
             animation: newMessageIds.has(message.id) ? 'slideIn 0.3s ease-out' : undefined
           }}
@@ -409,7 +513,13 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
               }`}
             >
               {message.body && message.body !== '(anexo)' && (
-                <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
+                <p className="text-sm whitespace-pre-wrap break-words">
+                  <MentionsText
+                    text={message.body}
+                    profilesById={mentionsProfilesById as any}
+                    highlightUserId={currentUserId || undefined}
+                  />
+                </p>
               )}
               {message.attachments && message.attachments.length > 0 && (
                 <div className="mt-2 space-y-2">
@@ -528,16 +638,43 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
           maxFiles={5}
           maxSizeInMB={50}
         />
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+        <form onSubmit={handleSendMessage} className="flex items-start gap-2">
           <EmojiPicker onEmojiSelect={handleEmojiSelect} />
-          <Input
-            value={newMessage}
-            onChange={handleInputChange}
-            onBlur={() => stopTyping()}
-            placeholder="Digite uma mensagem..."
-            disabled={isSending}
-            className="flex-1"
-          />
+          <div className="relative flex-1">
+            <Input
+              ref={messageInputRef as any}
+              value={newMessage}
+              onChange={handleInputChange}
+              onBlur={() => {
+                stopTyping();
+                setTimeout(() => setMentionOpen(false), 150);
+              }}
+              onKeyUp={() => refreshMentionStateFromInput()}
+              onClick={() => refreshMentionStateFromInput()}
+              placeholder="Digite uma mensagem... (use @ para mencionar)"
+              disabled={isSending}
+              className="flex-1"
+            />
+
+            {mentionOpen && filteredMentionCandidates.length > 0 && (
+              <div className="absolute left-0 right-0 bottom-full mb-2 z-50 rounded-lg border bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
+                <div className="max-h-56 overflow-y-auto">
+                  {filteredMentionCandidates.map((c) => (
+                    <button
+                      key={c.userId}
+                      type="button"
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() => applyMention(c)}
+                      className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">{c.label}</div>
+                      {c.email && <div className="text-xs text-gray-500">{c.email}</div>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           <Button
             type="submit"
             disabled={(!newMessage.trim() && attachments.length === 0) || isSending}

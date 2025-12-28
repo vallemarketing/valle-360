@@ -51,76 +51,8 @@ interface Feature {
 }
 
 // =====================================================
-// MOCK DATA
+// DADOS REAIS
 // =====================================================
-
-const mockClients: Client[] = [
-    {
-      id: '1',
-      companyName: 'Valle Store',
-      contactName: 'João Silva',
-      email: 'joao@vallestore.com.br',
-      phone: '(11) 98765-4321',
-      industry: 'E-commerce',
-      status: 'active',
-      monthlyValue: 8500,
-      startDate: '2024-01-15',
-    avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Valle+Store',
-    address: 'Av. Paulista, 1000',
-    city: 'São Paulo',
-    state: 'SP',
-    cnpj: '12.345.678/0001-90',
-    website: 'www.vallestore.com.br',
-    services: ['social_media', 'trafego_pago', 'design']
-    },
-    {
-      id: '2',
-      companyName: 'Tech Solutions Ltda',
-      contactName: 'Maria Santos',
-      email: 'maria@techsolutions.com',
-      phone: '(11) 97654-3210',
-      industry: 'Tecnologia',
-      status: 'active',
-      monthlyValue: 12000,
-      startDate: '2023-11-20',
-    avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Tech+Solutions',
-    address: 'Rua das Flores, 500',
-    city: 'São Paulo',
-    state: 'SP',
-    cnpj: '98.765.432/0001-10',
-    services: ['social_media', 'trafego_pago', 'web']
-    },
-    {
-      id: '3',
-      companyName: 'Valle Boutique',
-      contactName: 'Ana Costa',
-      email: 'ana@valleboutique.com.br',
-      phone: '(11) 96543-2109',
-      industry: 'Moda',
-      status: 'active',
-      monthlyValue: 5500,
-      startDate: '2024-02-01',
-    avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Valle+Boutique',
-    city: 'Rio de Janeiro',
-    state: 'RJ',
-    services: ['social_media']
-  },
-  {
-    id: '4',
-    companyName: 'Sabor & Arte',
-    contactName: 'Carlos Mendes',
-    email: 'carlos@saborarte.com.br',
-    phone: '(21) 99876-5432',
-    industry: 'Restaurante',
-    status: 'inactive',
-    monthlyValue: 3500,
-    startDate: '2023-06-10',
-    avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Sabor+Arte',
-    city: 'Rio de Janeiro',
-    state: 'RJ',
-    services: []
-  }
-]
 
 const mockFeatures: Feature[] = [
   { id: '1', code: 'reputation', name: 'Central de Reputação', description: 'NPS, Google, Reclame Aqui', category: 'analytics', enabled: true },
@@ -602,7 +534,8 @@ function ClientActionMenu({
 export default function ClientsListPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'pending'>('all')
-  const [clients, setClients] = useState<Client[]>(mockClients)
+  const [clients, setClients] = useState<Client[]>([])
+  const [clientsLoading, setClientsLoading] = useState(true)
   
   // Modals state
   const [detailsModal, setDetailsModal] = useState<Client | null>(null)
@@ -681,15 +614,18 @@ export default function ClientsListPage() {
 
   const loadClientsReal = async () => {
     try {
+      setClientsLoading(true)
       const authHeaders = await getAuthHeaders()
       const res = await fetch('/api/admin/clients', { headers: authHeaders })
       const data = await res.json().catch(() => null)
-      if (!res.ok) return
-      if (Array.isArray(data?.clients) && data.clients.length > 0) {
-        setClients(data.clients)
-      }
+      if (!res.ok) throw new Error(data?.error || 'Falha ao carregar clientes')
+      setClients(Array.isArray(data?.clients) ? data.clients : [])
     } catch {
-      // mantém mock
+      setClients([])
+      toast.error('Falha ao carregar clientes', { description: 'Verifique permissões e integrações do Supabase.' })
+    }
+    finally {
+      setClientsLoading(false)
     }
   }
 
@@ -999,7 +935,12 @@ export default function ClientsListPage() {
           })}
         </div>
 
-        {filteredClients.length === 0 && (
+        {clientsLoading ? (
+          <div className="text-center py-12">
+            <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-lg text-gray-500">Carregando clientes...</p>
+          </div>
+        ) : filteredClients.length === 0 && (
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <p className="text-lg text-gray-500">Nenhum cliente encontrado</p>

@@ -92,6 +92,14 @@ export default function UploadPostsCenter(props: { title: string; backHref?: str
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
 
+  const openExternal = (url: string) => {
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      setHint(`Abra este link em uma nova aba: ${url}`);
+    }
+  };
+
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [posts, setPosts] = useState<any[]>([]);
 
@@ -653,14 +661,14 @@ export default function UploadPostsCenter(props: { title: string; backHref?: str
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setHint('Studio: em breve (placeholder).')}
+                    onClick={() => openExternal('https://business.facebook.com/latest/content_calendar')}
                   >
                     Studio
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setHint('Canva: em breve (placeholder).')}
+                    onClick={() => openExternal('https://www.canva.com/')}
                   >
                     Canva
                   </Button>

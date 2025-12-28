@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { 
   TrendingUp, 
   TrendingDown,
@@ -27,30 +28,94 @@ import { StatsCard, StatsGrid } from "@/components/valle-ui";
 // Métricas detalhadas de performance
 // ============================================
 
-const mockChartData = [
-  { month: "Jan", impressions: 45000, clicks: 2100, conversions: 180 },
-  { month: "Fev", impressions: 52000, clicks: 2400, conversions: 210 },
-  { month: "Mar", impressions: 48000, clicks: 2200, conversions: 195 },
-  { month: "Abr", impressions: 61000, clicks: 2800, conversions: 250 },
-  { month: "Mai", impressions: 58000, clicks: 2650, conversions: 235 },
-  { month: "Jun", impressions: 72000, clicks: 3200, conversions: 290 },
-  { month: "Jul", impressions: 85000, clicks: 3800, conversions: 340 },
-  { month: "Ago", impressions: 91000, clicks: 4100, conversions: 365 },
-  { month: "Set", impressions: 98000, clicks: 4400, conversions: 390 },
-  { month: "Out", impressions: 105000, clicks: 4700, conversions: 420 },
-  { month: "Nov", impressions: 118000, clicks: 5200, conversions: 465 },
-  { month: "Dez", impressions: 125400, clicks: 8200, conversions: 432 },
-];
+type SocialDaily = {
+  date: string;
+  impressions: number;
+  reach: number;
+  engaged: number;
+  profile_views: number;
+  fans: number;
+};
 
-const campaigns = [
-  { name: "Black Friday 2024", status: "active", impressions: "45.2K", clicks: "3.1K", conversions: 156, roi: "320%" },
-  { name: "Natal Promocional", status: "active", impressions: "32.1K", clicks: "2.4K", conversions: 98, roi: "285%" },
-  { name: "Lançamento Produto X", status: "completed", impressions: "28.5K", clicks: "1.9K", conversions: 87, roi: "245%" },
-  { name: "Branding Institucional", status: "active", impressions: "19.6K", clicks: "0.8K", conversions: 45, roi: "180%" },
-];
+function pct(curr: number, base: number) {
+  if (!base) return 0;
+  return Math.round(((curr - base) / base) * 100);
+}
+
+function formatCompact(n: number) {
+  if (!Number.isFinite(n)) return "—";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(Math.round(n));
+}
 
 export default function DesempenhoPage() {
-  const maxImpressions = Math.max(...mockChartData.map(d => d.impressions));
+  const [daily, setDaily] = useState<SocialDaily[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/client/social/metrics?days=365", { cache: "no-store" });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(j?.error || "Falha ao carregar métricas");
+      setDaily(Array.isArray(j?.daily) ? j.daily : []);
+    } catch (e: any) {
+      setDaily([]);
+      setError(e?.message || "Erro ao carregar métricas");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const totals30 = useMemo(() => {
+    const last30 = daily.slice(-30);
+    return {
+      impressions: last30.reduce((s, d) => s + (Number(d.impressions) || 0), 0),
+      reach: last30.reduce((s, d) => s + (Number(d.reach) || 0), 0),
+      engaged: last30.reduce((s, d) => s + (Number(d.engaged) || 0), 0),
+      profile_views: last30.reduce((s, d) => s + (Number(d.profile_views) || 0), 0),
+    };
+  }, [daily]);
+
+  const deltas7 = useMemo(() => {
+    const last14 = daily.slice(-14);
+    const prev = last14.slice(0, 7);
+    const curr = last14.slice(7);
+    const sum = (arr: SocialDaily[], key: keyof SocialDaily) => arr.reduce((s, d) => s + (Number(d[key]) || 0), 0);
+    return {
+      impressions: pct(sum(curr, "impressions"), sum(prev, "impressions")),
+      reach: pct(sum(curr, "reach"), sum(prev, "reach")),
+      engaged: pct(sum(curr, "engaged"), sum(prev, "engaged")),
+      profile_views: pct(sum(curr, "profile_views"), sum(prev, "profile_views")),
+    };
+  }, [daily]);
+
+  const monthly = useMemo(() => {
+    const map = new Map<string, { label: string; impressions: number; reach: number; engaged: number; profile_views: number }>();
+    for (const d of daily) {
+      const dt = new Date(String(d.date));
+      if (Number.isNaN(dt.getTime())) continue;
+      const key = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}`;
+      const label = dt.toLocaleDateString("pt-BR", { month: "short" });
+      const cur = map.get(key) || { label, impressions: 0, reach: 0, engaged: 0, profile_views: 0 };
+      cur.impressions += Number(d.impressions || 0) || 0;
+      cur.reach += Number(d.reach || 0) || 0;
+      cur.engaged += Number(d.engaged || 0) || 0;
+      cur.profile_views += Number(d.profile_views || 0) || 0;
+      map.set(key, cur);
+    }
+    const keys = Array.from(map.keys()).sort();
+    return keys.slice(-12).map((k) => ({ month: map.get(k)!.label, ...map.get(k)! }));
+  }, [daily]);
+
+  const maxImpressions = Math.max(1, ...monthly.map((d) => d.impressions));
 
   return (
     <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
@@ -88,9 +153,12 @@ export default function DesempenhoPage() {
             <Calendar className="size-4" />
             Últimos 30 dias
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1672d6] text-white hover:bg-[#1672d6]/90 transition-colors">
-            <Download className="size-4" />
-            Exportar
+          <button
+            onClick={load}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1672d6] text-white hover:bg-[#1672d6]/90 transition-colors"
+          >
+            <RefreshCw className={cn("size-4", loading ? "animate-spin" : "")} />
+            Atualizar
           </button>
         </div>
       </motion.div>
@@ -103,28 +171,28 @@ export default function DesempenhoPage() {
       >
         <StatsGrid>
           <StatsCard
-            title="Impressões"
-            value="125.4K"
-            change={12}
+            title="Impressões (30d)"
+            value={formatCompact(totals30.impressions)}
+            change={deltas7.impressions}
             icon={<Eye className="size-5 text-[#1672d6]" />}
           />
           <StatsCard
-            title="Cliques"
-            value="8.2K"
-            change={8}
-            icon={<MousePointerClick className="size-5 text-[#1672d6]" />}
+            title="Alcance (30d)"
+            value={formatCompact(totals30.reach)}
+            change={deltas7.reach}
+            icon={<BarChart3 className="size-5 text-[#1672d6]" />}
           />
           <StatsCard
-            title="Conversões"
-            value="432"
-            change={23}
+            title="Engajamento (30d)"
+            value={formatCompact(totals30.engaged)}
+            change={deltas7.engaged}
             icon={<Target className="size-5 text-[#1672d6]" />}
           />
           <StatsCard
-            title="ROI Médio"
-            value="320%"
-            change={15}
-            icon={<DollarSign className="size-5 text-[#1672d6]" />}
+            title="Visitas ao perfil (30d)"
+            value={formatCompact(totals30.profile_views)}
+            change={deltas7.profile_views}
+            icon={<MousePointerClick className="size-5 text-[#1672d6]" />}
             variant="primary"
           />
         </StatsGrid>
@@ -143,7 +211,7 @@ export default function DesempenhoPage() {
               <Activity className="size-5 text-[#1672d6]" />
             </div>
             <h3 className="text-lg font-semibold text-[#001533] dark:text-white">
-              Evolução Mensal
+              Evolução (últimos 12 meses)
             </h3>
           </div>
           <div className="flex items-center gap-4 text-sm">
@@ -153,18 +221,18 @@ export default function DesempenhoPage() {
             </span>
             <span className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-emerald-500" />
-              Cliques
+              Alcance
             </span>
             <span className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-purple-500" />
-              Conversões
+              Engajamento
             </span>
           </div>
         </div>
 
         {/* Mini Chart */}
         <div className="h-64 flex items-end gap-2">
-          {mockChartData.map((data, index) => (
+          {monthly.map((data, index) => (
             <div key={data.month} className="flex-1 flex flex-col items-center gap-2">
               <div className="w-full flex flex-col items-center gap-1">
                 <motion.div
@@ -175,7 +243,7 @@ export default function DesempenhoPage() {
                   style={{ minHeight: 20 }}
                 >
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-[#001533] text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                    {(data.impressions / 1000).toFixed(1)}K
+                    {formatCompact(data.impressions)}
                   </div>
                 </motion.div>
               </div>
@@ -185,7 +253,7 @@ export default function DesempenhoPage() {
         </div>
       </motion.div>
 
-      {/* Tabela de Campanhas */}
+      {/* Detalhes / status */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -199,59 +267,31 @@ export default function DesempenhoPage() {
                 <BarChart3 className="size-5 text-[#1672d6]" />
               </div>
               <h3 className="text-lg font-semibold text-[#001533] dark:text-white">
-                Campanhas Ativas
+                Status das métricas
               </h3>
             </div>
-            <button className="text-sm text-[#1672d6] font-medium hover:underline flex items-center gap-1">
-              Ver todas <ArrowUpRight className="size-4" />
-            </button>
+            <Link href="/cliente/redes" className="text-sm text-[#1672d6] font-medium hover:underline flex items-center gap-1">
+              Conectar redes <ArrowUpRight className="size-4" />
+            </Link>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[#001533]/10 dark:border-white/10">
-                <th className="text-left p-4 text-sm font-semibold text-[#001533]/60 dark:text-white/60">Campanha</th>
-                <th className="text-left p-4 text-sm font-semibold text-[#001533]/60 dark:text-white/60">Status</th>
-                <th className="text-right p-4 text-sm font-semibold text-[#001533]/60 dark:text-white/60">Impressões</th>
-                <th className="text-right p-4 text-sm font-semibold text-[#001533]/60 dark:text-white/60">Cliques</th>
-                <th className="text-right p-4 text-sm font-semibold text-[#001533]/60 dark:text-white/60">Conversões</th>
-                <th className="text-right p-4 text-sm font-semibold text-[#001533]/60 dark:text-white/60">ROI</th>
-              </tr>
-            </thead>
-            <tbody>
-              {campaigns.map((campaign, index) => (
-                <motion.tr
-                  key={campaign.name}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + index * 0.1 }}
-                  className="border-b border-[#001533]/5 dark:border-white/5 hover:bg-[#001533]/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                >
-                  <td className="p-4">
-                    <span className="font-medium text-[#001533] dark:text-white">{campaign.name}</span>
-                  </td>
-                  <td className="p-4">
-                    <span className={cn(
-                      "px-2 py-1 rounded-full text-xs font-medium",
-                      campaign.status === "active" 
-                        ? "bg-emerald-500/10 text-emerald-600" 
-                        : "bg-[#001533]/10 text-[#001533]/60 dark:bg-white/10 dark:text-white/60"
-                    )}>
-                      {campaign.status === "active" ? "Ativa" : "Concluída"}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right text-[#001533] dark:text-white">{campaign.impressions}</td>
-                  <td className="p-4 text-right text-[#001533] dark:text-white">{campaign.clicks}</td>
-                  <td className="p-4 text-right text-[#001533] dark:text-white">{campaign.conversions}</td>
-                  <td className="p-4 text-right">
-                    <span className="font-semibold text-emerald-600">{campaign.roi}</span>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="p-6 space-y-2 text-sm text-[#001533]/70 dark:text-white/70">
+          {loading ? (
+            <p>Carregando métricas...</p>
+          ) : error ? (
+            <p className="text-red-600 dark:text-red-400">{error}</p>
+          ) : daily.length === 0 ? (
+            <p>
+              Sem dados ainda. Conecte suas redes em <span className="font-medium">Cliente → Redes</span> para começar a
+              coletar métricas.
+            </p>
+          ) : (
+            <p>Métricas carregadas com sucesso. Os números acima são agregados de Instagram/Facebook (quando conectados).</p>
+          )}
+          <p className="text-xs text-[#001533]/50 dark:text-white/50">
+            Observação: dados de “campanhas/ROI” exigem integrações de Ads/Analytics. Aqui mostramos métricas orgânicas das redes conectadas.
+          </p>
         </div>
       </motion.div>
     </div>

@@ -23,7 +23,9 @@ export async function GET(_request: NextRequest) {
     const clientId = client?.id ? String(client.id) : null;
     if (!clientId) return NextResponse.json({ error: 'Cliente não vinculado (clients.user_id)' }, { status: 400 });
 
-    const days = 30;
+    const { searchParams } = new URL(_request.url);
+    const rawDays = Number(searchParams.get('days') || 30);
+    const days = Math.max(1, Math.min(365, Number.isFinite(rawDays) ? Math.floor(rawDays) : 30));
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - (days - 1));
     const from = startOfDayIso(fromDate);

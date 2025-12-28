@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,10 @@ import { UserSelector } from '@/components/kanban/UserSelector';
 import { AREA_BOARDS, type AreaKey } from '@/lib/kanban/areaBoards';
 import { MessageSquare, Send, X } from 'lucide-react';
 import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
+import type { MentionCandidate } from '@/lib/mentions/types';
+import { MentionsText } from '@/lib/mentions/render';
+import { applyMentionReplacement, extractMentionUserIds, getActiveMentionQuery } from '@/lib/mentions/parse';
+import { filterCandidates } from '@/lib/mentions/suggestions';
 
 type Task = {
   id: string;
@@ -43,6 +47,14 @@ export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailM
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+
+  const [mentionCandidates, setMentionCandidates] = useState<MentionCandidate[]>([]);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionActiveRange, setMentionActiveRange] = useState<{ start: number; end: number } | null>(null);
+  const commentInputRef = useRef<HTMLInputElement | null>(null);
+  const [profilesById, setProfilesById] = useState<Map<string, any>>(new Map());
 
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
@@ -55,8 +67,46 @@ export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailM
     if (!isOpen) return;
     loadComments();
     setActiveTab('comments');
+    loadCurrentUser();
+    loadMentionCandidates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, task?.id]);
+
+  const loadCurrentUser = async () => {
+    try {
+      const { data } = await supabase.auth.getUser();
+      const uid = data?.user?.id ? String(data.user.id) : '';
+      setCurrentUserId(uid);
+    } catch {
+      setCurrentUserId('');
+    }
+  };
+
+  const loadMentionCandidates = async () => {
+    // Base: equipe (employees) — compatível com RLS e já usado em outros componentes
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('user_id, full_name, email, is_active')
+        .eq('is_active', true)
+        .order('full_name')
+        .limit(500);
+      if (error) throw error;
+
+      const list: MentionCandidate[] = (data || [])
+        .map((r: any) => ({
+          userId: String(r.user_id),
+          label: String(r.full_name || 'Usuário'),
+          email: r.email ? String(r.email) : undefined,
+        }))
+        .filter((c) => !!c.userId);
+
+      setMentionCandidates(list);
+    } catch (e) {
+      console.error('Erro ao carregar candidatos de mention (employees):', e);
+      setMentionCandidates([]);
+    }
+  };
 
   const loadComments = async () => {
     try {
@@ -84,9 +134,72 @@ export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailM
         user_name: nameByUserId.get(c.user_id) || 'Usuário',
       }));
       setComments(formatted);
+
+      // Pré-carregar perfis usados nos mentions (para render)
+      try {
+        const allMentionIds = Array.from(
+          new Set((data || []).flatMap((c: any) => extractMentionUserIds(String(c.comment || ''))))
+        );
+        if (allMentionIds.length > 0) {
+          const m = await fetchProfilesMapByAuthIds(supabase as any, allMentionIds);
+          setProfilesById(m as any);
+        }
+      } catch {
+        // ignore
+      }
     } catch (e) {
       console.error('Erro ao carregar comentários:', e);
     }
+  };
+
+  const filteredMentionCandidates = useMemo(() => {
+    return filterCandidates(mentionCandidates, mentionQuery);
+  }, [mentionCandidates, mentionQuery]);
+
+  const refreshMentionStateFromInput = () => {
+    const el = commentInputRef.current;
+    if (!el) return;
+    const value = String(el.value || '');
+    const caret = typeof el.selectionStart === 'number' ? el.selectionStart : value.length;
+    const active = getActiveMentionQuery(value, caret);
+    if (!active.active) {
+      setMentionOpen(false);
+      setMentionQuery('');
+      setMentionActiveRange(null);
+      return;
+    }
+    setMentionOpen(true);
+    setMentionQuery(active.query);
+    setMentionActiveRange({ start: active.startIndex, end: active.endIndex });
+  };
+
+  const applyMention = (candidate: MentionCandidate) => {
+    const el = commentInputRef.current;
+    if (!el || !mentionActiveRange) return;
+
+    const value = String(el.value || '');
+    const { nextValue, nextCaretIndex } = applyMentionReplacement({
+      value,
+      startIndex: mentionActiveRange.start,
+      endIndex: mentionActiveRange.end,
+      userId: candidate.userId,
+      trailingSpace: true,
+    });
+
+    setNewComment(nextValue);
+    setMentionOpen(false);
+    setMentionQuery('');
+    setMentionActiveRange(null);
+
+    // Reposicionar caret após o token
+    requestAnimationFrame(() => {
+      try {
+        el.focus();
+        el.setSelectionRange(nextCaretIndex, nextCaretIndex);
+      } catch {
+        // ignore
+      }
+    });
   };
 
   const handleAddComment = async (e: React.FormEvent) => {
@@ -99,12 +212,33 @@ export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailM
       const user = auth?.user;
       if (!user) throw new Error('Usuário não autenticado');
 
-      const { error } = await supabase.from('kanban_task_comments').insert({
-        task_id: task.id,
-        user_id: user.id,
-        comment: newComment.trim(),
-      });
+      const { data: created, error } = await supabase
+        .from('kanban_task_comments')
+        .insert({
+          task_id: task.id,
+          user_id: user.id,
+          comment: newComment.trim(),
+        })
+        .select('id')
+        .single();
       if (error) throw error;
+
+      // Processar mentions (best-effort)
+      if (created?.id) {
+        try {
+          await fetch('/api/mentions/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              entityType: 'kanban_task_comment',
+              entityId: created.id,
+              taskId: task.id,
+            }),
+          });
+        } catch {
+          // ignore
+        }
+      }
 
       setNewComment('');
       await loadComments();
@@ -128,12 +262,33 @@ export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailM
       const user = auth?.user;
       if (!user) throw new Error('Usuário não autenticado');
 
-      const { error } = await supabase.from('kanban_task_comments').insert({
-        task_id: task.id,
-        user_id: user.id,
-        comment: msg,
-      });
+      const { data: created, error } = await supabase
+        .from('kanban_task_comments')
+        .insert({
+          task_id: task.id,
+          user_id: user.id,
+          comment: msg,
+        })
+        .select('id')
+        .single();
       if (error) throw error;
+
+      // Processar mentions (best-effort)
+      if (created?.id) {
+        try {
+          await fetch('/api/mentions/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              entityType: 'kanban_task_comment',
+              entityId: created.id,
+              taskId: task.id,
+            }),
+          });
+        } catch {
+          // ignore
+        }
+      }
 
       setNewComment('');
       await loadComments();
@@ -269,19 +424,60 @@ export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailM
                       <p className="text-sm font-medium text-gray-900 dark:text-white">{c.user_name || 'Usuário'}</p>
                       <p className="text-xs text-gray-500">{new Date(c.created_at).toLocaleString('pt-BR')}</p>
                     </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">{c.comment}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">
+                      <MentionsText
+                        text={c.comment}
+                        profilesById={profilesById as any}
+                        highlightUserId={currentUserId || undefined}
+                      />
+                    </p>
                   </div>
                 ))
               )}
             </div>
 
-            <form onSubmit={handleAddComment} className="flex gap-2">
-              <Input
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Escreva um comentário..."
-                disabled={isSubmittingComment}
-              />
+            <form onSubmit={handleAddComment} className="flex gap-2 items-start">
+              <div className="relative flex-1">
+                <Input
+                  ref={commentInputRef as any}
+                  value={newComment}
+                  onChange={(e) => {
+                    setNewComment(e.target.value);
+                    // recalcular mention ativo com o cursor atual
+                    requestAnimationFrame(() => refreshMentionStateFromInput());
+                  }}
+                  onKeyUp={() => refreshMentionStateFromInput()}
+                  onClick={() => refreshMentionStateFromInput()}
+                  onBlur={() => {
+                    // deixa um pequeno delay para permitir click no dropdown
+                    setTimeout(() => setMentionOpen(false), 150);
+                  }}
+                  placeholder="Escreva um comentário... (use @ para mencionar)"
+                  disabled={isSubmittingComment}
+                />
+
+                {mentionOpen && filteredMentionCandidates.length > 0 && (
+                  <div className="absolute left-0 right-0 bottom-full mb-2 z-50 rounded-lg border bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
+                    <div className="max-h-56 overflow-y-auto">
+                      {filteredMentionCandidates.map((c) => (
+                        <button
+                          key={c.userId}
+                          type="button"
+                          onMouseDown={(ev) => ev.preventDefault()}
+                          onClick={() => applyMention(c)}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+                        >
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {c.label}
+                            {c.userId === currentUserId ? ' (você)' : ''}
+                          </div>
+                          {c.email && <div className="text-xs text-gray-500">{c.email}</div>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               <Button type="submit" disabled={isSubmittingComment || !newComment.trim()} title="Comentar">
                 <Send className="w-4 h-4" />
               </Button>
