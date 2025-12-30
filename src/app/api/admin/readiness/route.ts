@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
     // Integrações
     const { data: integrations } = await supabaseAdmin
       .from('integration_configs')
-      .select('integration_id, display_name, category, status, last_sync, error_message, api_key, access_token')
+      .select('integration_id, display_name, category, status, last_sync, error_message, api_key, access_token, config')
       .order('display_name');
 
     const integrationsSummary = (integrations || []).map((i: any) => ({
@@ -130,13 +130,18 @@ export async function GET(request: NextRequest) {
     const criticalStatus: Record<string, ReadinessStatus> = {};
     for (const id of critical) {
       const row = (integrations || []).find((x: any) => x.integration_id === id);
-      const connectedInDb = row?.status === 'connected' && (row?.api_key || row?.access_token);
+      const connectedInDb =
+        id === 'whatsapp'
+          ? row?.status === 'connected' && Boolean(row?.access_token) && Boolean(row?.config?.phoneNumberId)
+          : id === 'instagramback'
+            ? row?.status === 'connected' && Boolean(row?.access_token) && Boolean(row?.config?.baseUrl)
+            : row?.status === 'connected' && Boolean(row?.api_key || row?.access_token);
       const connectedInEnv =
         (id === 'openrouter' && !!process.env.OPENROUTER_API_KEY) ||
         (id === 'openai' && !!process.env.OPENAI_API_KEY) ||
         (id === 'stripe' && !!process.env.STRIPE_SECRET_KEY) ||
         (id === 'sendgrid' && !!process.env.SENDGRID_API_KEY) ||
-        (id === 'whatsapp' && !!process.env.WHATSAPP_ACCESS_TOKEN) ||
+        (id === 'whatsapp' && !!process.env.WHATSAPP_ACCESS_TOKEN && !!process.env.WHATSAPP_PHONE_NUMBER_ID) ||
         // InstagramBack é configurado via DB (não env)
         false;
 

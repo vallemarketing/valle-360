@@ -134,7 +134,12 @@ export async function POST(request: NextRequest) {
             display_name: 'InstagramBack',
             category: 'marketing',
           }
-        : {}),
+        : integrationId === 'whatsapp'
+          ? {
+              display_name: 'WhatsApp Business',
+              category: 'communication',
+            }
+          : {}),
       api_key: apiKey ?? null,
       api_secret: apiSecret ?? null,
       access_token: resolvedAccessToken ?? null,
@@ -273,8 +278,28 @@ async function validateCredentials(
       break;
 
     case 'whatsapp':
-      if (!accessToken) {
-        return { valid: false, error: 'Access Token é obrigatório' };
+      {
+        if (!accessToken) {
+          return { valid: false, error: 'Access Token é obrigatório' };
+        }
+        const phoneNumberId = String(cfg?.phoneNumberId || '').trim();
+        if (!phoneNumberId) {
+          return { valid: false, error: 'Phone Number ID é obrigatório', details: 'Preencha config.phoneNumberId' };
+        }
+
+        // Validar token (Graph API) — evita marcar "connected" com credenciais inválidas
+        try {
+          const rawToken = String(accessToken || '').trim();
+          const token = rawToken.toLowerCase().startsWith('bearer ') ? rawToken.slice(7).trim() : rawToken;
+          const url = `https://graph.facebook.com/v20.0/${encodeURIComponent(phoneNumberId)}?fields=verified_name`;
+          const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          if (!r.ok) {
+            const raw = await r.text().catch(() => '');
+            return { valid: false, error: 'Token do WhatsApp inválido ou sem permissão', details: raw.slice(0, 200) };
+          }
+        } catch {
+          // Se rede falhar momentaneamente, não bloquear o fluxo.
+        }
       }
       break;
 

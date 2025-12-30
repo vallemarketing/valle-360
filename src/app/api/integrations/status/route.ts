@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       gemini: !!(process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_CLOUD_API_KEY),
       stripe: !!process.env.STRIPE_SECRET_KEY,
       sendgrid: !!process.env.SENDGRID_API_KEY,
+      whatsapp: !!process.env.WHATSAPP_ACCESS_TOKEN,
     };
 
     const integrations = data.map((integration) => {
@@ -195,6 +196,35 @@ async function checkIntegrationHealth(
 
   try {
     switch (integrationId) {
+      case 'whatsapp':
+        {
+          const rawToken = String(config?.access_token || process.env.WHATSAPP_ACCESS_TOKEN || '').trim();
+          const token = rawToken.toLowerCase().startsWith('bearer ') ? rawToken.slice(7).trim() : rawToken;
+          const phoneNumberId = String(
+            config?.config?.phoneNumberId ||
+              process.env.WHATSAPP_PHONE_NUMBER_ID ||
+              ''
+          ).trim();
+
+          if (!token) {
+            return { healthy: false, error: 'Access Token não configurado (db/env)', responseTime: Date.now() - startTime };
+          }
+          if (!phoneNumberId) {
+            return { healthy: false, error: 'Phone Number ID não configurado (config.phoneNumberId ou WHATSAPP_PHONE_NUMBER_ID)', responseTime: Date.now() - startTime };
+          }
+
+          const apiUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(phoneNumberId)}?fields=verified_name,display_phone_number`;
+          const r = await fetch(apiUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const raw = await r.text();
+          return {
+            healthy: r.ok,
+            error: r.ok ? undefined : raw.slice(0, 200) || 'Falha na autenticação/Graph API',
+            responseTime: Date.now() - startTime,
+          };
+        }
+
       case 'instagramback':
         {
           const baseUrlRaw = config?.config?.baseUrl;
