@@ -4,6 +4,17 @@ import { cookies } from 'next/headers'
 
 export const dynamic = 'force-dynamic';
 
+function normalizeCpanelBaseUrl(raw: string) {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return ''
+
+  const withScheme =
+    /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+
+  // Remove trailing slash
+  return withScheme.replace(/\/+$/, '')
+}
+
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = cookies()
@@ -30,18 +41,24 @@ export async function POST(request: NextRequest) {
 
     // Extrair username e domain do email
     const [username, domain] = email.split('@')
+    if (!username || !domain) {
+      return NextResponse.json(
+        { success: false, message: 'Email inválido (formato esperado: usuario@dominio)' },
+        { status: 400 }
+      )
+    }
 
     // Credenciais do cPanel (configurar no .env.local)
     const cpanelUser = process.env.CPANEL_USER
     const cpanelPassword = process.env.CPANEL_PASSWORD
-    const cpanelDomain = process.env.CPANEL_DOMAIN || 'https://seu-servidor.com:2083'
+    const cpanelDomain = process.env.CPANEL_DOMAIN
 
-    if (!cpanelUser || !cpanelPassword) {
+    if (!cpanelUser || !cpanelPassword || !cpanelDomain) {
       console.warn('⚠️ Credenciais do cPanel não configuradas')
       return NextResponse.json(
         { 
           success: false, 
-          message: 'Credenciais do cPanel não configuradas. Email não criado na hospedagem.',
+          message: 'Credenciais do cPanel não configuradas. Configure CPANEL_USER, CPANEL_PASSWORD e CPANEL_DOMAIN (ex.: https://SEU_HOST:2083).',
           email 
         },
         { status: 200 }
@@ -52,7 +69,8 @@ export async function POST(request: NextRequest) {
     const basicAuth = Buffer.from(`${cpanelUser}:${cpanelPassword}`).toString('base64')
 
     // Construir URL da API do cPanel (UAPI)
-    const apiUrl = `${cpanelDomain}/execute/Email/add_pop?email=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&domain=${encodeURIComponent(domain)}&quota=500`
+    const baseUrl = normalizeCpanelBaseUrl(cpanelDomain)
+    const apiUrl = `${baseUrl}/execute/Email/add_pop?email=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&domain=${encodeURIComponent(domain)}&quota=500`
 
     // Fazer requisição para o cPanel
     const response = await fetch(apiUrl, {

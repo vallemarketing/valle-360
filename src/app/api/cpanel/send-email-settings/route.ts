@@ -4,6 +4,17 @@ import { cookies } from 'next/headers'
 
 export const dynamic = 'force-dynamic';
 
+function normalizeCpanelBaseUrl(raw: string) {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return ''
+
+  const withScheme =
+    /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+
+  // Remove trailing slash
+  return withScheme.replace(/\/+$/, '')
+}
+
 /**
  * API para enviar configurações de email usando cPanel
  * Usa a função dispatch_client_settings do cPanel
@@ -39,14 +50,14 @@ export async function POST(request: NextRequest) {
     // Credenciais do cPanel
     const cpanelUser = process.env.CPANEL_USER
     const cpanelPassword = process.env.CPANEL_PASSWORD
-    const cpanelDomain = process.env.CPANEL_DOMAIN || 'https://seu-servidor.com:2083'
+    const cpanelDomain = process.env.CPANEL_DOMAIN
 
-    if (!cpanelUser || !cpanelPassword) {
+    if (!cpanelUser || !cpanelPassword || !cpanelDomain) {
       console.warn('⚠️ Credenciais do cPanel não configuradas')
       return NextResponse.json(
         { 
           success: false, 
-          message: 'Credenciais do cPanel não configuradas. Configurações de email não enviadas.'
+          message: 'Credenciais do cPanel não configuradas. Configure CPANEL_USER, CPANEL_PASSWORD e CPANEL_DOMAIN (ex.: https://SEU_HOST:2083).'
         },
         { status: 200 }
       )
@@ -57,7 +68,8 @@ export async function POST(request: NextRequest) {
 
     // Construir URL da API do cPanel para enviar configurações
     // Envia as configurações do email corporativo para o email pessoal
-    const apiUrl = `${cpanelDomain}/execute/Email/dispatch_client_settings?account=${encodeURIComponent(username)}&to=${encodeURIComponent(emailPessoal)}`
+    const baseUrl = normalizeCpanelBaseUrl(cpanelDomain)
+    const apiUrl = `${baseUrl}/execute/Email/dispatch_client_settings?account=${encodeURIComponent(username)}&to=${encodeURIComponent(emailPessoal)}`
 
     console.log('📧 Enviando configurações de email via cPanel...')
     console.log('  → Email corporativo:', emailCorporativo)
