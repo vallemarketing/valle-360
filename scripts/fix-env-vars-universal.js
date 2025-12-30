@@ -8,8 +8,13 @@ const valle360EnvPath = path.resolve(__dirname, '../valle-360/.env.local');
 console.log('🔍 Procurando arquivos .env.local...');
 
 // 2. Credenciais Corretas
-const correctUrl = 'https://ikjgsqtykkhqimypacro.supabase.co';
-const correctKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlramdzcXR5a2tocWlteXBhY3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMyMTE4OTksImV4cCI6MjA3ODc4Nzg5OX0.vgVCpFIt-5ajFhcXg65dqrEw915pqW8fGZ8xgJxrnxI';
+const correctUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const correctKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!correctUrl || !correctKey) {
+  console.error('❌ Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY no ambiente antes de rodar este script.');
+  process.exit(1);
+}
 
 const envContent = `NEXT_PUBLIC_SUPABASE_URL=${correctUrl}
 NEXT_PUBLIC_SUPABASE_ANON_KEY=${correctKey}

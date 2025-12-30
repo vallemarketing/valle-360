@@ -257,6 +257,8 @@ export default function NovoColaboradorPage() {
 
     try {
       const senhaProvisoria = gerarSenhaProvisoria()
+      let mailboxCreated = false
+      let mailboxWarning: string | null = null
       
       // 1. Criar colaborador via API (bypassa RLS e rate limiting)
       const response = await fetch('/api/admin/create-employee', {
@@ -297,13 +299,16 @@ export default function NovoColaboradorPage() {
             password: senhaProvisoria
           })
         })
-        
-        if (cpanelResponse.ok) {
+
+        const cpanelJson = await cpanelResponse.json().catch(() => null)
+        mailboxCreated = Boolean(cpanelResponse.ok && cpanelJson?.success === true)
+
+        if (mailboxCreated) {
           console.log('✅ Email corporativo criado no cPanel')
-          
-          // 2.1. Enviar configurações de email para o email pessoal via cPanel
+
+          // 2.1. Enviar configurações de email para o email pessoal via cPanel (best-effort)
           try {
-            await fetch('/api/cpanel/send-email-settings', {
+            const settingsResp = await fetch('/api/cpanel/send-email-settings', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -311,13 +316,23 @@ export default function NovoColaboradorPage() {
                 emailPessoal: formData.email_pessoal
               })
             })
-            console.log('✅ Configurações de email enviadas via cPanel')
+            const settingsJson = await settingsResp.json().catch(() => null)
+            const settingsOk = Boolean(settingsResp.ok && settingsJson?.success === true)
+            if (settingsOk) {
+              console.log('✅ Configurações de email enviadas via cPanel')
+            } else {
+              console.warn('⚠️ Configurações de email não enviadas via cPanel:', settingsJson?.message || settingsJson?.error || 'Falha')
+            }
           } catch (settingsError) {
             console.error('⚠️ Configurações de email não enviadas:', settingsError)
           }
+        } else {
+          mailboxWarning = String(cpanelJson?.message || cpanelJson?.error || (cpanelResponse.ok ? 'Email não criado no cPanel' : 'Erro ao criar email no cPanel'))
+          console.warn('⚠️ Email corporativo NÃO foi criado no cPanel:', mailboxWarning)
         }
       } catch (cpanelError) {
         console.error('⚠️ Email não criado no cPanel:', cpanelError)
+        mailboxWarning = (cpanelError as any)?.message || 'Falha ao chamar cPanel'
         // Não bloqueia o cadastro se falhar
       }
 
@@ -325,7 +340,14 @@ export default function NovoColaboradorPage() {
       await enviarBoasVindas(result.employeeId, formData.email, formData.email_pessoal, senhaProvisoria, formData.areas_atuacao)
 
       // 4. Mostrar mensagem de sucesso
-      alert(`✅ Colaborador criado com sucesso!\n\n📧 Email: ${formData.email}\n🔑 Senha: ${senhaProvisoria}\n\n📨 As credenciais foram enviadas para: ${formData.email_pessoal}`)
+      alert(
+        `✅ Colaborador criado com sucesso!\n\n📧 Email do sistema: ${formData.email}\n🔑 Senha provisória: ${senhaProvisoria}\n\n📨 As credenciais foram enviadas para: ${formData.email_pessoal}` +
+          (mailboxCreated
+            ? `\n\n📬 Mailbox criada no cPanel: OK`
+            : mailboxWarning
+              ? `\n\n⚠️ Mailbox (cPanel): NÃO criada automaticamente.\nMotivo: ${mailboxWarning}`
+              : `\n\n⚠️ Mailbox (cPanel): NÃO criada automaticamente.`)
+      )
 
       // 5. Redirecionar
       router.push('/admin/colaboradores?success=colaborador_criado')

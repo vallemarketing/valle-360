@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 import { publishMetaPost } from '@/lib/social/metaPublisher';
+import { logCronRun, requireCronAuth } from '@/lib/cron/cronUtils';
 
 export const dynamic = 'force-dynamic';
 
-function requireCronAuth(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (process.env.NODE_ENV !== 'production') return null;
-  if (!cronSecret) return null;
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
-export async function POST(request: NextRequest) {
+async function handleSocialPublishCron(request: NextRequest) {
+  const started = Date.now();
   const auth = requireCronAuth(request);
   if (auth) return auth;
 
@@ -34,8 +25,26 @@ export async function POST(request: NextRequest) {
     .order('scheduled_at', { ascending: true })
     .limit(25);
 
-  if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  if (!posts || posts.length === 0) return NextResponse.json({ success: true, processed: 0, published: 0, failed: 0 });
+  if (error) {
+    await logCronRun({
+      supabase: admin,
+      action: 'social-publish',
+      status: 'error',
+      durationMs: Date.now() - started,
+      errorMessage: error.message,
+    });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+  if (!posts || posts.length === 0) {
+    await logCronRun({
+      supabase: admin,
+      action: 'social-publish',
+      status: 'ok',
+      durationMs: Date.now() - started,
+      responseData: { processed: 0, published: 0, failed: 0 },
+    });
+    return NextResponse.json({ success: true, processed: 0, published: 0, failed: 0 });
+  }
 
   let publishedCount = 0;
   let failedCount = 0;
@@ -61,7 +70,24 @@ export async function POST(request: NextRequest) {
     else failedCount++;
   }
 
+  await logCronRun({
+    supabase: admin,
+    action: 'social-publish',
+    status: failedCount === 0 ? 'ok' : 'error',
+    durationMs: Date.now() - started,
+    responseData: { processed: posts.length, published: publishedCount, failed: failedCount },
+    errorMessage: failedCount ? 'Falhas ao publicar' : null,
+  });
+
   return NextResponse.json({ success: true, processed: posts.length, published: publishedCount, failed: failedCount });
+}
+
+export async function GET(request: NextRequest) {
+  return handleSocialPublishCron(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleSocialPublishCron(request);
 }
 
 

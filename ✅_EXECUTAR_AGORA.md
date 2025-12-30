@@ -22,7 +22,7 @@
 ### **Copie a key que está marcada como:**
 ```
 🔓 anon public
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+<EXEMPLO_ANON_KEY>
 ```
 
 **NÃO copie a service_role** (essa eu já tenho!)
@@ -78,7 +78,7 @@ docker-compose logs -f valle360-app
 **Login teste:**
 ```
 Email: guilherme@vallegroup.com.br
-Senha: *Valle2307
+Senha: <SENHA_DEFINIDA_NO_AMBIENTE>
 ```
 
 *(Depois precisamos criar seu usuário no banco)*
@@ -91,7 +91,7 @@ Senha: *Valle2307
 
 Será algo como:
 ```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuemF6c3dhZWh1YXdjdWdleGJyIiwicm9sZSI6ImFub24iLC4uLg==
+<SUA_ANON_KEY_AQUI>
 ```
 
 Note: Tem `"role":"anon"` (não service_role)

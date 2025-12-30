@@ -99,76 +99,20 @@ const item = {
 export default function AdminDashboard() {
   const quickActionsRef = useRef<HTMLDivElement | null>(null)
   const [stats, setStats] = useState<DashboardStats>({
-    totalClients: 45,
-    activeClients: 42,
-    totalEmployees: 23,
-    activeEmployees: 21,
-    monthlyRevenue: 285000,
-    pendingTasks: 18,
-    completedTasksToday: 12,
-    avgClientSatisfaction: 4.7
+    totalClients: 0,
+    activeClients: 0,
+    totalEmployees: 0,
+    activeEmployees: 0,
+    monthlyRevenue: 0,
+    pendingTasks: 0,
+    completedTasksToday: 0,
+    avgClientSatisfaction: 0
   })
 
   const [selectedClient, setSelectedClient] = useState<ActiveClient | null>(null)
   const [showClientModal, setShowClientModal] = useState(false)
 
-  const [activeClients, setActiveClients] = useState<ActiveClient[]>([
-    {
-      id: '1',
-      name: 'João Silva',
-      company: 'Tech Solutions Ltda',
-      email: 'joao@techsolutions.com',
-      phone: '(11) 99999-0001',
-      status: 'em_dia',
-      projectStatus: 'Em produção - 75%',
-      nextDelivery: '15/12/2024',
-      contractValue: 'R$ 8.500,00/mês'
-    },
-    {
-      id: '2',
-      name: 'Maria Santos',
-      company: 'Valle Boutique',
-      email: 'maria@valleboutique.com',
-      phone: '(11) 99999-0002',
-      status: 'atrasado',
-      projectStatus: 'Aguardando aprovação',
-      nextDelivery: '10/12/2024',
-      contractValue: 'R$ 5.200,00/mês'
-    },
-    {
-      id: '3',
-      name: 'Pedro Costa',
-      company: 'Inova Marketing',
-      email: 'pedro@inovamarketing.com',
-      phone: '(11) 99999-0003',
-      status: 'em_dia',
-      projectStatus: 'Em produção - 40%',
-      nextDelivery: '20/12/2024',
-      contractValue: 'R$ 12.000,00/mês'
-    },
-    {
-      id: '4',
-      name: 'Ana Oliveira',
-      company: 'Digital Plus',
-      email: 'ana@digitalplus.com',
-      phone: '(11) 99999-0004',
-      status: 'novo',
-      projectStatus: 'Onboarding',
-      nextDelivery: '05/01/2025',
-      contractValue: 'R$ 6.800,00/mês'
-    },
-    {
-      id: '5',
-      name: 'Carlos Mendes',
-      company: 'E-commerce Pro',
-      email: 'carlos@ecommercepro.com',
-      phone: '(11) 99999-0005',
-      status: 'em_dia',
-      projectStatus: 'Finalizado - Manutenção',
-      nextDelivery: 'Contínuo',
-      contractValue: 'R$ 15.000,00/mês'
-    }
-  ])
+  const [activeClients, setActiveClients] = useState<ActiveClient[]>([])
 
   const getAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
@@ -194,7 +138,7 @@ export default function AdminDashboard() {
       if (Array.isArray(data?.activeClients) && data.activeClients.length > 0) setActiveClients(data.activeClients)
       if (data?.hub?.links?.pending) setHubPendingLink(String(data.hub.links.pending))
     } catch {
-      // mantém mock (modo teste)
+      // Sem mock: se falhar, ficamos com valores zerados e listas vazias.
     }
   }
 
@@ -226,40 +170,7 @@ export default function AdminDashboard() {
     }
   }
 
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([
-    {
-      id: '1',
-      type: 'client',
-      title: 'Novo cliente cadastrado',
-      description: 'Tech Solutions Ltda',
-      time: 'Há 15 minutos',
-      icon: 'user'
-    },
-    {
-      id: '2',
-      type: 'task',
-      title: 'Tarefa concluída',
-      description: 'Campanha de Black Friday - Social Media',
-      time: 'Há 32 minutos',
-      icon: 'task'
-    },
-    {
-      id: '3',
-      type: 'payment',
-      title: 'Pagamento recebido',
-      description: 'R$ 8.500,00 - Valle Store',
-      time: 'Há 1 hora',
-      icon: 'money'
-    },
-    {
-      id: '4',
-      type: 'alert',
-      title: 'Atenção requerida',
-      description: 'Cliente Valle Boutique - Reunião agendada',
-      time: 'Há 2 horas',
-      icon: 'alert'
-    }
-  ])
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
 
   const quickActions = [
     {

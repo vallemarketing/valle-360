@@ -1,13 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Hardcoded para teste rápido
-const supabaseUrl = 'https://ojlcvpqhbfnehuferyci.supabase.co';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qbGN2cHFoYmZuZWh1ZmVyeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzEzNDE1OSwiZXhwIjoyMDc4NzEwMTU5fQ.zyqsVmk0IblR8VKwd5PBqMrP-5VA_He9Cz5GMlS_mbo';
+// Sem hardcode de chaves (use variáveis de ambiente)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente antes de rodar este script.');
+  process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function checkWebDesigner() {
-  const email = 'web@valle360.com';
+  const email = process.env.TARGET_EMAIL || 'web@valle360.com';
   console.log(`🔍 Diagnóstico para: ${email}`);
 
   // 1. Auth

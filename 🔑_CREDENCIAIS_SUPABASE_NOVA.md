@@ -4,22 +4,22 @@
 
 ### 🌐 Project URL
 ```
-https://ikjgsqtykkhqimypacro.supabase.co
+https://<PROJECT_REF>.supabase.co
 ```
 
 ### 🔓 Anon Public Key (NEXT_PUBLIC_SUPABASE_ANON_KEY)
 ```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlramdzcXR5a2tocWlteXBhY3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMyMTE4OTksImV4cCI6MjA3ODc4Nzg5OX0.vgVCpFIt-5ajFhcXg65dqrEw915pqW8fGZ8xgJxrnxI
+<NEXT_PUBLIC_SUPABASE_ANON_KEY>
 ```
 
 ### 🔐 Service Role Key (SUPABASE_SERVICE_ROLE_KEY)
 ```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlramdzcXR5a2tocWlteXBhY3JvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzIxMTg5OSwiZXhwIjoyMDc4Nzg3ODk5fQ.A8V46nLFezh_I-JHOhkvt60XG2YTvYfiXtWz45h06LA
+<SUPABASE_SERVICE_ROLE_KEY>
 ```
 
 ### 🗝️ JWT Secret (Legacy)
 ```
-ZY1Svo8w+epiaOBFyW7H43gwVnQLExUBWIAo43J/lmShKl3kj1GNCk9AroNBmrIKugp8WCStSAQoXRcA1idbtQ==
+<JWT_SECRET>
 ```
 
 ---
@@ -57,12 +57,12 @@ https://supabase.com/dashboard/project/ikjgsqtykkhqimypacro/storage/buckets
 
 ### Pooler (Connection Pooling) - **RECOMENDADO**
 ```
-postgresql://postgres.ikjgsqtykkhqimypacro:ZY1Svo8w+epiaOBFyW7H43gwVnQLExUBWIAo43J/lmShKl3kj1GNCk9AroNBmrIKugp8WCStSAQoXRcA1idbtQ==@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+postgresql://postgres.<PROJECT_REF>:<DB_PASSWORD>@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 ```
 
 ### Direct Connection
 ```
-postgresql://postgres.ikjgsqtykkhqimypacro:ZY1Svo8w+epiaOBFyW7H43gwVnQLExUBWIAo43J/lmShKl3kj1GNCk9AroNBmrIKugp8WCStSAQoXRcA1idbtQ==@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+postgresql://postgres.<PROJECT_REF>:<DB_PASSWORD>@aws-0-us-east-1.pooler.supabase.com:5432/postgres
 ```
 
 ---

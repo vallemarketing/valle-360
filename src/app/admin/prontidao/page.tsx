@@ -199,6 +199,32 @@ export default function ProntidaoPage() {
               </div>
             </div>
 
+            {/* Schema (Supabase) */}
+            <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Schema (Supabase)</h2>
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.schema.status)}`}>
+                  {label(checks.schema.status)}
+                </span>
+              </div>
+              <div className="text-sm space-y-2">
+                {(checks.schema.criticalTables || []).slice(0, 8).map((t: any) => (
+                  <div key={t.table} className="flex items-center justify-between gap-3">
+                    <span className="truncate" style={{ color: 'var(--text-primary)' }}>{t.table}</span>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full border text-xs ${pill(t.status)}`}>{label(t.status)}</span>
+                  </div>
+                ))}
+                {(checks.schema.criticalTables || []).length > 8 && (
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    +{(checks.schema.criticalTables || []).length - 8} tabelas…
+                  </p>
+                )}
+              </div>
+              <p className="text-xs mt-3" style={{ color: 'var(--text-secondary)' }}>
+                Se alguma tabela crítica estiver ausente, o sistema pode retornar erro 500 em rotas específicas.
+              </p>
+            </div>
+
             <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>ML / Metas</h2>
@@ -216,6 +242,32 @@ export default function ProntidaoPage() {
               </div>
             </div>
 
+            {/* Cron */}
+            <div className="p-5 rounded-xl border lg:col-span-2" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Cron (Vercel)</h2>
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.cron.status)}`}>
+                  {label(checks.cron.status)}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {(checks.cron.jobs || []).map((j: any) => (
+                  <div key={j.job} className="p-3 rounded-lg border" style={{ borderColor: 'var(--border-light)' }}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{j.job}</span>
+                      <span className={`px-2 py-0.5 rounded-full border text-xs ${pill(j.status)}`}>{label(j.status)}</span>
+                    </div>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                      {j.lastRunAt ? `Última execução: ${new Date(j.lastRunAt).toLocaleString()}` : 'Sem execução nas últimas 24h'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs mt-3" style={{ color: 'var(--text-secondary)' }}>
+                Observação: para “pass”, cada job precisa ter ao menos 1 log nas últimas 24h.
+              </p>
+            </div>
+
             <div className="p-5 rounded-xl border lg:col-span-2" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>SQL / RPC</h2>
@@ -229,6 +281,37 @@ export default function ProntidaoPage() {
                   <span className="font-medium">{checks.sql.rpc.is_admin}</span>
                 </div>
               </div>
+            </div>
+
+            {/* cPanel mailbox */}
+            <div className="p-5 rounded-xl border lg:col-span-2" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Mailbox (cPanel)</h2>
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.cpanel.status)}`}>
+                  {label(checks.cpanel.status)}
+                </span>
+              </div>
+              <div className="text-sm space-y-2" style={{ color: 'var(--text-secondary)' }}>
+                <div className="flex items-center justify-between">
+                  <span>CPANEL_USER</span>
+                  <span className="font-medium">{checks.cpanel.env.hasUser ? 'OK' : 'Falta'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>CPANEL_PASSWORD</span>
+                  <span className="font-medium">{checks.cpanel.env.hasPassword ? 'OK' : 'Falta'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>CPANEL_DOMAIN</span>
+                  <span className="font-medium">{checks.cpanel.env.hasDomain ? 'OK' : 'Falta'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>WEBMAIL_URL</span>
+                  <span className="font-medium">{checks.cpanel.env.hasWebmailUrl ? 'OK' : 'Opcional'}</span>
+                </div>
+              </div>
+              <p className="text-xs mt-3" style={{ color: 'var(--text-secondary)' }}>
+                A plataforma não expõe webmail internamente; isso só afeta o e-mail de boas-vindas enviado ao e-mail pessoal.
+              </p>
             </div>
           </div>
         )}

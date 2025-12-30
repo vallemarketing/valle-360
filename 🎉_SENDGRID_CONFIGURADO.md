@@ -22,7 +22,7 @@ Email: guilherme@vallegroup.com.br
 ### **Provedor:**
 ```
 SendGrid (100 emails/dia grátis)
-API Key: SG.UHOQqkptSCao-QWqvxMhFA...
+API Key: SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 ### **Servidor:**
@@ -238,14 +238,14 @@ Como fazer:
 ```env
 # SUPABASE
 NEXT_PUBLIC_SUPABASE_URL=https://ojlcvpqhbfnehuferyci.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<NEXT_PUBLIC_SUPABASE_ANON_KEY>
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
 
 # OPENAI
 OPENAI_API_KEY=sk-proj-...
 
 # DATABASE
-DATABASE_URL=postgresql://postgres.ojlcvpqhbfnehuferyci:*Valle2307@...
+DATABASE_URL=postgresql://postgres.<PROJECT_REF>:<DB_PASSWORD>@...
 
 # APP
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -257,7 +257,7 @@ ADMIN_EMAIL_NAME=Guilherme Valle - Valle 360
 COMPANY_NAME=Valle 360
 
 # EMAIL - SendGrid
-SENDGRID_API_KEY=SG.UHOQqkptSCao-QWqvxMhFA...
+SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 ---

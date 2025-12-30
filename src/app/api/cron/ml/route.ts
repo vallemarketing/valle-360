@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 import { predictiveEngine } from '@/lib/ai/predictive-engine';
 import { clientHealthScore } from '@/lib/ai/client-health-score';
+import { logCronRun, requireCronAuth } from '@/lib/cron/cronUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -156,24 +157,37 @@ async function runMlJobs() {
 }
 
 export async function GET(request: NextRequest) {
+  const started = Date.now();
+  const admin = getSupabaseAdmin();
   try {
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-    if (process.env.NODE_ENV === 'production' && cronSecret) {
-      if (authHeader !== `Bearer ${cronSecret}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-    }
+    const auth = requireCronAuth(request);
+    if (auth) return auth;
 
     const result = await runMlJobs();
+    await logCronRun({
+      supabase: admin,
+      action: 'ml',
+      status: 'ok',
+      durationMs: Date.now() - started,
+      responseData: result,
+    });
     return NextResponse.json({ success: true, result });
   } catch (e: any) {
+    await logCronRun({
+      supabase: admin,
+      action: 'ml',
+      status: 'error',
+      durationMs: Date.now() - started,
+      errorMessage: e?.message || 'Erro interno',
+    });
     return NextResponse.json({ error: e?.message || 'Erro interno' }, { status: 500 });
   }
 }
 
 // POST manual (admin) — mantemos simples e protegido por sessão no passo do dashboard
 export async function POST() {
+  const started = Date.now();
+  const admin = getSupabaseAdmin();
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
@@ -188,8 +202,23 @@ export async function POST() {
     }
 
     const result = await runMlJobs();
+    await logCronRun({
+      supabase: admin,
+      action: 'ml',
+      status: 'ok',
+      durationMs: Date.now() - started,
+      requestData: { manual: true, by: auth.user.id },
+      responseData: result,
+    });
     return NextResponse.json({ success: true, result });
   } catch (e: any) {
+    await logCronRun({
+      supabase: admin,
+      action: 'ml',
+      status: 'error',
+      durationMs: Date.now() - started,
+      errorMessage: e?.message || 'Erro interno',
+    });
     return NextResponse.json({ error: e?.message || 'Erro interno' }, { status: 500 });
   }
 }

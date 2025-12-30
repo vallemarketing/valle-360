@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { AREA_BOARDS, inferAreaKeyFromLabel, type AreaKey } from '@/lib/kanban/areaBoards';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,35 @@ function hasFirebaseEnv(): boolean {
   );
 }
 
+function normalizeErrorMessage(msg: string) {
+  return String(msg || '').toLowerCase();
+}
+
+function isMissingTableError(message: string) {
+  const m = normalizeErrorMessage(message);
+  return (
+    m.includes('does not exist') ||
+    m.includes('relation') ||
+    m.includes('not found') ||
+    m.includes('schema cache') ||
+    m.includes('could not find the table')
+  );
+}
+
+async function checkTableExists(
+  supabaseAdmin: ReturnType<typeof getSupabaseAdmin>,
+  table: string
+): Promise<{ ok: boolean; status: ReadinessStatus; reason?: string }> {
+  const { error } = await supabaseAdmin.from(table).select('*', { head: true, count: 'exact' }).limit(1);
+  if (!error) return { ok: true, status: 'pass' };
+
+  // Se não existe, isso é FAIL. Qualquer outro erro (ex.: permissão) é WARN para não bloquear produção indevidamente.
+  if (isMissingTableError(error.message)) {
+    return { ok: false, status: 'fail', reason: error.message };
+  }
+  return { ok: false, status: 'warn', reason: error.message };
+}
+
 export async function GET(request: NextRequest) {
   const cookieStore = cookies();
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
@@ -38,6 +68,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const now = new Date().toISOString();
+    const supabaseAdmin = getSupabaseAdmin();
 
     // Hub
     const [{ count: pendingEvents }, { count: pendingTransitions }, { count: errorTransitions }] = await Promise.all([
@@ -96,6 +127,78 @@ export async function GET(request: NextRequest) {
             ? ('env' as const)
             : ('none' as const),
     };
+
+    // cPanel (mailbox)
+    const cpanel = {
+      status: (process.env.CPANEL_USER && process.env.CPANEL_PASSWORD && process.env.CPANEL_DOMAIN) ? ('pass' as ReadinessStatus) : ('warn' as ReadinessStatus),
+      env: {
+        hasUser: Boolean(process.env.CPANEL_USER),
+        hasPassword: Boolean(process.env.CPANEL_PASSWORD),
+        hasDomain: Boolean(process.env.CPANEL_DOMAIN),
+        hasWebmailUrl: Boolean(process.env.WEBMAIL_URL || process.env.CPANEL_WEBMAIL_URL || process.env.NEXT_PUBLIC_WEBMAIL_URL),
+      },
+    };
+
+    // Schema (tabelas críticas) — usando Service Role para evitar falsos negativos por RLS
+    const schemaCriticalTables = [
+      'notifications',
+      'integration_configs',
+      'integration_logs',
+      'kanban_boards',
+      'kanban_columns',
+      'kanban_tasks',
+      'kanban_task_comments',
+      'clients',
+      'employees',
+      'user_profiles',
+      'instagram_posts',
+      'social_connected_accounts',
+      // Social metrics (cliente)
+      'social_account_metrics_daily',
+      'social_post_metrics',
+    ];
+
+    const schemaChecks = await Promise.all(
+      schemaCriticalTables.map(async (t) => {
+        const r = await checkTableExists(supabaseAdmin, t);
+        return { table: t, ...r };
+      })
+    );
+
+    const schemaStatus: ReadinessStatus = schemaChecks.some((x) => x.status === 'fail')
+      ? 'fail'
+      : schemaChecks.some((x) => x.status === 'warn')
+        ? 'warn'
+        : 'pass';
+
+    // Cron (execução real) — procura logs recentes
+    const cronJobs = ['collection', 'overdue', 'ml', 'social-publish', 'social-metrics'] as const;
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const cronChecks = await Promise.all(
+      cronJobs.map(async (job) => {
+        const { data: last } = await supabaseAdmin
+          .from('integration_logs')
+          .select('status, created_at, error_message')
+          .eq('integration_id', 'cron')
+          .eq('action', job)
+          .gte('created_at', since)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const hasRun = Boolean(last?.created_at);
+        // Se nunca rodou nas últimas 24h, warn (não fail) porque pode estar em implantação inicial
+        const st: ReadinessStatus = hasRun ? (String(last?.status) === 'ok' ? 'pass' : 'warn') : 'warn';
+        return {
+          job,
+          status: st,
+          lastRunAt: last?.created_at || null,
+          lastStatus: last?.status || null,
+          lastError: last?.error_message || null,
+        };
+      })
+    );
+    const cronStatus: ReadinessStatus = cronChecks.some((c) => c.status === 'warn') ? 'warn' : 'pass';
 
     // Áreas (colaboradores)
     const { data: employees } = await supabase
@@ -185,6 +288,15 @@ export async function GET(request: NextRequest) {
         status: statusFromBool(rpcOk),
         rpc: { is_admin: rpcOk ? 'pass' : 'fail' },
       },
+      schema: {
+        status: schemaStatus,
+        criticalTables: schemaChecks,
+      },
+      cron: {
+        status: cronStatus,
+        jobs: cronChecks,
+      },
+      cpanel,
     };
 
     // status geral
@@ -195,6 +307,9 @@ export async function GET(request: NextRequest) {
       checks.ai.status,
       checks.ml.status,
       checks.sql.status,
+      checks.schema.status,
+      checks.cron.status,
+      checks.cpanel.status,
     ];
     const overall: ReadinessStatus = allStatuses.includes('fail') ? 'fail' : allStatuses.includes('warn') ? 'warn' : 'pass';
 

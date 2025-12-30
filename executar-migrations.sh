@@ -4,8 +4,16 @@
 # Script para executar migrações via API do Supabase
 # ==================================
 
-SUPABASE_URL="https://enzazswaehuawcugexbr.supabase.co"
-SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuemF6c3dhZWh1YXdjdWdleGJyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzA4Nzk3MywiZXhwIjoyMDc4NjYzOTczfQ.ZiRTOxpw9UFbE7DH_9xBeW-DEGhdiHrWj2JVpAbAeMo"
+SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-}"
+SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-}"
+
+if [[ -z "$SUPABASE_URL" || -z "$SERVICE_ROLE_KEY" ]]; then
+  echo "❌ Variáveis obrigatórias ausentes."
+  echo "   Defina antes de rodar:"
+  echo "   export NEXT_PUBLIC_SUPABASE_URL='https://<PROJECT_REF>.supabase.co'"
+  echo "   export SUPABASE_SERVICE_ROLE_KEY='<SUA_SERVICE_ROLE_KEY>'"
+  exit 1
+fi
 
 echo "🚀 Executando migrações no Supabase..."
 echo ""
@@ -42,7 +50,7 @@ echo "✅ Admin criado!"
 echo ""
 echo "🎉 Tudo pronto! Faça login em http://localhost:3000/login"
 echo "   Email: guilherme@vallegroup.com.br"
-echo "   Senha: *Valle2307"
+echo "   Senha: <SENHA_DEFINIDA_NO_AMBIENTE>"
 
 
 

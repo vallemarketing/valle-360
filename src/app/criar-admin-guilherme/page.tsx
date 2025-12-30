@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
 
 export default function CriarAdminPage() {
   const [loading, setLoading] = useState(false)
@@ -39,14 +38,17 @@ export default function CriarAdminPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
         <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          Criar Admin Guilherme
+          Setup: Criar Admin
         </h1>
 
         <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h2 className="font-bold text-blue-900 mb-2">Credenciais:</h2>
-          <p className="text-sm text-blue-800"><strong>Email:</strong> guilherme@vallegroup.com.br</p>
-          <p className="text-sm text-blue-800"><strong>Senha:</strong> *Valle2307</p>
-          <p className="text-sm text-blue-800"><strong>Perfil:</strong> Super Admin</p>
+          <h2 className="font-bold text-blue-900 mb-2">Importante</h2>
+          <p className="text-sm text-blue-800">
+            Esta página só funciona quando <strong>ENABLE_SETUP_ROUTES=1</strong>.
+          </p>
+          <p className="text-sm text-blue-800 mt-2">
+            O admin é criado usando <strong>SETUP_ADMIN_EMAIL</strong> e <strong>SETUP_ADMIN_PASSWORD</strong> (não exibimos senha na UI).
+          </p>
         </div>
 
         {message && (
@@ -72,7 +74,7 @@ export default function CriarAdminPage() {
               Criando Admin...
             </div>
           ) : (
-            'Criar Admin Guilherme'
+            'Criar/Atualizar Admin'
           )}
         </button>
 

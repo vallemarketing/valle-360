@@ -4,9 +4,14 @@ const fs = require('fs');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
-// Configurações do Supabase
-const SUPABASE_URL = 'https://ojlcvpqhbfnehuferych.supabase.com';
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qbGN2cHFoYmZuZWh1ZmVyeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzEzNDE1OSwiZXhwIjoyMDc4NzEwMTU5fQ.zyqsVmk0IblR8VKwd5PBqMrP-5VA_He9Cz5GMlS_mbo';
+// Configurações do Supabase (sem hardcode de chaves)
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error('❌ Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente antes de rodar este script.');
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -100,7 +105,7 @@ async function main() {
   console.log('\n🎉 CONCLUÍDO!\n');
   console.log('📊 Banco de dados configurado');
   console.log('👤 Admin criado: guilherme@vallegroup.com.br');
-  console.log('🔐 Senha: *Valle2307');
+  console.log('🔐 Senha: <SENHA_DEFINIDA_NO_AMBIENTE>');
   console.log('\n🚀 Acesse: http://localhost:3000/login\n');
 }
 

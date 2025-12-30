@@ -41,6 +41,18 @@ function inferPersonaFromEmployee(params: { department?: string | null; areas?: 
   return 'colaborador';
 }
 
+function inferTaskFromPersona(personaKey: string) {
+  const p = String(personaKey || '').toLowerCase();
+  if (p === 'comercial') return 'sales';
+  if (p === 'rh') return 'hr';
+  if (p === 'financeiro') return 'analysis';
+  if (p === 'trafego') return 'analysis';
+  if (p === 'social_media') return 'copywriting';
+  if (p === 'notificacoes' || p === 'operacao') return 'analysis';
+  if (p === 'super_admin' || p === 'admin') return 'strategy';
+  return 'general';
+}
+
 // POST - Conversar com a Val
 export async function POST(request: NextRequest) {
   try {
@@ -202,7 +214,7 @@ export async function POST(request: NextRequest) {
     let parsedResponse;
     try {
       const result = await generateWithAI({
-        task: personaKey === 'comercial' ? 'sales' : personaKey === 'rh' ? 'hr' : 'general',
+        task: inferTaskFromPersona(personaKey) as any,
         json: true,
         temperature: 0.7,
         maxTokens: 1500,
@@ -333,7 +345,7 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await generateWithAI({
-      task: 'strategy',
+      task: inferTaskFromPersona(personaKey) as any,
       json: true,
       temperature: 0.8,
       maxTokens: 400,

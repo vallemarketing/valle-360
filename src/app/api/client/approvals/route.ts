@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     .select(
       `
         id, title, description, board_id, column_id, due_date, created_at, updated_at, status, priority, tags, reference_links,
-        board:kanban_boards ( id, name, area_key ),
+        board:kanban_boards ( id, area_key ),
         column:kanban_columns ( id, name, stage_key, position, sla_hours )
       `
     )

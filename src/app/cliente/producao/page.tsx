@@ -10,6 +10,7 @@ import {
 import { format, differenceInDays, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
+import { AREA_BOARDS } from '@/lib/kanban/areaBoards'
 
 interface Demand {
   id: string
@@ -96,6 +97,8 @@ export default function ClienteProducaoPage() {
       const data = await res.json().catch(() => null)
       if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao carregar demandas')
 
+      const areaLabelByKey = new Map<string, string>(AREA_BOARDS.map((b) => [String(b.areaKey), String(b.label)]))
+
       const mapped: Demand[] = (data.tasks || []).map((t: any) => {
         const stageKey = String(t?.column?.stage_key || '').toLowerCase()
         const ref = (t?.reference_links || {}) as any
@@ -138,7 +141,7 @@ export default function ClienteProducaoPage() {
           approvalRisk,
           createdAt: new Date(String(t.created_at || new Date().toISOString())),
           updatedAt: new Date(String(t.updated_at || new Date().toISOString())),
-          area: String(t?.board?.name || t?.board?.area_key || 'Equipe'),
+          area: areaLabelByKey.get(String(t?.board?.area_key || '')) || 'Equipe',
           progress,
           assignees: [],
           lastUpdate: undefined,

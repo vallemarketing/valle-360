@@ -1,15 +1,25 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = 'https://ikjgsqtykkhqimypacro.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlramdzcXR5a2tocWlteXBhY3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMyMTE4OTksImV4cCI6MjA3ODc4Nzg5OX0.vgVCpFIt-5ajFhcXg65dqrEw915pqW8fGZ8xgJxrnxI';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY antes de rodar este script.');
+  process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function fixDatabaseFinal() {
   console.log('🔧 Iniciando correção FINAL (Baseada nas colunas detectadas)...');
 
-  const email = 'designer@valle360.com';
-  const password = 'Valle@2024';
+  const email = process.env.TEST_USER_EMAIL;
+  const password = process.env.TEST_USER_PASSWORD;
+
+  if (!email || !password) {
+    console.error('❌ Defina TEST_USER_EMAIL e TEST_USER_PASSWORD antes de rodar este script.');
+    process.exit(1);
+  }
 
   // 1. Obter User ID
   const { data: loginData } = await supabase.auth.signInWithPassword({ email, password });

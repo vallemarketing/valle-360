@@ -130,7 +130,7 @@ O **Service Role Key** é uma chave especial do Supabase que tem **acesso total*
 
 ### **Configuração no `.env.local`:**
 ```env
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
 ```
 
 ### **⚠️ Segurança:**

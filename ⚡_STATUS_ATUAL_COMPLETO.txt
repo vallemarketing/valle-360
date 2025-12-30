@@ -19,7 +19,7 @@
 ✅ 3. SCRIPT DE ADMIN CRIADO
    Arquivo: supabase/criar_admin_novo.sql
    Email: guilherme@vallegroup.com.br
-   Senha: *Valle2307
+   Senha: <SENHA_DEFINIDA_NO_AMBIENTE>
 
 ✅ 4. LOGOS CORRIGIDAS
    Todas as referências voltaram para arquivos existentes:
@@ -62,7 +62,7 @@
    
    🌐 http://localhost:3000/login
    📧 guilherme@vallegroup.com.br
-   🔑 *Valle2307
+   🔑 <SENHA_DEFINIDA_NO_AMBIENTE>
 
 ───────────────────────────────────────────────────────────────────────────────────
 📁 ARQUIVOS IMPORTANTES CRIADOS:
@@ -190,17 +190,17 @@ Supabase URL:
 https://ojlcvpqhbfnehuferyci.supabase.co
 
 ANON Key:
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qbGN2cHFoYmZuZWh1ZmVyeWNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMzQxNTksImV4cCI6MjA3ODcxMDE1OX0.TLUKXvHGuiuDWn5xSGIae5n8tbZRSlsDcaSDGcYUeUo
+<NEXT_PUBLIC_SUPABASE_ANON_KEY>
 
 SERVICE_ROLE Key:
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qbGN2cHFoYmZuZWh1ZmVyeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzEzNDE1OSwiZXhwIjoyMDc4NzEwMTU5fQ.zyqsVmk0IblR8VKwd5PBqMrP-5VA_He9Cz5GMlS_mbo
+<SUPABASE_SERVICE_ROLE_KEY>
 
 Database Connection:
-postgresql://postgres.ojlcvpqhbfnehuferyci:*Valle2307@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+postgresql://postgres.<PROJECT_REF>:<DB_PASSWORD>@aws-1-us-east-1.pooler.supabase.com:6543/postgres
 
 Admin Login:
 Email: guilherme@vallegroup.com.br
-Senha: *Valle2307
+Senha: <SENHA_DEFINIDA_NO_AMBIENTE>
 
 ───────────────────────────────────────────────────────────────────────────────────
 🚀 COMANDOS RÁPIDOS:

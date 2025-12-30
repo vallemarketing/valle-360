@@ -5,7 +5,7 @@
 ```
 Projeto: ojlcvpqhbfnehuferyci
 URL: https://ojlcvpqhbfnehuferyci.supabase.co
-Senha: *Valle2307
+Senha: <DB_PASSWORD>
 ```
 
 ✅ `.env.local` já foi atualizado automaticamente!
@@ -46,7 +46,7 @@ Senha: *Valle2307
 
 ```bash
 # Conectar ao banco
-psql postgresql://postgres.ojlcvpqhbfnehuferyci:*Valle2307@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+psql postgresql://postgres.<PROJECT_REF>:<DB_PASSWORD>@aws-1-us-east-1.pooler.supabase.com:6543/postgres
 
 # Dentro do psql, executar:
 \i /Users/imac/Desktop/N8N/Downloads/supabase_database_structure.sql

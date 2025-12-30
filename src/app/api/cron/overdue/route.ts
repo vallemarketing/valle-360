@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { notifyAreaUsers } from '@/lib/admin/notifyArea';
 import { createSendGridClient, EMAIL_TEMPLATES } from '@/lib/integrations/email/sendgrid';
 import { createWhatsAppClient } from '@/lib/integrations/whatsapp/cloud';
+import { logCronRun, requireCronAuth } from '@/lib/cron/cronUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,17 +12,6 @@ function getServiceSupabase() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key, { auth: { persistSession: false } });
-}
-
-function requireCronAuth(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (process.env.NODE_ENV !== 'production') return null;
-  if (!cronSecret) return null;
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
-  return null;
 }
 
 function getJson(obj: any, path: string[]) {
@@ -108,6 +98,7 @@ async function trySendClientWhatsApp(service: any, params: { to: string; text: s
 }
 
 export async function GET(request: NextRequest) {
+  const started = Date.now();
   const authResp = requireCronAuth(request);
   if (authResp) return authResp;
 
@@ -116,73 +107,74 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'SUPABASE_SERVICE_ROLE_KEY não configurada' }, { status: 500 });
   }
 
-  const nowIso = new Date().toISOString();
-  const nowMs = Date.now();
+  try {
+    const nowIso = new Date().toISOString();
+    const nowMs = Date.now();
 
-  const result = {
-    ok: true,
-    ran_at: nowIso,
-    overdue_tasks_notified: 0,
-    overdue_approvals_notified: 0,
-    emails_sent: 0,
-    whatsapp_sent: 0,
-  };
+    const result = {
+      ok: true,
+      ran_at: nowIso,
+      overdue_tasks_notified: 0,
+      overdue_approvals_notified: 0,
+      emails_sent: 0,
+      whatsapp_sent: 0,
+    };
 
-  // 1) Tarefas atrasadas (due_date no passado, não finalizadas)
-  const { data: overdueTasks } = await service
-    .from('kanban_tasks')
-    .select(
-      `
+    // 1) Tarefas atrasadas (due_date no passado, não finalizadas)
+    const { data: overdueTasks } = await service
+      .from('kanban_tasks')
+      .select(
+        `
         id, title, due_date, assigned_to, board_id, column_id, reference_links,
         board:kanban_boards ( id, name, area_key ),
         column:kanban_columns ( id, name, stage_key )
       `
-    )
-    .lt('due_date', nowIso)
-    .neq('status', 'cancelled')
-    .limit(1000);
+      )
+      .lt('due_date', nowIso)
+      .neq('status', 'cancelled')
+      .limit(1000);
 
-  for (const t of overdueTasks || []) {
-    const stage = String((t as any)?.column?.stage_key || '').toLowerCase();
-    if (stage === 'finalizado') continue;
+    for (const t of overdueTasks || []) {
+      const stage = String((t as any)?.column?.stage_key || '').toLowerCase();
+      if (stage === 'finalizado') continue;
 
-    const ref = (t as any).reference_links || {};
-    const lastNotified = getJson(ref, ['alerts', 'overdue_task', 'last_notified_at']);
-    if (!shouldNotify(lastNotified, 24 * 60 * 60 * 1000)) continue;
+      const ref = (t as any).reference_links || {};
+      const lastNotified = getJson(ref, ['alerts', 'overdue_task', 'last_notified_at']);
+      if (!shouldNotify(lastNotified, 24 * 60 * 60 * 1000)) continue;
 
-    const title = 'Tarefa atrasada';
-    const msg = `A tarefa "${t.title}" está atrasada (vencimento: ${String(t.due_date).slice(0, 10)}).`;
+      const title = 'Tarefa atrasada';
+      const msg = `A tarefa "${t.title}" está atrasada (vencimento: ${String(t.due_date).slice(0, 10)}).`;
 
-    if (t.assigned_to) {
-      await service.from('notifications').insert({
-        user_id: String(t.assigned_to),
-        type: 'kanban_overdue',
-        title,
-        message: msg,
-        is_read: false,
-        link: '/colaborador/kanban',
-        metadata: { task_id: t.id, kind: 'overdue_task', board_id: t.board_id, area_key: (t as any)?.board?.area_key || null },
-        created_at: nowIso,
+      if (t.assigned_to) {
+        await service.from('notifications').insert({
+          user_id: String(t.assigned_to),
+          type: 'kanban_overdue',
+          title,
+          message: msg,
+          is_read: false,
+          link: '/colaborador/kanban',
+          metadata: { task_id: t.id, kind: 'overdue_task', board_id: t.board_id, area_key: (t as any)?.board?.area_key || null },
+          created_at: nowIso,
+        });
+      } else {
+        // Sem responsável: notifica área (colaboradores, se existirem) ou broadcast por área para admins
+        await notifyAreaUsers({
+          area: String((t as any)?.board?.name || (t as any)?.board?.area_key || 'Kanban'),
+          title,
+          message: msg,
+          link: '/admin/kanban-app',
+          type: 'kanban_overdue',
+          metadata: { task_id: t.id, kind: 'overdue_task', board_id: t.board_id, area_key: (t as any)?.board?.area_key || null },
+        });
+      }
+
+      const updatedRef = setJson(ref, ['alerts', 'overdue_task'], {
+        last_notified_at: nowIso,
+        count: Number(getJson(ref, ['alerts', 'overdue_task', 'count']) || 0) + 1,
       });
-    } else {
-      // Sem responsável: notifica área (colaboradores, se existirem) ou broadcast por área para admins
-      await notifyAreaUsers({
-        area: String((t as any)?.board?.name || (t as any)?.board?.area_key || 'Kanban'),
-        title,
-        message: msg,
-        link: '/admin/kanban-app',
-        type: 'kanban_overdue',
-        metadata: { task_id: t.id, kind: 'overdue_task', board_id: t.board_id, area_key: (t as any)?.board?.area_key || null },
-      });
+      await service.from('kanban_tasks').update({ reference_links: updatedRef, updated_at: nowIso }).eq('id', t.id);
+      result.overdue_tasks_notified += 1;
     }
-
-    const updatedRef = setJson(ref, ['alerts', 'overdue_task'], {
-      last_notified_at: nowIso,
-      count: Number(getJson(ref, ['alerts', 'overdue_task', 'count']) || 0) + 1,
-    });
-    await service.from('kanban_tasks').update({ reference_links: updatedRef, updated_at: nowIso }).eq('id', t.id);
-    result.overdue_tasks_notified += 1;
-  }
 
   // 2) Aprovações do cliente atrasadas (coluna stage_key=aprovacao e due_at no passado)
   const { data: approvalCols } = await service.from('kanban_columns').select('id').eq('stage_key', 'aprovacao').limit(500);
@@ -264,7 +256,30 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ success: true, result });
+    await logCronRun({
+      supabase: service,
+      action: 'overdue',
+      status: 'ok',
+      durationMs: Date.now() - started,
+      responseData: {
+        overdue_tasks_notified: result.overdue_tasks_notified,
+        overdue_approvals_notified: result.overdue_approvals_notified,
+        emails_sent: result.emails_sent,
+        whatsapp_sent: result.whatsapp_sent,
+      },
+    });
+
+    return NextResponse.json({ success: true, result });
+  } catch (e: any) {
+    await logCronRun({
+      supabase: service,
+      action: 'overdue',
+      status: 'error',
+      durationMs: Date.now() - started,
+      errorMessage: e?.message || 'Erro interno',
+    });
+    return NextResponse.json({ success: false, error: e?.message || 'Erro interno' }, { status: 500 });
+  }
 }
 
 

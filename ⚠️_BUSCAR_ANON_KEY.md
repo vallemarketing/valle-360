@@ -15,7 +15,7 @@
 
 A key que você me passou é a **SERVICE_ROLE_KEY** (admin):
 ```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...role":"service_role"...
+<EXEMPLO_SERVICE_ROLE_KEY>
 ```
 
 Para o frontend (parte pública do sistema), precisamos da **ANON PUBLIC KEY**.
@@ -141,7 +141,7 @@ docker-compose logs -f valle360-app
 
 Ela será algo como:
 ```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuemF6c3dhZWh1YXdjdWdleGJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwODc5NzMsImV4cCI6MjA3ODY2Mzk3M30.XXXXXXXXXX
+<EXEMPLO_ANON_KEY>
 ```
 
 Note: tem `"role":"anon"` ao invés de `"role":"service_role"`

@@ -3,8 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function POST() {
   try {
-    // Hardening: por padrão, rotas de setup ficam bloqueadas em produção.
-    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_SETUP_ROUTES !== '1') {
+    // Hardening: rotas de setup ficam bloqueadas por padrão (em qualquer ambiente).
+    // Para habilitar, defina ENABLE_SETUP_ROUTES=1.
+    if (process.env.ENABLE_SETUP_ROUTES !== '1') {
       return NextResponse.json({ error: 'Not Found' }, { status: 404 })
     }
 
@@ -20,8 +21,16 @@ export async function POST() {
       }
     )
 
-    const email = 'guilherme@vallegroup.com.br'
-    const password = '*Valle2307'
+    const email = process.env.SETUP_ADMIN_EMAIL
+    const password = process.env.SETUP_ADMIN_PASSWORD
+    const fullName = process.env.SETUP_ADMIN_FULL_NAME || 'Super Admin'
+
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: 'SETUP_ADMIN_EMAIL e SETUP_ADMIN_PASSWORD são obrigatórios quando ENABLE_SETUP_ROUTES=1' },
+        { status: 400 }
+      )
+    }
 
     // 1) Encontrar usuário existente por email (idempotência)
     let resolvedUserId: string | null = null
@@ -68,15 +77,12 @@ export async function POST() {
 
       authUser = updated.user
     } else {
-      // ID fixo ajuda em ambientes novos, mas só quando o email ainda não existe.
-      const userId = 'a1b2c3d4-e5f6-4789-a012-3456789abcde'
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        id: userId,
         email,
         password,
         email_confirm: true,
         user_metadata: {
-          full_name: 'Guilherme Valle',
+          full_name: fullName,
           role: 'super_admin'
         },
         app_metadata: {
@@ -107,12 +113,12 @@ export async function POST() {
       .upsert({
         id: resolvedUserId,
         user_id: resolvedUserId,
-        full_name: 'Guilherme Valle',
+        full_name: fullName,
         email,
         role: 'super_admin',
         user_type: 'super_admin',
         is_active: true,
-        phone: '(11) 99999-9999',
+        phone: '(00) 00000-0000',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -129,7 +135,7 @@ export async function POST() {
       .upsert({
         id: resolvedUserId,
         email,
-        full_name: 'Guilherme Valle',
+        full_name: fullName,
         role: 'super_admin',
         is_active: true,
         email_verified: true,
@@ -189,17 +195,13 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: '✅ Admin Guilherme criado com sucesso!',
+      message: '✅ Admin criado/atualizado com sucesso!',
       user: {
         id: resolvedUserId,
         email: (authUser as any)?.email || email,
         role: 'super_admin'
       },
-      credentials: {
-        email,
-        password,
-        loginUrl: '/login'
-      }
+      credentials: { email, loginUrl: '/login', passwordConfigured: true }
     })
 
   } catch (error: any) {

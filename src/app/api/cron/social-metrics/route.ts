@@ -1,19 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 import { createMetaClient } from '@/lib/integrations/meta/client';
+import { logCronRun, requireCronAuth } from '@/lib/cron/cronUtils';
 
 export const dynamic = 'force-dynamic';
-
-function requireCronAuth(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (process.env.NODE_ENV !== 'production') return null;
-  if (!cronSecret) return null;
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
-  return null;
-}
 
 function pickLatestMetricValue(values: Array<{ value: any; end_time?: string }> | undefined) {
   if (!Array.isArray(values) || values.length === 0) return null;
@@ -25,7 +15,8 @@ function isoDateUTC(d: Date) {
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-export async function POST(request: NextRequest) {
+async function handleSocialMetricsCron(request: NextRequest) {
+  const started = Date.now();
   const auth = requireCronAuth(request);
   if (auth) return auth;
 
@@ -74,7 +65,8 @@ export async function POST(request: NextRequest) {
   let expired = 0;
   const failures: Array<{ account_id: string; platform: string; error: string }> = [];
 
-  for (const a of accounts) {
+  try {
+    for (const a of accounts) {
     if (!a.token) continue;
     processed++;
 
@@ -88,7 +80,7 @@ export async function POST(request: NextRequest) {
       // ignore
     }
 
-    try {
+      try {
       const meta = createMetaClient({ accessToken: a.token });
 
       let metrics: Record<string, any> = {};
@@ -132,19 +124,48 @@ export async function POST(request: NextRequest) {
         );
       if (upErr) throw upErr;
       upserted++;
-    } catch (e: any) {
+      } catch (e: any) {
       failures.push({ account_id: a.id, platform: a.platform, error: e?.message || 'Falha ao coletar métricas' });
+      }
     }
-  }
 
-  return NextResponse.json({
-    success: failures.length === 0,
-    processed,
-    upserted,
-    expired,
-    failed: failures.length,
-    failures,
-  });
+    const payload = {
+      success: failures.length === 0,
+      processed,
+      upserted,
+      expired,
+      failed: failures.length,
+      failures,
+    };
+
+    await logCronRun({
+      supabase: admin,
+      action: 'social-metrics',
+      status: failures.length === 0 ? 'ok' : 'error',
+      durationMs: Date.now() - started,
+      responseData: { processed, upserted, expired, failed: failures.length },
+      errorMessage: failures.length ? failures[0]?.error || 'Falhas ao coletar métricas' : null,
+    });
+
+    return NextResponse.json(payload);
+  } catch (e: any) {
+    await logCronRun({
+      supabase: admin,
+      action: 'social-metrics',
+      status: 'error',
+      durationMs: Date.now() - started,
+      errorMessage: e?.message || 'Erro interno',
+    });
+    return NextResponse.json({ success: false, error: e?.message || 'Erro interno' }, { status: 500 });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  return handleSocialMetricsCron(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleSocialMetricsCron(request);
 }
 
 

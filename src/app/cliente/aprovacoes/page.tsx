@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { AREA_BOARDS } from '@/lib/kanban/areaBoards'
 
 // ============================================
 // APROVAÇÕES - LAYOUT VERTICAL COMPACTO
@@ -16,7 +17,7 @@ type ApprovalItem = {
   id: string;
   title: string;
   description?: string | null;
-  board?: { id: string; name: string; area_key?: string | null } | null;
+  board?: { id: string; area_key?: string | null } | null;
   requested_at: string;
   due_at: string;
   overdue: boolean;
@@ -55,6 +56,7 @@ export default function ClientApprovals() {
 
   const pendingItems = useMemo(() => items, [items])
   const completedItems = useMemo<ApprovalItem[]>(() => [], [])
+  const areaLabelByKey = useMemo(() => new Map<string, string>(AREA_BOARDS.map((b) => [String(b.areaKey), String(b.label)])), [])
 
   const handleAction = async (id: string, action: 'approve' | 'request_changes') => {
     if (action === 'request_changes' && !comment.trim()) return
@@ -143,7 +145,7 @@ export default function ClientApprovals() {
                       </h3>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="secondary" className="text-xs bg-[#1672d6]/10 text-[#1672d6]">
-                          {item.board?.name || 'Kanban'}
+                          {areaLabelByKey.get(String(item.board?.area_key || '')) || 'Equipe'}
                         </Badge>
                         <span className={cn("text-xs", statusCls)}>
                           {statusLabel}
@@ -265,7 +267,7 @@ export default function ClientApprovals() {
               {/* Header */}
               <div className="p-6 border-b border-[#001533]/10 dark:border-white/10">
                 <Badge className="bg-[#1672d6]/10 text-[#1672d6] mb-3">
-                  {selectedItem.board?.name || 'Kanban'}
+                  {(selectedItem.board?.area_key && areaLabelByKey.get(String(selectedItem.board.area_key))) || 'Kanban'}
                 </Badge>
                 <h2 className="text-xl font-bold text-[#001533] dark:text-white mb-2">
                   {selectedItem.title}

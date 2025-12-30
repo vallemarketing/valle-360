@@ -1,9 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+import { createSendGridClient } from '@/lib/integrations/email/sendgrid'
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+
+    // Somente admin (esse endpoint envia senha)
+    const { data: auth } = await supabase.auth.getUser()
+    if (!auth.user?.id) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
+    const { data: isAdmin, error: isAdminError } = await supabase.rpc('is_admin')
+    if (isAdminError || !isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 })
+    }
+
     const { emailPessoal, emailCorporativo, nome, senha, areasTexto, loginUrl } = await request.json()
 
     if (!emailPessoal || !emailCorporativo || !nome || !senha) {
@@ -12,6 +28,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const webmailUrl =
+      (process.env.WEBMAIL_URL || process.env.NEXT_PUBLIC_WEBMAIL_URL || process.env.CPANEL_WEBMAIL_URL || '').trim() ||
+      'https://valle360.com.br/webmail'
 
     // HTML do email de boas-vindas
     const htmlContent = `
@@ -94,6 +114,21 @@ export async function POST(request: NextRequest) {
                     ➜ Acessar Sistema Valle 360
                   </a>
                 </div>
+
+                <div style="background-color: rgba(255,255,255,0.95); border-radius: 8px; padding: 18px; margin: 15px 0;">
+                  <p style="margin: 0 0 10px 0; color: #2c3e50; font-size: 14px; font-weight: 700;">
+                    📬 Acesso ao seu Email Corporativo (Webmail)
+                  </p>
+                  <p style="margin: 0 0 8px 0; color: #2c3e50; font-size: 14px;">
+                    <strong>Link:</strong> <a href="${webmailUrl}" style="color: #4370d1; text-decoration: underline;">${webmailUrl}</a>
+                  </p>
+                  <p style="margin: 0 0 8px 0; color: #2c3e50; font-size: 14px;">
+                    <strong>Login:</strong> ${emailCorporativo}
+                  </p>
+                  <p style="margin: 0; color: #2c3e50; font-size: 14px;">
+                    <strong>Senha:</strong> ${senha}
+                  </p>
+                </div>
               </div>
 
               <!-- Aviso Importante -->
@@ -129,80 +164,40 @@ export async function POST(request: NextRequest) {
 </html>
     `
 
-    // Configurações do email
-    const fromEmail = process.env.ADMIN_EMAIL_FROM || 'guilherme@vallegroup.com.br'
-    const fromName = process.env.ADMIN_EMAIL_NAME || 'Guilherme Valle - Valle 360'
-    
-    console.log('📧 Email de boas-vindas preparado')
-    console.log('  → De:', fromEmail)
-    console.log('  → Para:', emailPessoal)
-    console.log('  → Email corporativo criado:', emailCorporativo)
-    console.log('  → Senha provisória:', senha)
+    // SendGrid (db/env) — padrão único
+    const { data: cfg } = await supabase
+      .from('integration_configs')
+      .select('status, api_key, config')
+      .eq('integration_id', 'sendgrid')
+      .maybeSingle()
 
-    // TODO: Integrar com seu provedor de email
-    // Opções suportadas:
-    
-    // 1. SendGrid (Recomendado - 100 emails/dia grátis)
-    if (process.env.SENDGRID_API_KEY) {
-      try {
-        const sgMail = require('@sendgrid/mail')
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY)
-        
-        await sgMail.send({
-          to: emailPessoal,
-          from: {
-            email: fromEmail,
-            name: fromName
-          },
-          subject: '🎉 Bem-vindo à Família Valle 360! Seus Dados de Acesso 🚀',
-          html: htmlContent,
-        })
-        
-        console.log('✅ Email enviado via SendGrid')
-      } catch (sgError) {
-        console.error('❌ Erro SendGrid:', sgError)
-      }
+    const envApiKey = (process.env.SENDGRID_API_KEY || '').trim()
+    const dbApiKey = (cfg?.status === 'connected' ? String(cfg?.api_key || '') : '').trim()
+    const apiKey = dbApiKey || envApiKey
+    if (!apiKey) {
+      return NextResponse.json({ error: 'SendGrid não está conectado (db/env)' }, { status: 400 })
     }
-    
-    // 2. Nodemailer (SMTP do seu servidor)
-    else if (process.env.SMTP_HOST) {
-      try {
-        const nodemailer = require('nodemailer')
-        
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: parseInt(process.env.SMTP_PORT || '587'),
-          secure: process.env.SMTP_SECURE === 'true',
-          auth: {
-            user: process.env.SMTP_USER || fromEmail,
-            pass: process.env.SMTP_PASSWORD
-          }
-        })
-        
-        await transporter.sendMail({
-          from: `"${fromName}" <${fromEmail}>`,
-          to: emailPessoal,
-          subject: '🎉 Bem-vindo à Família Valle 360! Seus Dados de Acesso 🚀',
-          html: htmlContent
-        })
-        
-        console.log('✅ Email enviado via SMTP')
-      } catch (smtpError) {
-        console.error('❌ Erro SMTP:', smtpError)
-      }
-    }
-    
-    // 3. Sem provedor configurado
-    else {
-      console.warn('⚠️ Nenhum provedor de email configurado')
-      console.log('📋 Configure SendGrid ou SMTP no .env.local')
+
+    const fromEmail = String(cfg?.config?.fromEmail || process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br').trim()
+    const fromName = String(cfg?.config?.fromName || process.env.SENDGRID_FROM_NAME || 'Valle 360').trim()
+
+    const client = createSendGridClient({ apiKey, fromEmail, fromName })
+    const sendRes = await client.sendEmail({
+      to: { email: emailPessoal },
+      subject: '🎉 Bem-vindo à Família Valle 360! Seus Dados de Acesso 🚀',
+      html: htmlContent,
+    })
+
+    if (!(sendRes as any)?.success) {
+      return NextResponse.json({ error: (sendRes as any)?.error || 'Falha ao enviar e-mail' }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Email preparado com sucesso',
+      message: 'Email enviado com sucesso',
       emailPessoal,
-      emailCorporativo
+      emailCorporativo,
+      webmailUrl
     })
 
   } catch (error: any) {

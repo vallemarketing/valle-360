@@ -161,8 +161,8 @@ export default function ClientRequestPage() {
             Solicitação Enviada! 🎉
           </h2>
           <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
-            Sua solicitação foi recebida e já está no Kanban da equipe. 
-            Você será notificado sobre o andamento.
+            Sua solicitação foi recebida e já entrou no nosso fluxo de produção.
+            Você pode acompanhar o andamento pelas etapas.
           </p>
 
           <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -174,24 +174,33 @@ export default function ClientRequestPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              setIsSuccess(false)
-              setFormData({
-                title: '',
-                description: '',
-                serviceType: '',
-                priority: 'normal',
-                dueDate: '',
-                observations: '',
-                attachments: []
-              })
-            }}
-            className="px-6 py-3 rounded-xl font-medium text-white"
-            style={{ backgroundColor: '#4370d1' }}
-          >
-            Nova Solicitação
-          </button>
+          <div className="flex flex-col gap-3">
+            <a
+              href="/cliente/producao"
+              className="px-6 py-3 rounded-xl font-medium text-white"
+              style={{ backgroundColor: '#4370d1' }}
+            >
+              Acompanhar andamento
+            </a>
+            <button
+              onClick={() => {
+                setIsSuccess(false)
+                setFormData({
+                  title: '',
+                  description: '',
+                  serviceType: '',
+                  priority: 'normal',
+                  dueDate: '',
+                  observations: '',
+                  attachments: []
+                })
+              }}
+              className="px-6 py-3 rounded-xl font-medium"
+              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}
+            >
+              Nova Solicitação
+            </button>
+          </div>
         </motion.div>
       </div>
     )

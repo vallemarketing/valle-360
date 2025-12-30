@@ -89,7 +89,7 @@ http://localhost:3000/login
 #### 3. Fazer login:
 ```
 📧 Email: guilherme@vallegroup.com.br
-🔑 Senha: *Valle2307
+🔑 Senha: <SENHA_DEFINIDA_NO_AMBIENTE>
 ```
 
 #### 4. Resultado esperado:
@@ -149,7 +149,7 @@ http://localhost:3000/login
 **Causa:** Admin não foi criado ou senha incorreta
 **Solução:**
 1. Verifique se executou o PASSO 2 (criar admin)
-2. Certifique-se de digitar a senha corretamente: `*Valle2307` (com asterisco)
+2. Certifique-se de digitar a senha corretamente (a senha é definida no ambiente)
 
 ### ❌ "relation already exists"
 **Causa:** Banco já tem tabelas de uma execução anterior

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +11,19 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+
+    // Somente admin (provisionamento de mailbox)
+    const { data: authData } = await supabase.auth.getUser()
+    if (!authData.user?.id) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
+    const { data: isAdmin, error: isAdminError } = await supabase.rpc('is_admin')
+    if (isAdminError || !isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 })
+    }
+
     const { emailCorporativo, emailPessoal } = await request.json()
 
     if (!emailCorporativo || !emailPessoal) {
@@ -38,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar Basic Auth
-    const auth = Buffer.from(`${cpanelUser}:${cpanelPassword}`).toString('base64')
+    const basicAuth = Buffer.from(`${cpanelUser}:${cpanelPassword}`).toString('base64')
 
     // Construir URL da API do cPanel para enviar configurações
     // Envia as configurações do email corporativo para o email pessoal
@@ -52,7 +67,7 @@ export async function POST(request: NextRequest) {
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
-        'Authorization': `Basic ${auth}`,
+        'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/json'
       }
     })

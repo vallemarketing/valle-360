@@ -46,31 +46,16 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'search': {
-        // Simular busca de leads (integrar com Tavily em produção)
-        const { segment, limit } = params;
-        
-        // Mock de leads encontrados
-        const mockLeads = [
+        // Removido: não gerar/inserir leads falsos.
+        // Para habilitar prospecção real, integrar via Tavily/N8N/CRM e/ou pipeline de scraping.
+        return NextResponse.json(
           {
-            company_name: `Empresa ${segment} ${Date.now()}`,
-            segment: segment || 'ecommerce',
-            qualification_score: Math.floor(Math.random() * 40) + 60,
-            source: 'tavily',
-            status: 'new'
-          }
-        ];
-
-        // Salvar no banco
-        const { data, error } = await supabase
-          .from('prospecting_leads')
-          .insert(mockLeads)
-          .select();
-
-        if (error) {
-          return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-        }
-
-        return NextResponse.json({ success: true, data, count: mockLeads.length });
+            success: false,
+            error:
+              'Prospecção automática ainda não está configurada neste ambiente (sem mocks). Conecte o provedor (ex.: Tavily/N8N/CRM) e habilite a captura real de leads.',
+          },
+          { status: 501 }
+        );
       }
 
       case 'contact': {

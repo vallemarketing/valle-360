@@ -6,11 +6,19 @@ echo "🚀 Iniciando Reset do Ambiente Local..."
 echo "🔪 Matando processos na porta 3000..."
 lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 
-# 2. Escrever .env.local CORRETO
+# 2. Escrever .env.local (sem hardcode de chaves)
 echo "📝 Escrevendo .env.local..."
+if [[ -z "$NEXT_PUBLIC_SUPABASE_URL" || -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]]; then
+  echo "❌ Variáveis obrigatórias ausentes."
+  echo "   Defina antes de rodar:"
+  echo "   export NEXT_PUBLIC_SUPABASE_URL='https://<PROJECT_REF>.supabase.co'"
+  echo "   export NEXT_PUBLIC_SUPABASE_ANON_KEY='<SUA_ANON_KEY>'"
+  exit 1
+fi
+
 cat > .env.local << EOL
-NEXT_PUBLIC_SUPABASE_URL=https://ikjgsqtykkhqimypacro.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlramdzcXR5a2tocWlteXBhY3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMyMTE4OTksImV4cCI6MjA3ODc4Nzg5OX0.vgVCpFIt-5ajFhcXg65dqrEw915pqW8fGZ8xgJxrnxI
+NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 EOL
 
 # 3. Limpar caches

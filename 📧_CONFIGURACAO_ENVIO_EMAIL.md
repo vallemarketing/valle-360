@@ -129,8 +129,8 @@ npm install nodemailer
 # SUPABASE
 # ========================================
 NEXT_PUBLIC_SUPABASE_URL=https://ojlcvpqhbfnehuferyci.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<NEXT_PUBLIC_SUPABASE_ANON_KEY>
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
 
 # ========================================
 # OPENAI
@@ -140,7 +140,7 @@ OPENAI_API_KEY=sk-proj-...
 # ========================================
 # DATABASE
 # ========================================
-DATABASE_URL=postgresql://postgres.ojlcvpqhbfnehuferyci:*Valle2307@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql://postgres.<PROJECT_REF>:<DB_PASSWORD>@aws-1-us-east-1.pooler.supabase.com:6543/postgres
 
 # ========================================
 # APP

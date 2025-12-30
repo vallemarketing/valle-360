@@ -25,6 +25,7 @@ export const config = {
     '/criar-admin-guilherme',
     '/setup-admin',
     '/setup-usuarios-teste',
+    '/criar-acessos-simples',
 
     // endpoints de setup/provisionamento
     '/api/create-admin',

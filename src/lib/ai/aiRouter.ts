@@ -79,14 +79,15 @@ function defaultOpenRouterPolicy(): OpenRouterModelPolicy {
   return {
     default: ['openrouter/auto'],
     general: ['openrouter/auto'],
+    // Quality Max (padrão): prioriza qualidade e mantém fallback automático.
     analysis: ['anthropic/claude-3.5-sonnet', 'openrouter/auto'],
     strategy: ['anthropic/claude-3.5-sonnet', 'openrouter/auto'],
     kanban_insights: ['anthropic/claude-3.5-sonnet', 'openrouter/auto'],
-    kanban_message: ['openai/gpt-4o-mini', 'openrouter/auto'],
-    copywriting: ['openai/gpt-4o-mini', 'openrouter/auto'],
-    sales: ['openai/gpt-4o-mini', 'openrouter/auto'],
-    sentiment: ['google/gemini-1.5-flash', 'openrouter/auto'],
-    classification: ['google/gemini-1.5-flash', 'openrouter/auto'],
+    kanban_message: ['openai/gpt-4o', 'openrouter/auto'],
+    copywriting: ['openai/gpt-4o', 'openrouter/auto'],
+    sales: ['openai/gpt-4o', 'openrouter/auto'],
+    sentiment: ['google/gemini-1.5-pro', 'openrouter/auto'],
+    classification: ['google/gemini-1.5-pro', 'openrouter/auto'],
     hr: ['anthropic/claude-3.5-sonnet', 'openrouter/auto'],
   };
 }
