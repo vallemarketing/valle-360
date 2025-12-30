@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 type ReadinessStatus = 'pass' | 'warn' | 'fail';
 
@@ -26,7 +27,14 @@ export default function ProntidaoPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/readiness', { cache: 'no-store' });
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
+
+      const res = await fetch('/api/admin/readiness', {
+        cache: 'no-store',
+        credentials: 'same-origin',
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || 'Falha ao carregar prontidão');
       setData(json);

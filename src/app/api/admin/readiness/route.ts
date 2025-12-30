@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { AREA_BOARDS, inferAreaKeyFromLabel, type AreaKey } from '@/lib/kanban/areaBoards';
 import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
@@ -54,17 +55,26 @@ async function checkTableExists(
 
 export async function GET(request: NextRequest) {
   const cookieStore = cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  const supabaseCookie = createRouteHandlerClient({ cookies: () => cookieStore });
 
-  const { data: authData } = await supabase.auth.getUser();
-  if (!authData.user?.id) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-  }
+  // Aceita auth por cookie (padrão) OU por Authorization Bearer (fallback),
+  // porque algumas partes do front ainda usam supabase-js com sessão em localStorage.
+  const authHeader = request.headers.get('authorization') || '';
+  const bearer = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : null;
 
-  const { data: isAdmin, error: isAdminError } = await supabase.rpc('is_admin');
-  if (isAdminError || !isAdmin) {
-    return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
-  }
+  const supabaseUser = bearer
+    ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+        global: { headers: { Authorization: `Bearer ${bearer}` } },
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      })
+    : supabaseCookie;
+
+  const { data: authData } = await supabaseUser.auth.getUser();
+  if (!authData.user?.id) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+
+  // Admin check via RPC (respeita RLS/auth.uid quando usando bearer token)
+  const { data: isAdmin, error: isAdminError } = await supabaseUser.rpc('is_admin');
+  if (isAdminError || !isAdmin) return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
 
   try {
     const now = new Date().toISOString();
@@ -72,13 +82,13 @@ export async function GET(request: NextRequest) {
 
     // Hub
     const [{ count: pendingEvents }, { count: pendingTransitions }, { count: errorTransitions }] = await Promise.all([
-      supabase.from('event_log').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('workflow_transitions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('workflow_transitions').select('*', { count: 'exact', head: true }).eq('status', 'error'),
+      supabaseAdmin.from('event_log').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabaseAdmin.from('workflow_transitions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabaseAdmin.from('workflow_transitions').select('*', { count: 'exact', head: true }).eq('status', 'error'),
     ]);
 
     // Integrações
-    const { data: integrations } = await supabase
+    const { data: integrations } = await supabaseAdmin
       .from('integration_configs')
       .select('integration_id, display_name, category, status, last_sync, error_message, api_key, access_token')
       .order('display_name');
@@ -201,7 +211,7 @@ export async function GET(request: NextRequest) {
     const cronStatus: ReadinessStatus = cronChecks.some((c) => c.status === 'warn') ? 'warn' : 'pass';
 
     // Áreas (colaboradores)
-    const { data: employees } = await supabase
+    const { data: employees } = await supabaseAdmin
       .from('employees')
       .select('id, department, area_of_expertise, areas, is_active')
       .eq('is_active', true);
@@ -248,8 +258,8 @@ export async function GET(request: NextRequest) {
 
     // ML / Metas
     const [{ count: goalConfigs }, { count: mlModels }] = await Promise.all([
-      supabase.from('goal_configs').select('*', { count: 'exact', head: true }),
-      supabase.from('ml_models').select('*', { count: 'exact', head: true }),
+      supabaseAdmin.from('goal_configs').select('*', { count: 'exact', head: true }),
+      supabaseAdmin.from('ml_models').select('*', { count: 'exact', head: true }),
     ]);
 
     // SQL/RPC essenciais
