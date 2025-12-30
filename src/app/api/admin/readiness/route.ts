@@ -13,6 +13,26 @@ function statusFromBool(ok: boolean): ReadinessStatus {
   return ok ? 'pass' : 'fail';
 }
 
+function inferVercelEnv(): 'production' | 'preview' | 'development' | 'unknown' {
+  const raw = String(process.env.VERCEL_ENV || process.env.NEXT_PUBLIC_VERCEL_ENV || '').trim().toLowerCase();
+  if (raw === 'production' || raw === 'preview' || raw === 'development') return raw;
+  if (process.env.NODE_ENV === 'production') return 'production';
+  if (process.env.NODE_ENV === 'development') return 'development';
+  return 'unknown';
+}
+
+function inferAppUrl(): string | null {
+  const direct =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.SITE_URL ||
+    null;
+  if (direct) return String(direct);
+  const vercelUrl = process.env.VERCEL_URL ? String(process.env.VERCEL_URL) : null;
+  if (vercelUrl) return vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+  return null;
+}
+
 function hasFirebaseEnv(): boolean {
   return Boolean(
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
@@ -78,6 +98,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const now = new Date().toISOString();
+    const vercelEnv = inferVercelEnv();
+    const appUrl = inferAppUrl();
     const supabaseAdmin = getSupabaseAdmin();
 
     // Hub
@@ -181,34 +203,47 @@ export async function GET(request: NextRequest) {
         ? 'warn'
         : 'pass';
 
-    // Cron (execução real) — procura logs recentes
+    // Cron (execução real) — em Vercel, crons normalmente rodam apenas em produção.
     const cronJobs = ['collection', 'overdue', 'ml', 'social-publish', 'social-metrics'] as const;
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const cronChecks = await Promise.all(
-      cronJobs.map(async (job) => {
-        const { data: last } = await supabaseAdmin
-          .from('integration_logs')
-          .select('status, created_at, error_message')
-          .eq('integration_id', 'cron')
-          .eq('action', job)
-          .gte('created_at', since)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    const cronApplicable = vercelEnv === 'production' || process.env.ENABLE_CRON_IN_PREVIEW === 'true';
 
-        const hasRun = Boolean(last?.created_at);
-        // Se nunca rodou nas últimas 24h, warn (não fail) porque pode estar em implantação inicial
-        const st: ReadinessStatus = hasRun ? (String(last?.status) === 'ok' ? 'pass' : 'warn') : 'warn';
-        return {
+    const cronChecks = cronApplicable
+      ? await Promise.all(
+          cronJobs.map(async (job) => {
+            const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+            const { data: last } = await supabaseAdmin
+              .from('integration_logs')
+              .select('status, created_at, error_message')
+              .eq('integration_id', 'cron')
+              .eq('action', job)
+              .gte('created_at', since)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            const hasRun = Boolean(last?.created_at);
+            // Se nunca rodou nas últimas 24h, warn (não fail) porque pode estar em implantação inicial
+            const st: ReadinessStatus = hasRun ? (String(last?.status) === 'ok' ? 'pass' : 'warn') : 'warn';
+            return {
+              job,
+              applicable: true,
+              status: st,
+              lastRunAt: last?.created_at || null,
+              lastStatus: last?.status || null,
+              lastError: last?.error_message || null,
+            };
+          })
+        )
+      : cronJobs.map((job) => ({
           job,
-          status: st,
-          lastRunAt: last?.created_at || null,
-          lastStatus: last?.status || null,
-          lastError: last?.error_message || null,
-        };
-      })
-    );
-    const cronStatus: ReadinessStatus = cronChecks.some((c) => c.status === 'warn') ? 'warn' : 'pass';
+          applicable: false,
+          status: 'warn' as ReadinessStatus,
+          lastRunAt: null,
+          lastStatus: null,
+          lastError: null,
+        }));
+
+    const cronStatus: ReadinessStatus = cronChecks.some((c: any) => c.applicable && c.status === 'warn') ? 'warn' : 'pass';
 
     // Áreas (colaboradores)
     const { data: employees } = await supabaseAdmin
@@ -267,21 +302,25 @@ export async function GET(request: NextRequest) {
 
     const checks = {
       hub: {
+        applicable: true,
         status: 'pass' as ReadinessStatus,
         pendingEvents: pendingEvents || 0,
         pendingTransitions: pendingTransitions || 0,
         errorTransitions: errorTransitions || 0,
       },
       areas: {
+        applicable: true,
         status: areaCoverage.some((a) => a.status !== 'pass') ? ('warn' as ReadinessStatus) : ('pass' as ReadinessStatus),
         coverage: areaCoverage,
       },
       integrations: {
+        applicable: true,
         status: Object.values(criticalStatus).some((s) => s === 'warn') ? ('warn' as ReadinessStatus) : ('pass' as ReadinessStatus),
         critical: criticalStatus,
         items: integrationsSummary,
       },
       ai: {
+        applicable: true,
         status: criticalStatus.openrouter === 'pass' || criticalStatus.openai === 'pass' ? ('pass' as ReadinessStatus) : ('warn' as ReadinessStatus),
         providers: {
           openrouter: criticalStatus.openrouter,
@@ -290,47 +329,62 @@ export async function GET(request: NextRequest) {
         source: aiSource,
       },
       ml: {
+        applicable: true,
         status: statusFromBool((goalConfigs || 0) > 0 || (mlModels || 0) > 0),
         goalConfigs: goalConfigs || 0,
         mlModels: mlModels || 0,
       },
       sql: {
+        applicable: true,
         status: statusFromBool(rpcOk),
         rpc: { is_admin: rpcOk ? 'pass' : 'fail' },
       },
       schema: {
+        applicable: true,
         status: schemaStatus,
         criticalTables: schemaChecks,
       },
       cron: {
+        applicable: cronApplicable,
         status: cronStatus,
+        reason: cronApplicable ? null : 'Crons do Vercel rodam apenas em produção (preview: não aplicável).',
         jobs: cronChecks,
       },
-      cpanel,
+      cpanel: { ...cpanel, applicable: true },
     };
 
-    // status geral
+    const firebase = {
+      applicable: true,
+      status: hasFirebaseEnv() ? ('pass' as ReadinessStatus) : ('warn' as ReadinessStatus),
+    };
+
+    // status geral (apenas checks aplicáveis)
     const allStatuses: ReadinessStatus[] = [
-      checks.hub.status,
-      checks.areas.status,
-      checks.integrations.status,
-      checks.ai.status,
-      checks.ml.status,
-      checks.sql.status,
-      checks.schema.status,
-      checks.cron.status,
-      checks.cpanel.status,
-    ];
+      checks.hub.applicable ? checks.hub.status : null,
+      checks.areas.applicable ? checks.areas.status : null,
+      checks.integrations.applicable ? checks.integrations.status : null,
+      checks.ai.applicable ? checks.ai.status : null,
+      checks.ml.applicable ? checks.ml.status : null,
+      checks.sql.applicable ? checks.sql.status : null,
+      checks.schema.applicable ? checks.schema.status : null,
+      checks.cron.applicable ? checks.cron.status : null,
+      checks.cpanel.applicable ? checks.cpanel.status : null,
+      firebase.applicable ? firebase.status : null,
+    ].filter(Boolean) as ReadinessStatus[];
+
     const overall: ReadinessStatus = allStatuses.includes('fail') ? 'fail' : allStatuses.includes('warn') ? 'warn' : 'pass';
 
     return NextResponse.json({
       success: true,
       timestamp: now,
+      environment: {
+        vercelEnv,
+        nodeEnv: process.env.NODE_ENV || null,
+        appUrl,
+      },
       overall,
       checks,
-      firebase: {
-        status: hasFirebaseEnv() ? ('pass' as ReadinessStatus) : ('warn' as ReadinessStatus),
-      },
+      firebase,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Erro interno' }, { status: 500 });

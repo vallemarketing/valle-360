@@ -5,17 +5,25 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
 type ReadinessStatus = 'pass' | 'warn' | 'fail';
+type UiStatus = ReadinessStatus | 'na';
 
-function pill(status: ReadinessStatus) {
+function pill(status: UiStatus) {
   if (status === 'pass') return 'bg-green-100 text-green-800 border-green-200';
   if (status === 'warn') return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-  return 'bg-red-100 text-red-800 border-red-200';
+  if (status === 'fail') return 'bg-red-100 text-red-800 border-red-200';
+  return 'bg-gray-100 text-gray-700 border-gray-200';
 }
 
-function label(status: ReadinessStatus) {
+function label(status: UiStatus) {
   if (status === 'pass') return 'OK';
   if (status === 'warn') return 'Atenção';
-  return 'Falha';
+  if (status === 'fail') return 'Falha';
+  return 'N/A';
+}
+
+function effectiveStatus(status: ReadinessStatus, applicable?: boolean): UiStatus {
+  if (applicable === false) return 'na';
+  return status;
 }
 
 export default function ProntidaoPage() {
@@ -52,6 +60,7 @@ export default function ProntidaoPage() {
   const overall: ReadinessStatus | null = useMemo(() => data?.overall ?? null, [data]);
   const checks = data?.checks;
   const firebase = data?.firebase;
+  const env = data?.environment;
 
   return (
     <div className="min-h-screen p-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -81,6 +90,18 @@ export default function ProntidaoPage() {
           </div>
         </div>
 
+        {env?.vercelEnv && (
+          <div className="p-4 rounded-xl border text-sm" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)', color: 'var(--text-secondary)' }}>
+            Ambiente: <span style={{ color: 'var(--text-primary)' }}>{String(env.vercelEnv)}</span>
+            {env?.appUrl ? (
+              <>
+                {' '}
+                • URL: <span style={{ color: 'var(--text-primary)' }}>{String(env.appUrl)}</span>
+              </>
+            ) : null}
+          </div>
+        )}
+
         {loading && (
           <div className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
             <p style={{ color: 'var(--text-secondary)' }}>Carregando…</p>
@@ -100,12 +121,14 @@ export default function ProntidaoPage() {
             <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Firebase (Storage)</h2>
-                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(firebase?.status || 'warn')}`}>
-                  {label(firebase?.status || 'warn')}
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(firebase?.status || 'warn', firebase?.applicable))}`}>
+                  {label(effectiveStatus(firebase?.status || 'warn', firebase?.applicable))}
                 </span>
               </div>
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                {firebase?.status === 'pass'
+                {firebase?.applicable === false
+                  ? 'Não aplicável neste ambiente.'
+                  : firebase?.status === 'pass'
                   ? 'Env vars do Firebase estão configuradas.'
                   : 'Configure as env vars NEXT_PUBLIC_FIREBASE_* para habilitar upload direto.'}
               </p>
@@ -115,8 +138,8 @@ export default function ProntidaoPage() {
             <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Hub (Eventos/Transições)</h2>
-                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.hub.status)}`}>
-                  {label(checks.hub.status)}
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.hub.status, checks.hub.applicable))}`}>
+                  {label(effectiveStatus(checks.hub.status, checks.hub.applicable))}
                 </span>
               </div>
               <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -133,8 +156,8 @@ export default function ProntidaoPage() {
             <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Áreas (Colaboradores)</h2>
-                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.areas.status)}`}>
-                  {label(checks.areas.status)}
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.areas.status, checks.areas.applicable))}`}>
+                  {label(effectiveStatus(checks.areas.status, checks.areas.applicable))}
                 </span>
               </div>
               <div className="space-y-2 text-sm">
@@ -159,8 +182,8 @@ export default function ProntidaoPage() {
             <div className="p-5 rounded-xl border lg:col-span-2" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Integrações</h2>
-                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.integrations.status)}`}>
-                  {label(checks.integrations.status)}
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.integrations.status, checks.integrations.applicable))}`}>
+                  {label(effectiveStatus(checks.integrations.status, checks.integrations.applicable))}
                 </span>
               </div>
 
@@ -188,8 +211,8 @@ export default function ProntidaoPage() {
             <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>IA</h2>
-                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.ai.status)}`}>
-                  {label(checks.ai.status)}
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.ai.status, checks.ai.applicable))}`}>
+                  {label(effectiveStatus(checks.ai.status, checks.ai.applicable))}
                 </span>
               </div>
               <div className="text-sm space-y-2">
@@ -211,8 +234,8 @@ export default function ProntidaoPage() {
             <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Schema (Supabase)</h2>
-                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.schema.status)}`}>
-                  {label(checks.schema.status)}
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.schema.status, checks.schema.applicable))}`}>
+                  {label(effectiveStatus(checks.schema.status, checks.schema.applicable))}
                 </span>
               </div>
               <div className="text-sm space-y-2">
@@ -236,8 +259,8 @@ export default function ProntidaoPage() {
             <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>ML / Metas</h2>
-                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.ml.status)}`}>
-                  {label(checks.ml.status)}
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.ml.status, checks.ml.applicable))}`}>
+                  {label(effectiveStatus(checks.ml.status, checks.ml.applicable))}
                 </span>
               </div>
               <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -254,19 +277,30 @@ export default function ProntidaoPage() {
             <div className="p-5 rounded-xl border lg:col-span-2" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Cron (Vercel)</h2>
-                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.cron.status)}`}>
-                  {label(checks.cron.status)}
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.cron.status, checks.cron.applicable))}`}>
+                  {label(effectiveStatus(checks.cron.status, checks.cron.applicable))}
                 </span>
               </div>
+              {checks.cron.applicable === false && checks.cron.reason && (
+                <p className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
+                  {checks.cron.reason}
+                </p>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {(checks.cron.jobs || []).map((j: any) => (
                   <div key={j.job} className="p-3 rounded-lg border" style={{ borderColor: 'var(--border-light)' }}>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{j.job}</span>
-                      <span className={`px-2 py-0.5 rounded-full border text-xs ${pill(j.status)}`}>{label(j.status)}</span>
+                      <span className={`px-2 py-0.5 rounded-full border text-xs ${pill(effectiveStatus(j.status, j.applicable))}`}>
+                        {label(effectiveStatus(j.status, j.applicable))}
+                      </span>
                     </div>
                     <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                      {j.lastRunAt ? `Última execução: ${new Date(j.lastRunAt).toLocaleString()}` : 'Sem execução nas últimas 24h'}
+                      {j.applicable === false
+                        ? 'Não aplicável neste ambiente'
+                        : j.lastRunAt
+                          ? `Última execução: ${new Date(j.lastRunAt).toLocaleString()}`
+                          : 'Sem execução nas últimas 24h'}
                     </p>
                   </div>
                 ))}
@@ -279,8 +313,8 @@ export default function ProntidaoPage() {
             <div className="p-5 rounded-xl border lg:col-span-2" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>SQL / RPC</h2>
-                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.sql.status)}`}>
-                  {label(checks.sql.status)}
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.sql.status, checks.sql.applicable))}`}>
+                  {label(effectiveStatus(checks.sql.status, checks.sql.applicable))}
                 </span>
               </div>
               <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -295,8 +329,8 @@ export default function ProntidaoPage() {
             <div className="p-5 rounded-xl border lg:col-span-2" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Mailbox (cPanel)</h2>
-                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(checks.cpanel.status)}`}>
-                  {label(checks.cpanel.status)}
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.cpanel.status, checks.cpanel.applicable))}`}>
+                  {label(effectiveStatus(checks.cpanel.status, checks.cpanel.applicable))}
                 </span>
               </div>
               <div className="text-sm space-y-2" style={{ color: 'var(--text-secondary)' }}>
