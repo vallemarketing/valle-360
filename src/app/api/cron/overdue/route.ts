@@ -4,6 +4,7 @@ import { notifyAreaUsers } from '@/lib/admin/notifyArea';
 import { createSendGridClient, EMAIL_TEMPLATES } from '@/lib/integrations/email/sendgrid';
 import { createWhatsAppClient } from '@/lib/integrations/whatsapp/cloud';
 import { logCronRun, requireCronAuth } from '@/lib/cron/cronUtils';
+import { requireAdmin } from '@/lib/auth/requireAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,11 +98,7 @@ async function trySendClientWhatsApp(service: any, params: { to: string; text: s
   }
 }
 
-export async function GET(request: NextRequest) {
-  const started = Date.now();
-  const authResp = requireCronAuth(request);
-  if (authResp) return authResp;
-
+async function handleOverdueCron(started: number) {
   const service = getServiceSupabase();
   if (!service) {
     return NextResponse.json({ success: false, error: 'SUPABASE_SERVICE_ROLE_KEY não configurada' }, { status: 500 });
@@ -280,6 +277,20 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.json({ success: false, error: e?.message || 'Erro interno' }, { status: 500 });
   }
+}
+
+export async function POST(request: NextRequest) {
+  const started = Date.now();
+  const gate = await requireAdmin(request);
+  if (!gate.ok) return gate.res;
+  return handleOverdueCron(started);
+}
+
+export async function GET(request: NextRequest) {
+  const started = Date.now();
+  const authResp = requireCronAuth(request);
+  if (authResp) return authResp;
+  return handleOverdueCron(started);
 }
 
 

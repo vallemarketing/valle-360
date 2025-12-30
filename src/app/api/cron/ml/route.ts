@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 import { predictiveEngine } from '@/lib/ai/predictive-engine';
 import { clientHealthScore } from '@/lib/ai/client-health-score';
 import { logCronRun, requireCronAuth } from '@/lib/cron/cronUtils';
+import { requireAdmin } from '@/lib/auth/requireAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -185,21 +184,12 @@ export async function GET(request: NextRequest) {
 }
 
 // POST manual (admin) — mantemos simples e protegido por sessão no passo do dashboard
-export async function POST() {
+export async function POST(request: NextRequest) {
   const started = Date.now();
   const admin = getSupabaseAdmin();
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user?.id) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
-    const { data: isAdmin, error: isAdminError } = await supabase.rpc('is_admin');
-    if (isAdminError || !isAdmin) {
-      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
-    }
+    const gate = await requireAdmin(request);
+    if (!gate.ok) return gate.res;
 
     const result = await runMlJobs();
     await logCronRun({
@@ -207,7 +197,7 @@ export async function POST() {
       action: 'ml',
       status: 'ok',
       durationMs: Date.now() - started,
-      requestData: { manual: true, by: auth.user.id },
+      requestData: { manual: true, by: gate.userId },
       responseData: result,
     });
     return NextResponse.json({ success: true, result });

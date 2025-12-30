@@ -30,6 +30,8 @@ export default function ProntidaoPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cronRunning, setCronRunning] = useState(false);
+  const [cronRunResult, setCronRunResult] = useState<any[] | null>(null);
 
   async function load() {
     setLoading(true);
@@ -50,6 +52,51 @@ export default function ProntidaoPage() {
       setError(e?.message || 'Erro ao carregar');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function runCronNow() {
+    setCronRunning(true);
+    setCronRunResult(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
+
+      const jobs = [
+        { job: 'collection', url: '/api/cron/collection' },
+        { job: 'overdue', url: '/api/cron/overdue' },
+        { job: 'ml', url: '/api/cron/ml' },
+        { job: 'social-publish', url: '/api/cron/social-publish' },
+        { job: 'social-metrics', url: '/api/cron/social-metrics' },
+      ];
+
+      const results = await Promise.all(
+        jobs.map(async (j) => {
+          try {
+            const res = await fetch(j.url, {
+              method: 'POST',
+              cache: 'no-store',
+              credentials: 'same-origin',
+              headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+            });
+            const json = await res.json().catch(() => null);
+            return {
+              job: j.job,
+              ok: res.ok && (json?.success !== false),
+              status: res.status,
+              message: json?.message || json?.result?.message || null,
+              error: res.ok ? null : (json?.error || 'Falha'),
+            };
+          } catch (e: any) {
+            return { job: j.job, ok: false, status: 0, message: null, error: e?.message || 'Erro de rede' };
+          }
+        })
+      );
+
+      setCronRunResult(results);
+      await load();
+    } finally {
+      setCronRunning(false);
     }
   }
 
@@ -281,6 +328,42 @@ export default function ProntidaoPage() {
                   {label(effectiveStatus(checks.cron.status, checks.cron.applicable))}
                 </span>
               </div>
+              <div className="flex items-center gap-3 mb-3">
+                <button
+                  onClick={runCronNow}
+                  disabled={cronRunning}
+                  className="px-3 py-2 rounded-lg border text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)', color: 'var(--text-primary)' }}
+                >
+                  {cronRunning ? 'Rodando…' : 'Rodar agora'}
+                </button>
+                {cronRunResult && (
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    Executado agora • {cronRunResult.filter((r) => r.ok).length}/{cronRunResult.length} OK
+                  </span>
+                )}
+              </div>
+
+              {cronRunResult && (
+                <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {cronRunResult.map((r) => {
+                    const st: UiStatus = r.ok ? 'pass' : 'warn';
+                    return (
+                      <div key={r.job} className="p-3 rounded-lg border" style={{ borderColor: 'var(--border-light)' }}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{r.job}</span>
+                          <span className={`px-2 py-0.5 rounded-full border text-xs ${pill(st)}`}>{label(st)}</span>
+                        </div>
+                        {r.error ? (
+                          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{r.error}</p>
+                        ) : (
+                          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{r.message || 'OK'}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {checks.cron.applicable === false && checks.cron.reason && (
                 <p className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
                   {checks.cron.reason}

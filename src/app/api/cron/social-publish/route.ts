@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 import { publishMetaPost } from '@/lib/social/metaPublisher';
 import { logCronRun, requireCronAuth } from '@/lib/cron/cronUtils';
+import { requireAdmin } from '@/lib/auth/requireAdmin';
 
 export const dynamic = 'force-dynamic';
 
 async function handleSocialPublishCron(request: NextRequest) {
   const started = Date.now();
-  const auth = requireCronAuth(request);
-  if (auth) return auth;
+  // GET: cron (Vercel); POST: admin manual. Mantemos o handler único e o auth é decidido no export.
 
   const admin = getSupabaseAdmin();
   const nowIso = new Date().toISOString();
@@ -83,10 +83,14 @@ async function handleSocialPublishCron(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = requireCronAuth(request);
+  if (auth) return auth;
   return handleSocialPublishCron(request);
 }
 
 export async function POST(request: NextRequest) {
+  const gate = await requireAdmin(request);
+  if (!gate.ok) return gate.res;
   return handleSocialPublishCron(request);
 }
 
