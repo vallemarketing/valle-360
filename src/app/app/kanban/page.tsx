@@ -773,7 +773,7 @@ export default function KanbanPage() {
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveId(null);
 
-    const { active } = event;
+    const { active, over } = event;
     const activeId = active.id as string;
     const activeTask = tasks.find(t => t.id === activeId);
 
@@ -781,15 +781,45 @@ export default function KanbanPage() {
 
     try {
       const now = new Date().toISOString();
-      const targetColumn = columns.find((c) => c.id === activeTask.column_id) || null;
+      const fromColumnId =
+        dragContext?.taskId === activeId ? dragContext.fromColumnId : activeTask.column_id;
+
+      const overId = over?.id ? (over.id as string) : null;
+      const overColumn = overId ? columns.find((c) => c.id === overId) || null : null;
+      const overTask = overId ? tasks.find((t) => t.id === overId) || null : null;
+
+      // Determinar coluna destino com base no drop:
+      // - se droppou sobre uma coluna, usar essa coluna
+      // - se droppou sobre um card, usar a coluna do card
+      // - fallback: manter a coluna atual
+      const toColumnId =
+        (overColumn?.id as string | undefined) ||
+        (overTask?.column_id as string | undefined) ||
+        activeTask.column_id;
+
+      // Guard: evitar mandar valores inválidos (ex.: 'done') para colunas UUID no banco
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRe.test(String(toColumnId || ''))) {
+        console.error('DnD: toColumnId inválido (não-uuid)', { toColumnId, overId });
+        if (selectedBoardId) await loadKanbanData(selectedBoardId);
+        return;
+      }
+
+      const targetColumn = columns.find((c) => c.id === toColumnId) || null;
       const nextStatus = inferDbStatusFromColumn(targetColumn);
 
-      const columnTasks = tasks.filter(t => t.column_id === activeTask.column_id);
-      const newPosition = columnTasks.findIndex(t => t.id === activeId);
+      // Calcular posição na coluna destino
+      const toTasks = tasks.filter((t) => t.column_id === toColumnId && t.id !== activeId);
+      let insertIndex = toTasks.length; // default: fim
+      if (overTask && overTask.column_id === toColumnId) {
+        const idx = toTasks.findIndex((t) => t.id === overTask.id);
+        if (idx >= 0) insertIndex = idx;
+      }
+      const orderedTo = [...toTasks];
+      orderedTo.splice(insertIndex, 0, { ...activeTask, column_id: toColumnId });
+      const newPosition = orderedTo.findIndex((t) => t.id === activeId);
 
       // Se entrou em "aprovacao", registrar janela de aprovação do cliente (requested_at/due_at)
-      const fromColumnId =
-        dragContext?.taskId === activeId ? dragContext.fromColumnId : null;
       const fromCol = fromColumnId ? columns.find((c) => c.id === fromColumnId) || null : null;
       const enteredApproval =
         String(targetColumn?.stage_key || '').toLowerCase() === 'aprovacao' &&
@@ -820,7 +850,7 @@ export default function KanbanPage() {
       const { error } = await supabase
         .from('kanban_tasks')
         .update({
-          column_id: activeTask.column_id,
+          column_id: toColumnId,
           position: newPosition,
           status: nextStatus,
           updated_at: now,
@@ -830,12 +860,24 @@ export default function KanbanPage() {
 
       if (error) throw error;
 
-      for (let i = 0; i < columnTasks.length; i++) {
-        if (columnTasks[i].id !== activeId && i !== columnTasks[i].position) {
-          await supabase
-            .from('kanban_tasks')
-            .update({ position: i })
-            .eq('id', columnTasks[i].id);
+      // Reindexar posições na coluna destino
+      for (let i = 0; i < orderedTo.length; i++) {
+        const t = orderedTo[i];
+        if (t.id === activeId) continue;
+        if (Number(t.position) === i) continue;
+        await supabase.from('kanban_tasks').update({ position: i }).eq('id', t.id);
+      }
+
+      // Se mudou de coluna, reindexar a coluna origem também
+      if (fromColumnId && fromColumnId !== toColumnId && uuidRe.test(String(fromColumnId))) {
+        const remainingFrom = tasks
+          .filter((t) => t.column_id === fromColumnId && t.id !== activeId)
+          .slice()
+          .sort((a, b) => Number(a.position) - Number(b.position));
+        for (let i = 0; i < remainingFrom.length; i++) {
+          const t = remainingFrom[i];
+          if (Number(t.position) === i) continue;
+          await supabase.from('kanban_tasks').update({ position: i }).eq('id', t.id);
         }
       }
     } catch (error) {
