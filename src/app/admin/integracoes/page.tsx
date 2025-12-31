@@ -82,9 +82,26 @@ const INTEGRATION_CONFIGS: Record<string, { fields: IntegrationField[] }> = {
   },
   whatsapp: {
     fields: [
-      { key: 'accessToken', label: 'Access Token', type: 'password', required: true },
-      { key: 'config.phoneNumberId', label: 'Phone Number ID', type: 'text', required: true },
-      { key: 'config.businessId', label: 'Business Account ID', type: 'text' }
+      {
+        key: 'accessToken',
+        label: 'Access Token',
+        type: 'password',
+        required: true,
+        helpText: 'Token do WhatsApp Cloud API (Meta). Você poderá colar aqui quando estiver pronto para integrar.',
+      },
+      {
+        key: 'config.phoneNumberId',
+        label: 'Phone Number ID',
+        type: 'text',
+        required: true,
+        helpText: 'ID do número (Phone Number ID) do WhatsApp Cloud API. É obrigatório para enviar mensagens e para o health-check.',
+      },
+      {
+        key: 'config.businessId',
+        label: 'Business Account ID (opcional)',
+        type: 'text',
+        helpText: 'Opcional: WhatsApp Business Account ID (WABA). Útil para auditoria e futuras automações.',
+      }
     ]
   },
   sendgrid: {
