@@ -31,6 +31,8 @@ import { NotificationCenter } from '@/components/kanban/NotificationCenter';
 import KanbanInsights from '@/components/kanban/KanbanInsights';
 import type { DbTaskPriority, DbTaskStatus } from '@/lib/kanban/types';
 import { fetchProfileByAuthId, fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
+import { resolveEmployeeAreaKey } from '@/lib/employee/areaKey';
+import type { AreaKey } from '@/lib/kanban/areaBoards';
 
 interface Task {
   id: string;
@@ -438,6 +440,7 @@ export default function KanbanPage() {
   const boardFilter: KanbanBoardFilter =
     pathname.startsWith('/admin/kanban-app') || pathname.startsWith('/colaborador/kanban') ? 'area_only' : 'all';
   const showBoardSelector = !pathname.startsWith('/colaborador/kanban');
+  const isColaboradorKanban = pathname.startsWith('/colaborador/kanban');
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragContext, setDragContext] = useState<{ taskId: string; fromColumnId: string } | null>(null);
@@ -459,6 +462,7 @@ export default function KanbanPage() {
     dueDateFilter: 'all',
   });
   const [currentUserType, setCurrentUserType] = useState<string>('');
+  const [preferredAreaKey, setPreferredAreaKey] = useState<AreaKey | null>(null);
 
   const insightsColumns = useMemo(() => {
     return (columns || []).map((c) => {
@@ -503,8 +507,12 @@ export default function KanbanPage() {
   );
 
   useEffect(() => {
-    loadBoards();
-    loadCurrentUser();
+    void (async () => {
+      const areaKey = await loadEmployeeAreaKeyIfNeeded();
+      setPreferredAreaKey(areaKey);
+      await loadBoards(areaKey);
+      await loadCurrentUser();
+    })();
   }, []);
 
   useEffect(() => {
@@ -513,7 +521,28 @@ export default function KanbanPage() {
     }
   }, [selectedBoardId]);
 
-  const loadBoards = async () => {
+  const loadEmployeeAreaKeyIfNeeded = async (): Promise<AreaKey | null> => {
+    if (!isColaboradorKanban) return null;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) return null;
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('department, area_of_expertise, areas')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      return resolveEmployeeAreaKey({
+        department: (employee as any)?.department ?? null,
+        area_of_expertise: (employee as any)?.area_of_expertise ?? null,
+        areas: (employee as any)?.areas ?? null,
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  const loadBoards = async (preferred?: AreaKey | null) => {
     try {
       setIsLoading(true);
 
@@ -540,7 +569,20 @@ export default function KanbanPage() {
         return;
       }
 
-      setSelectedBoardId((prev) => prev || boardsData[0].id);
+      const prevId = selectedBoardId;
+      const prevStillExists = prevId ? boardsData.some((b) => b.id === prevId) : false;
+      const preferredMatch =
+        preferred ? boardsData.find((b) => String(b.area_key || '') === String(preferred)) : null;
+
+      const nextId =
+        prevStillExists
+          ? (prevId as string)
+          : isColaboradorKanban && preferredMatch?.id
+            ? String(preferredMatch.id)
+            : String(boardsData[0].id);
+
+      setSelectedBoardId(nextId);
+      setBoard(boardsData.find((b) => b.id === nextId) || null);
     } catch (error) {
       console.error('Erro ao carregar quadros:', error);
     } finally {
@@ -1013,11 +1055,21 @@ export default function KanbanPage() {
         <KanbanFilters onFiltersChange={setFilters} availableTags={availableTags} />
       </div>
 
-      {columns.length === 0 ? (
+      {boards.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-gray-600 dark:text-gray-400">
-              Nenhuma coluna encontrada. Execute a migration do Kanban.
+              {isColaboradorKanban
+                ? 'Nenhum quadro foi encontrado para sua área. Verifique se seu cadastro tem área preenchida (department/area_of_expertise) e se o admin executou a seed de boards por área.'
+                : 'Nenhum quadro encontrado.'}
+            </p>
+          </CardContent>
+        </Card>
+      ) : columns.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <p className="text-gray-600 dark:text-gray-400">
+              Nenhuma coluna encontrada para este quadro. Confirme se a seed de boards por área foi aplicada no Supabase.
             </p>
           </CardContent>
         </Card>
