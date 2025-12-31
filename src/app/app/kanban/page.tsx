@@ -342,18 +342,29 @@ function TaskModal({
   task?: Task;
   columnId?: string;
 }) {
-  const [formData, setFormData] = useState<Partial<Task>>({
-    title: task?.title || '',
-    description: task?.description || '',
-    priority: task?.priority || 'medium',
-    tags: task?.tags || [],
-    column_id: task?.column_id || columnId || '',
-    assigned_to: task?.assigned_to,
-  });
+  const [formData, setFormData] = useState<Partial<Task>>({});
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setFormData({
+      title: task?.title || '',
+      description: task?.description || '',
+      priority: task?.priority || 'medium',
+      tags: task?.tags || [],
+      column_id: task?.column_id || columnId || '',
+      assigned_to: task?.assigned_to,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, task?.id, columnId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    const safe = {
+      ...formData,
+      // Evita inserir uuid inválido quando o modal já estava montado e columnId mudou
+      column_id: formData.column_id || columnId || '',
+    };
+    onSave(safe);
     onClose();
   };
 
@@ -901,6 +912,10 @@ export default function KanbanPage() {
         }
       } else {
         if (!board) return;
+        if (!taskData.column_id) {
+          console.error('Erro ao salvar tarefa: column_id ausente');
+          return;
+        }
 
         const columnTasks = tasks.filter(t => t.column_id === taskData.column_id);
         const newPosition = columnTasks.length;
