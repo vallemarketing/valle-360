@@ -43,6 +43,143 @@ function timeAgoPtBR(iso: string) {
   return `Há ${days} dias`;
 }
 
+function statusLabelPtBR(status: string | null | undefined) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'processed') return 'Processado';
+  if (s === 'pending') return 'Pendente';
+  if (s === 'error') return 'Erro';
+  return s || '—';
+}
+
+function isNoiseEvent(eventType: string) {
+  const t = String(eventType || '').toLowerCase();
+  // Não mostrar eventos que não agregam valor no dashboard.
+  if (!t) return true;
+  if (t.startsWith('telemetry.')) return true;
+  if (t.startsWith('page_view')) return true;
+  if (t.startsWith('health.')) return true;
+  // workflow_transition.updated tende a gerar ruído (muitas edições pequenas).
+  if (t === 'workflow_transition.updated') return true;
+  return false;
+}
+
+function activityPresentation(e: any): { title: string; description: string; icon: 'user' | 'task' | 'money' | 'alert'; link?: string } {
+  const type = String(e?.event_type || 'system.event');
+  const t = type.toLowerCase();
+  const payload = (e?.payload || {}) as any;
+  const status = statusLabelPtBR(e?.status);
+
+  // Defaults
+  let title = type;
+  let description = `Status: ${status}`;
+  let icon: 'user' | 'task' | 'money' | 'alert' = 'alert';
+  let link: string | undefined = `/admin/fluxos?tab=events&status=${encodeURIComponent(String(e?.status || 'pending'))}&q=${encodeURIComponent(type)}`;
+
+  // Workflow transitions
+  if (t.startsWith('workflow_transition.')) {
+    icon = 'task';
+    link = `/admin/fluxos?tab=transitions`;
+
+    const from = payload?.from_area || payload?.prev_to_area || payload?.from_area_key;
+    const to = payload?.to_area || payload?.next_to_area || payload?.to_area_key;
+    const note = payload?.note ? String(payload.note) : null;
+
+    if (t === 'workflow_transition.executed_to_kanban') {
+      title = 'Demanda enviada para o Kanban';
+      const taskId = payload?.kanban_task_id ? String(payload.kanban_task_id) : null;
+      const boardId = payload?.kanban_board_id ? String(payload.kanban_board_id) : null;
+      if (boardId && taskId) link = `/admin/meu-kanban?boardId=${encodeURIComponent(boardId)}&taskId=${encodeURIComponent(taskId)}`;
+      description = `${from && to ? `${from} → ${to}` : 'Transição executada'} • ${status}`;
+    } else if (t === 'workflow_transition.rerouted') {
+      title = 'Demanda encaminhada';
+      description = `${payload?.prev_to_area || from || '—'} → ${payload?.next_to_area || to || '—'}${note ? ` • Nota: ${note}` : ''} • ${status}`;
+    } else if (t === 'workflow_transition.reopened') {
+      title = 'Demanda reaberta';
+      description = `${to || from || 'Transição'}${note ? ` • Nota: ${note}` : ''} • ${status}`;
+    } else if (t === 'workflow_transition.error_resolved') {
+      title = 'Erro do fluxo resolvido';
+      description = `${to || from || 'Transição'}${note ? ` • Nota: ${note}` : ''} • ${status}`;
+    } else if (t === 'workflow_transition.marked_error') {
+      title = 'Fluxo marcado com erro';
+      description = `${to || from || 'Transição'}${note ? ` • Nota: ${note}` : ''} • ${status}`;
+    } else if (t === 'workflow_transition.completed') {
+      title = 'Fluxo concluído';
+      description = `${to || from || 'Transição'} • ${status}`;
+    } else {
+      title = 'Atualização de fluxo';
+      description = `${to || from || 'Transição'} • ${status}`;
+    }
+  }
+
+  // Financeiro (Stripe)
+  if (t === 'invoice.paid') {
+    icon = 'money';
+    title = 'Pagamento confirmado';
+    const num = payload?.invoice_number ? String(payload.invoice_number) : null;
+    const amount = payload?.amount ? Number(payload.amount) : null;
+    description = `${num ? `Fatura ${num}` : 'Fatura paga'}${amount ? ` • R$ ${amount.toLocaleString('pt-BR')}` : ''} • ${status}`;
+    link = '/admin/financeiro';
+  }
+
+  if (t === 'invoice.payment_failed') {
+    icon = 'money';
+    title = 'Falha no pagamento';
+    const num = payload?.invoice_number ? String(payload.invoice_number) : null;
+    description = `${num ? `Fatura ${num}` : 'Fatura'} • ${status}`;
+    link = '/admin/financeiro';
+  }
+
+  // Comercial
+  if (t === 'proposal.sent') {
+    icon = 'task';
+    title = 'Proposta enviada';
+    const clientName = payload?.client_name ? String(payload.client_name) : null;
+    description = `${clientName ? `Cliente: ${clientName}` : 'Proposta marcada como enviada'} • ${status}`;
+    link = '/admin/comercial/propostas';
+  }
+  if (t === 'proposal.accepted') {
+    icon = 'task';
+    title = 'Proposta aceita';
+    const clientName = payload?.client_name ? String(payload.client_name) : null;
+    description = `${clientName ? `Cliente: ${clientName}` : 'Cliente aceitou a proposta'} • ${status}`;
+    link = '/admin/comercial/propostas';
+  }
+  if (t === 'proposal.rejected') {
+    icon = 'task';
+    title = 'Proposta recusada';
+    const clientName = payload?.client_name ? String(payload.client_name) : null;
+    description = `${clientName ? `Cliente: ${clientName}` : 'Cliente recusou a proposta'} • ${status}`;
+    link = '/admin/comercial/propostas';
+  }
+
+  // Cadastros
+  if (t === 'client.created') {
+    icon = 'user';
+    title = 'Novo cliente cadastrado';
+    const email = payload?.email ? String(payload.email) : null;
+    description = `${email ? email : 'Cliente criado'} • ${status}`;
+    link = '/admin/clientes';
+  }
+
+  if (t === 'employee.created') {
+    icon = 'user';
+    title = 'Novo colaborador cadastrado';
+    const email = payload?.email ? String(payload.email) : null;
+    description = `${email ? email : 'Colaborador criado'} • ${status}`;
+    link = '/admin/colaboradores';
+  }
+
+  // Segurança
+  if (t === 'brute_force_detected') {
+    icon = 'alert';
+    title = 'Alerta de segurança';
+    description = `Tentativas suspeitas de login detectadas • ${status}`;
+    link = '/admin/monitoramento-sentimento';
+  }
+
+  return { title, description, icon, link };
+}
+
 /**
  * GET /api/admin/dashboard
  * Retorna KPIs reais do Admin (modo teste: com fallback).
@@ -115,28 +252,26 @@ export async function GET(request: NextRequest) {
     // ===== Activity =====
     const { data: lastEvents } = await adminSupabase
       .from('event_log')
-      .select('id,event_type,created_at,status')
+      .select('id,event_type,created_at,status,payload,entity_type,entity_id')
       .order('created_at', { ascending: false })
-      .limit(6);
+      .limit(20);
 
-    let recentActivity = (lastEvents || []).map((e: any) => {
-      const type = String(e.event_type || 'system.event');
-      const icon: 'user' | 'task' | 'money' | 'alert' =
-        type.includes('invoice') || type.includes('payment') ? 'money' :
-        type.includes('client') || type.includes('employee') ? 'user' :
-        type.includes('proposal') || type.includes('goal') ? 'task' :
-        'alert';
-
-      return {
-        id: e.id,
-        type,
-        title: type,
-        description: `Status: ${e.status}`,
-        time: timeAgoPtBR(e.created_at),
-        icon,
-        link: `/admin/fluxos?tab=events&status=${encodeURIComponent(String(e.status || 'pending'))}&q=${encodeURIComponent(type)}`,
-      };
-    });
+    let recentActivity = (lastEvents || [])
+      .filter((e: any) => !isNoiseEvent(String(e?.event_type || '')))
+      .map((e: any) => {
+        const type = String(e?.event_type || 'system.event');
+        const p = activityPresentation(e);
+        return {
+          id: e.id,
+          type,
+          title: p.title,
+          description: p.description,
+          time: timeAgoPtBR(e.created_at),
+          icon: p.icon,
+          link: p.link,
+        };
+      })
+      .slice(0, 6);
 
     // Fallback: se não há eventos ainda, usar audit_logs (ai.request / api.* / system.*)
     if (!recentActivity || recentActivity.length === 0) {
@@ -149,7 +284,6 @@ export async function GET(request: NextRequest) {
       recentActivity = (auditRows || []).map((r: any) => {
         const type = String(r.action || 'audit');
         const nv = r.new_values || {};
-        const ok = nv.success ?? nv.ok;
         const icon: 'user' | 'task' | 'money' | 'alert' =
           type.includes('invoice') || type.includes('payment') ? 'money' :
           type.includes('client') || type.includes('employee') ? 'user' :
@@ -159,7 +293,7 @@ export async function GET(request: NextRequest) {
         return {
           id: r.id,
           type,
-          title: type,
+          title: type.startsWith('workflow_transition.') ? 'Atualização de fluxo' : type,
           description: String(nv.description || 'Log de auditoria'),
           time: timeAgoPtBR(r.created_at),
           icon,
