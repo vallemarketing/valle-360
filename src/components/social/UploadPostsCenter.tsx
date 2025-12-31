@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react';
-import { uploadToFirebaseStorage } from '@/lib/integrations/firebase/storage';
+import { supabase } from '@/lib/supabase';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,6 +47,13 @@ type ChannelSelection = { account_id: string; platform: string };
 
 function safeName(input: string) {
   return String(input || '').trim();
+}
+
+function safeObjectName(name: string) {
+  return String(name || 'file')
+    .trim()
+    .replace(/[^\w.\-]+/g, '_')
+    .slice(0, 120);
 }
 
 function pickId(p: any): string | null {
@@ -221,7 +228,7 @@ export default function UploadPostsCenter(props: { title: string; backHref?: str
   function validateBase(params: { needsMedia: boolean; needsSchedule: boolean }) {
     if (!selectedClientId) return 'Selecione um perfil (cliente).';
     if (selectedChannels.length === 0) return 'Selecione ao menos um canal.';
-    if (params.needsMedia && uploadedUrls.length === 0) return 'Envie a mídia (Firebase) antes de continuar.';
+    if (params.needsMedia && uploadedUrls.length === 0) return 'Envie a mídia (Storage) antes de continuar.';
     if (params.needsSchedule) {
       if (!scheduledDate || !scheduledTime) return 'Informe data e horário.';
     }
@@ -242,16 +249,42 @@ export default function UploadPostsCenter(props: { title: string; backHref?: str
     setError(null);
     setHint(null);
     try {
-      const results = await Promise.all(
-        files.map((file) =>
-          uploadToFirebaseStorage({
-            file,
-            folder: 'Postagem instagra',
-          })
-        )
-      );
-      setUploadedUrls(results.map((r) => r.downloadUrl));
-      setHint('Upload concluído. URLs prontas para postar.');
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user?.id;
+      if (!userId) throw new Error('Sessão expirada. Faça login novamente.');
+
+      const bucket = 'social-media';
+      const ts = Date.now();
+      const clientPrefix = selectedClientId ? safeObjectName(selectedClientId) : 'no_client';
+      const baseFolder = `${userId}/posts/${clientPrefix}`;
+
+      const urls: string[] = [];
+
+      for (const file of files) {
+        const objectName = `${ts}_${Math.random().toString(36).slice(2, 8)}_${safeObjectName(file.name)}`;
+        const path = `${baseFolder}/${objectName}`;
+
+        const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
+          cacheControl: '31536000',
+          upsert: false,
+          contentType: file.type || undefined,
+        });
+        if (uploadError) {
+          // Erro comum: bucket inexistente (migration não aplicada)
+          const msg = String(uploadError.message || '').toLowerCase();
+          if (msg.includes('bucket') && msg.includes('not found')) {
+            throw new Error('Bucket "social-media" não existe no Supabase Storage. Aplique a migration 20251230000003_create_social_media_bucket.sql.');
+          }
+          throw uploadError;
+        }
+
+        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
+        if (!pub?.publicUrl) throw new Error('Falha ao obter URL pública do upload.');
+        urls.push(pub.publicUrl);
+      }
+
+      setUploadedUrls(urls);
+      setHint('Upload concluído (Supabase Storage). URLs prontas para postar.');
     } catch (e: any) {
       setError(e?.message || 'Falha no upload');
     } finally {

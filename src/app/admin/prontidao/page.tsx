@@ -164,17 +164,17 @@ export default function ProntidaoPage() {
 
         {!loading && !error && data && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Firebase */}
+            {/* Firebase (Opcional) */}
             <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Firebase (Storage)</h2>
+                <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Firebase (opcional)</h2>
                 <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(firebase?.status || 'warn', firebase?.applicable))}`}>
                   {label(effectiveStatus(firebase?.status || 'warn', firebase?.applicable))}
                 </span>
               </div>
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 {firebase?.applicable === false
-                  ? 'Não aplicável neste ambiente.'
+                  ? 'Não aplicável (uploads usam Supabase Storage por padrão).'
                   : firebase?.status === 'pass'
                   ? 'Env vars do Firebase estão configuradas.'
                   : 'Configure as env vars NEXT_PUBLIC_FIREBASE_* para habilitar upload direto.'}

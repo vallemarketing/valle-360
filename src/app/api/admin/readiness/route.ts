@@ -359,8 +359,13 @@ export async function GET(request: NextRequest) {
     };
 
     const firebase = {
-      applicable: true,
-      status: hasFirebaseEnv() ? ('pass' as ReadinessStatus) : ('warn' as ReadinessStatus),
+      // Firebase é opcional: o app usa Supabase Storage como padrão.
+      // Para habilitar Firebase (ex.: upload direto/push), setar ENABLE_FIREBASE_STORAGE=true.
+      applicable: process.env.ENABLE_FIREBASE_STORAGE === 'true',
+      status:
+        process.env.ENABLE_FIREBASE_STORAGE === 'true'
+          ? (hasFirebaseEnv() ? ('pass' as ReadinessStatus) : ('warn' as ReadinessStatus))
+          : ('warn' as ReadinessStatus),
     };
 
     // status geral (apenas checks aplicáveis)
