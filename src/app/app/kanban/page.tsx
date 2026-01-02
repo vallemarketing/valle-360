@@ -137,6 +137,14 @@ function resolveColumnIdFromDndOver(
   return null;
 }
 
+function normalizeColumnIdForDb(columns: Column[], raw: unknown): string | null {
+  const v = String(raw ?? '').trim();
+  if (!v) return null;
+  if (UUID_RE.test(v)) return v;
+  // aceitar stage/status/etc e resolver para UUID real do board
+  return resolveColumnUuidFromAny(columns, v);
+}
+
 function inferDbStatusFromColumn(column?: Column | null): DbTaskStatus {
   const stage = String(column?.stage_key || '').toLowerCase();
   const name = String(column?.name || '').toLowerCase();
@@ -860,13 +868,13 @@ export default function KanbanPage() {
       const now = new Date().toISOString();
       const fromColumnIdRaw =
         dragContext?.taskId === activeId ? dragContext.fromColumnId : activeTask.column_id;
-      const fromColumnId = columns.some((c) => c.id === String(fromColumnIdRaw))
-        ? String(fromColumnIdRaw)
-        : null;
+      const fromColumnId = normalizeColumnIdForDb(columns, fromColumnIdRaw);
 
-      const toColumnId =
-        resolveColumnIdFromDndOver(columns, tasks, over) ||
-        (columns.some((c) => c.id === String(activeTask.column_id)) ? String(activeTask.column_id) : null);
+      const toColumnIdRaw =
+        resolveColumnIdFromDndOver(columns, tasks, over) ??
+        activeTask.column_id ??
+        null;
+      const toColumnId = normalizeColumnIdForDb(columns, toColumnIdRaw);
 
       // Guard: nunca persistir algo que não seja uma coluna real
       if (!toColumnId) {
