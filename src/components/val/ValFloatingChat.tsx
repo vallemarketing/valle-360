@@ -37,6 +37,7 @@ interface Message {
   text: string;
   isUser: boolean;
   timestamp: Date;
+  sources?: string[];
   persona?: {
     name: string;
     title: string;
@@ -149,18 +150,83 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
     }
   }, [isOpen]);
 
-  const handleSend = async () => {
-    if (!inputValue.trim()) return;
+  // Epic 12: quebra-gelo automático com insights web (clientes) – 1x/dia (localStorage)
+  useEffect(() => {
+    if (!isOpen) return;
+    // Só buscar se ainda não existe nenhuma mensagem (evita duplicar ao reabrir)
+    if (messages.length > 0) return;
+
+    const key = `val_web_insights_${new Date().toDateString()}`;
+    try {
+      const cached = localStorage.getItem(key);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.message) {
+          setMessages([
+            {
+              id: `web-${Date.now()}`,
+              text: String(parsed.message),
+              isUser: false,
+              timestamp: new Date(),
+              sources: Array.isArray(parsed.sources) ? parsed.sources.map(String) : undefined,
+            },
+          ]);
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    (async () => {
+      try {
+        const r = await fetch('/api/ai/val/web-insights');
+        const data = await r.json().catch(() => null);
+        if (!r.ok) return;
+        if (data?.skip) return;
+        if (!data?.success) return;
+        if (!data?.message) return;
+
+        const next: Message = {
+          id: `web-${Date.now()}`,
+          text: String(data.message),
+          isUser: false,
+          timestamp: new Date(),
+          sources: Array.isArray(data.sources) ? data.sources.map(String) : undefined,
+        };
+        setMessages([next]);
+        try {
+          localStorage.setItem(
+            key,
+            JSON.stringify({
+              message: next.text,
+              sources: next.sources || [],
+              generatedAt: data.generatedAt || new Date().toISOString(),
+              provider: data.provider || 'unknown',
+            })
+          );
+        } catch {
+          // ignore
+        }
+      } catch {
+        // best-effort
+      }
+    })();
+  }, [isOpen, messages.length]);
+
+  const handleSend = async (overrideText?: string) => {
+    const textToSend = typeof overrideText === 'string' ? overrideText : inputValue;
+    if (!String(textToSend || '').trim()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: inputValue,
+      text: textToSend,
       isUser: true,
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const currentInput = inputValue;
+    const currentInput = textToSend;
     setInputValue("");
     setIsTyping(true);
 
@@ -187,6 +253,11 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
           text: data.response.message || 'Desculpe, não consegui processar sua mensagem.',
           isUser: false,
           timestamp: new Date(),
+          sources: Array.isArray(data.sources)
+            ? data.sources.map(String)
+            : Array.isArray(data?.response?.sources)
+              ? data.response.sources.map(String)
+              : undefined,
         };
         setMessages(prev => [...prev, aiMessage]);
       } else {
@@ -207,8 +278,7 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
   };
 
   const handleQuickAction = (action: string) => {
-    setInputValue(action);
-    handleSend();
+    void handleSend(action);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -338,7 +408,7 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Quick Actions - Sem saudação duplicada */}
-              {messages.length === 0 && (
+              {!messages.some((m) => m.isUser) && (
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-[#001533]/50 dark:text-white/50 uppercase tracking-wider px-1">
                     Ações Rápidas
@@ -388,6 +458,32 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
                     )}
                   >
                     <p className="text-sm">{message.text}</p>
+                    {!message.isUser && message.sources && message.sources.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-[#001533]/10 dark:border-white/10">
+                        <p className="text-[11px] font-medium text-[#001533]/60 dark:text-white/60">Fontes</p>
+                        <div className="mt-1 space-y-1">
+                          {message.sources.slice(0, 6).map((u) => {
+                            let label = u;
+                            try {
+                              label = new URL(u).hostname;
+                            } catch {
+                              // ignore
+                            }
+                            return (
+                              <a
+                                key={u}
+                                href={u}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block text-[11px] underline text-[#1672d6] hover:text-[#1260b5] break-all"
+                              >
+                                {label}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <p className={cn(
                       "text-[10px] mt-1",
                       message.isUser ? "text-white/60" : "text-[#001533]/40 dark:text-white/40"
@@ -480,7 +576,7 @@ export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) 
                 
                 {/* Send Button */}
                 <Button
-                  onClick={handleSend}
+                  onClick={() => void handleSend()}
                   disabled={!inputValue.trim() || isTyping}
                   className={cn(
                     "h-12 w-12 rounded-xl",
