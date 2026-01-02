@@ -24,6 +24,12 @@ interface Message {
   timestamp: Date
 }
 
+function normalizeSources(input: any): string[] {
+  if (!input) return []
+  if (Array.isArray(input)) return input.map((x) => String(x)).filter(Boolean)
+  return [String(input)].filter(Boolean)
+}
+
 export default function ValIAPage() {
   const [userName, setUserName] = useState('')
   const [userArea, setUserArea] = useState('')
@@ -232,8 +238,14 @@ export default function ValIAPage() {
         throw new Error(data?.error || 'Erro ao conversar com a Val')
       }
 
-      const aiText = String(data?.message || data?.data?.message || '').trim()
-      const finalText = aiText || 'Não consegui responder agora. Pode tentar novamente?'
+      const aiText = String(data?.response?.message || data?.message || data?.data?.message || '').trim()
+      const sources = normalizeSources(data?.response?.sources || data?.sources)
+
+      const finalText =
+        (aiText || 'Não consegui responder agora. Pode tentar novamente?') +
+        (sources.length
+          ? `\n\nFontes:\n${sources.slice(0, 8).map((u) => `- ${u}`).join('\n')}`
+          : '')
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),

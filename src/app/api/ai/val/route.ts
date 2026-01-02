@@ -220,9 +220,11 @@ export async function POST(request: NextRequest) {
 
     // (Opcional) Busca web com Perplexity (quando o usuário pedir).
     // Fazemos isso antes da IA principal para entregar "fontes" e evitar alucinação.
+    let webSearchResult: { answer: string; sources: string[] } | null = null;
     if (wantsWebSearch(message)) {
       try {
         const web = await perplexityWebSearch({ query: message });
+        webSearchResult = web || null;
         if (web?.answer) {
           const sourcesBlock = (web.sources || []).slice(0, 8).map((u) => `- ${u}`).join('\n');
           const webBlock =
@@ -298,6 +300,12 @@ export async function POST(request: NextRequest) {
       emoji: persona.emoji
     };
 
+    // Se houve web search, anexar fontes de forma estruturada (não depende do LLM).
+    if (webSearchResult?.sources?.length) {
+      (parsedResponse as any).sources = webSearchResult.sources.slice(0, 12);
+      (parsedResponse as any).web = { sources: webSearchResult.sources.slice(0, 12) };
+    }
+
     // Registrar interação (ignorar erro se tabela não existir)
     try {
       await supabase.from('val_interactions').insert({
@@ -314,8 +322,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      // compatibilidade: alguns frontends esperam `message` no root
+      message: parsedResponse?.message,
       response: parsedResponse,
-      timestamp: new Date().toISOString()
+      sources: (parsedResponse as any)?.sources || undefined,
+      timestamp: new Date().toISOString(),
     });
 
   } catch (error: any) {
