@@ -34,7 +34,9 @@ export function requiredFieldsForStage(params: {
   const group = resolveStageGroup(params);
   const fields: KanbanRequiredField[] = [];
 
-  if (stageKey !== 'demanda' && stageKey !== 'lead_demanda') {
+  // Regra de descrição: qualquer etapa fora do grupo "demanda" deve ter descrição
+  // (isso cobre 'demanda' e também etapas equivalentes como 'inbox' quando aplicável)
+  if (group !== 'demanda') {
     fields.push('description');
   }
 
