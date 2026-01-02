@@ -6,7 +6,7 @@
 // Cores: #001533 (navy), #1672d6 (primary), #ffffff (white)
 // ============================================
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -44,40 +44,27 @@ import {
   SupportCard
 } from "@/components/valle-ui";
 
-// Dados de demonstração para os DisplayCards
-const displayCardsData = [
-  {
-    icon: <TrendingUp className="size-5 text-white" />,
-    title: "Desempenho",
-    description: "Suas métricas subiram 23% este mês",
-    date: "Atualizado há 2h",
-    iconClassName: "bg-[#1672d6]",
-    titleClassName: "text-[#1672d6]",
-    href: "/cliente/painel/desempenho",
-    badge: "+23%",
-    badgeColor: "bg-emerald-500",
-  },
-  {
-    icon: <Newspaper className="size-5 text-white" />,
-    title: "Seu Setor",
-    description: "3 novidades importantes do seu mercado",
-    date: "Atualizado há 5h",
-    iconClassName: "bg-[#001533]",
-    titleClassName: "text-[#001533] dark:text-white",
-    href: "/cliente/painel/setor",
-    badge: "3 novas",
-    badgeColor: "bg-orange-500",
-  },
-  {
-    icon: <Target className="size-5 text-white" />,
-    title: "Concorrentes",
-    description: "Análise competitiva atualizada",
-    date: "Atualizado agora",
-    iconClassName: "bg-purple-500",
-    titleClassName: "text-purple-600",
-    href: "/cliente/painel/concorrentes",
-  },
-];
+function formatCompact(n: number) {
+  if (!Number.isFinite(n)) return "0";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return `${Math.round(n)}`;
+}
+
+type DashboardSummary = {
+  success: boolean;
+  client: { id: string; company_name: string; segment: string; industry: string; competitors_count: number };
+  kpis: {
+    impressions: { value: number; change: number };
+    clicks: { value: number; change: number; label?: string };
+    conversions: { value: number; change: number };
+    spend: { value: number; change: number };
+    roi: { value: number; change: number };
+  };
+  ads: { available: boolean };
+  insights: { available: boolean; total: number; new: number; latestTitles: string[] };
+  billing: { hasOpenInvoice: boolean; invoice?: { amount: number; due_date: string; status: string } };
+};
 
 export default function ClienteDashboard() {
   const router = useRouter();
@@ -89,6 +76,7 @@ export default function ClienteDashboard() {
     plano: "Premium",
   });
   const [lastVisit, setLastVisit] = useState<string | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
   useEffect(() => {
     loadClienteData();
@@ -125,18 +113,21 @@ export default function ClienteDashboard() {
         .eq("user_id", user.id)
         .single();
 
-      const { data: client } = await supabase
-        .from("clients")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
+      // Resumo real do dashboard (via API - evita drift de RLS)
+      const dashRes = await fetch("/api/client/dashboard/summary?days=30", { cache: "no-store" });
+      const dashJson = await dashRes.json().catch(() => null);
+      if (dashRes.ok && dashJson?.success) {
+        setSummary(dashJson as DashboardSummary);
+      } else {
+        setSummary(null);
+      }
 
-      if (profile || client) {
+      if (profile || dashJson?.client) {
         setClienteData({
-          nome: profile?.full_name || client?.name || "Cliente",
-          empresa: client?.company_name || "Sua Empresa",
-          avatar: client?.avatar_url || "",
-          plano: client?.plan || "Premium",
+          nome: profile?.full_name || "Cliente",
+          empresa: dashJson?.client?.company_name || "Sua Empresa",
+          avatar: "",
+          plano: "Premium",
         });
       }
     } catch (error) {
@@ -159,6 +150,67 @@ export default function ClienteDashboard() {
   }
 
   const firstName = clienteData.nome.split(" ")[0];
+  const kpis = summary?.kpis;
+  const hasAds = !!summary?.ads?.available;
+  const openInvoice = summary?.billing?.hasOpenInvoice ? summary?.billing?.invoice : null;
+  const insightsNew = summary?.insights?.available ? summary?.insights?.new : 0;
+
+  const displayCardsData = useMemo(() => {
+    const delta = kpis?.impressions?.change ?? 0;
+    const seg = summary?.client?.segment?.trim();
+    const competitorsCount = summary?.client?.competitors_count ?? 0;
+    const insightBadge = summary?.insights?.available ? `${summary.insights.new} novas` : undefined;
+    return [
+      {
+        icon: <TrendingUp className="size-5 text-white" />,
+        title: "Desempenho",
+        description: hasAds ? "Ads + Social consolidados (30d)" : "Social consolidado (30d)",
+        date: "Atualizado agora",
+        iconClassName: "bg-[#1672d6]",
+        titleClassName: "text-[#1672d6]",
+        href: "/cliente/painel/desempenho",
+        badge: `${delta >= 0 ? "+" : ""}${delta}%`,
+        badgeColor: delta >= 0 ? "bg-emerald-500" : "bg-red-500",
+      },
+      {
+        icon: <Newspaper className="size-5 text-white" />,
+        title: "Seu Setor",
+        description: seg ? `Segmento: ${seg}` : "Notícias e tendências do seu mercado",
+        date: "Atualizado hoje",
+        iconClassName: "bg-[#001533]",
+        titleClassName: "text-[#001533] dark:text-white",
+        href: "/cliente/painel/setor",
+        badge: "Hoje",
+        badgeColor: "bg-orange-500",
+      },
+      {
+        icon: <Target className="size-5 text-white" />,
+        title: "Concorrentes",
+        description: competitorsCount ? `${competitorsCount} monitorado(s)` : "Defina seus concorrentes para gerar comparativos",
+        date: "Atualizado agora",
+        iconClassName: "bg-purple-500",
+        titleClassName: "text-purple-600",
+        href: "/cliente/painel/concorrentes",
+        badge: competitorsCount ? `${competitorsCount}` : undefined,
+        badgeColor: "bg-purple-500",
+      },
+      ...(insightBadge
+        ? [
+            {
+              icon: <Lightbulb className="size-5 text-white" />,
+              title: "Insights IA",
+              description: "Recomendações com fontes (hoje)",
+              date: "Atualizado hoje",
+              iconClassName: "bg-emerald-500",
+              titleClassName: "text-emerald-600",
+              href: "/cliente/painel/insights",
+              badge: insightBadge,
+              badgeColor: "bg-emerald-500",
+            },
+          ]
+        : []),
+    ];
+  }, [hasAds, kpis?.impressions?.change, summary?.client?.segment, summary?.client?.competitors_count, summary?.insights?.available, summary?.insights?.new]);
 
   return (
     <div className="p-4 lg:p-6 space-y-6 md:space-y-8 max-w-7xl mx-auto">
@@ -188,27 +240,27 @@ export default function ClienteDashboard() {
           <StatsGrid>
             <StatsCard
               title="Impressões"
-              value="125.4K"
-              change={12}
+              value={kpis ? formatCompact(kpis.impressions.value) : "—"}
+              change={kpis ? kpis.impressions.change : 0}
               icon={<Eye className="size-5 text-[#1672d6]" />}
             />
             <StatsCard
-              title="Cliques"
-              value="8.2K"
-              change={8}
+              title={kpis?.clicks?.label || "Cliques"}
+              value={kpis ? formatCompact(kpis.clicks.value) : "—"}
+              change={kpis ? kpis.clicks.change : 0}
               icon={<MousePointerClick className="size-5 text-[#1672d6]" />}
             />
             <StatsCard
               title="Conversões"
-              value="432"
-              change={23}
+              value={kpis && hasAds ? formatCompact(kpis.conversions.value) : "—"}
+              change={kpis ? kpis.conversions.change : 0}
               icon={<Target className="size-5 text-[#1672d6]" />}
             />
             <StatsCard
               title="Investimento"
-              value="R$ 4.5K"
-              change={-5}
-              changeLabel="economia vs mês anterior"
+              value={kpis && hasAds ? `R$ ${kpis.spend.value.toFixed(0)}` : "—"}
+              change={kpis ? kpis.spend.change : 0}
+              changeLabel={hasAds ? "ads (30d)" : "ads não conectado"}
               icon={<DollarSign className="size-5 text-[#1672d6]" />}
             />
           </StatsGrid>
@@ -243,37 +295,43 @@ export default function ClienteDashboard() {
         </motion.div>
 
         {/* ========== ALERTA DE COBRANÇA ========== */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.25 }}
-        >
-          <div className="rounded-2xl bg-[#001533] p-4 text-white shadow-lg border-2 border-[#1672d6]/30">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-2.5 rounded-xl bg-[#1672d6]">
-                  <AlertTriangle className="size-5" />
+        {!!openInvoice && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.25 }}
+          >
+            <div className="rounded-2xl bg-[#001533] p-4 text-white shadow-lg border-2 border-[#1672d6]/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 rounded-xl bg-[#1672d6]">
+                    <AlertTriangle className="size-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Fatura em aberto</h3>
+                    <p className="text-white/80 text-sm">
+                      Você tem uma fatura de{" "}
+                      <span className="font-bold">
+                        {`R$ ${Number(openInvoice.amount || 0).toFixed(2).replace(".", ",")}`}
+                      </span>{" "}
+                      com vencimento em <span className="font-bold">{openInvoice.due_date}</span>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold">Fatura em aberto</h3>
-                  <p className="text-white/80 text-sm">
-                    Você tem uma fatura de <span className="font-bold">R$ 2.500,00</span> com vencimento em <span className="font-bold">10/12/2025</span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Link href="/cliente/financeiro">
-                  <button className="px-4 py-2 bg-[#1672d6] text-white rounded-lg font-medium text-sm hover:bg-[#1260b5] transition-colors">
-                    Pagar Agora
+                <div className="flex items-center gap-2">
+                  <Link href="/cliente/financeiro">
+                    <button className="px-4 py-2 bg-[#1672d6] text-white rounded-lg font-medium text-sm hover:bg-[#1260b5] transition-colors">
+                      Ver Financeiro
+                    </button>
+                  </Link>
+                  <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                    <X className="size-4" />
                   </button>
-                </Link>
-                <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                  <X className="size-4" />
-                </button>
+                </div>
               </div>
             </div>
-                    </div>
-        </motion.div>
+          </motion.div>
+        )}
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -347,10 +405,10 @@ export default function ClienteDashboard() {
               <InsightsPanel 
                 defaultExpanded={false}
                 stats={{
-                  impressions: { value: "125.4K", change: 12 },
-                  clicks: { value: "8.2K", change: 8 },
-                  conversions: { value: "432", change: 23 },
-                  roi: { value: "320%", change: 15 },
+                  impressions: { value: kpis ? formatCompact(kpis.impressions.value) : "—", change: kpis ? kpis.impressions.change : 0 },
+                  clicks: { value: kpis ? formatCompact(kpis.clicks.value) : "—", change: kpis ? kpis.clicks.change : 0 },
+                  conversions: { value: kpis && hasAds ? formatCompact(kpis.conversions.value) : "—", change: kpis ? kpis.conversions.change : 0 },
+                  roi: { value: kpis && hasAds ? `${kpis.roi.value.toFixed(2)}` : "—", change: kpis ? kpis.roi.change : 0 },
                 }}
               />
             </motion.div>
@@ -386,7 +444,9 @@ export default function ClienteDashboard() {
                     </h3>
                   </div>
                   <p className="text-sm text-[#001533]/70 dark:text-white/70 mb-4">
-                    5 novas recomendações personalizadas para melhorar seus resultados
+                    {summary?.insights?.available
+                      ? `${insightsNew} nova(s) recomendação(ões) hoje para melhorar seus resultados`
+                      : "Gere insights com fontes para receber recomendações personalizadas"}
                   </p>
                   <div className="flex items-center gap-2 text-emerald-600 font-medium text-sm group-hover:gap-3 transition-all">
                     Ver recomendações <ChevronRight className="size-4" />
