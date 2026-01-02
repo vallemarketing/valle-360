@@ -77,6 +77,7 @@ export default function ClienteDashboard() {
   });
   const [lastVisit, setLastVisit] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [feed, setFeed] = useState<{ nextMeeting: any | null; activities: any[] } | null>(null);
 
   useEffect(() => {
     loadClienteData();
@@ -114,13 +115,16 @@ export default function ClienteDashboard() {
         .single();
 
       // Resumo real do dashboard (via API - evita drift de RLS)
-      const dashRes = await fetch("/api/client/dashboard/summary?days=30", { cache: "no-store" });
+      const [dashRes, feedRes] = await Promise.all([
+        fetch("/api/client/dashboard/summary?days=30", { cache: "no-store" }),
+        fetch("/api/client/dashboard/feed?maxItems=6", { cache: "no-store" }),
+      ]);
+
       const dashJson = await dashRes.json().catch(() => null);
-      if (dashRes.ok && dashJson?.success) {
-        setSummary(dashJson as DashboardSummary);
-      } else {
-        setSummary(null);
-      }
+      const feedJson = await feedRes.json().catch(() => null);
+
+      setSummary(dashRes.ok && dashJson?.success ? (dashJson as DashboardSummary) : null);
+      setFeed(feedRes.ok && feedJson?.success ? { nextMeeting: feedJson.nextMeeting || null, activities: feedJson.activities || [] } : null);
 
       if (profile || dashJson?.client) {
         setClienteData({
@@ -154,6 +158,8 @@ export default function ClienteDashboard() {
   const hasAds = !!summary?.ads?.available;
   const openInvoice = summary?.billing?.hasOpenInvoice ? summary?.billing?.invoice : null;
   const insightsNew = summary?.insights?.available ? summary?.insights?.new : 0;
+  const nextMeeting = feed?.nextMeeting || null;
+  const activities = Array.isArray(feed?.activities) ? feed?.activities : undefined;
 
   const displayCardsData = useMemo(() => {
     const delta = kpis?.impressions?.change ?? 0;
@@ -462,10 +468,11 @@ export default function ClienteDashboard() {
               transition={{ duration: 0.5, delay: 0.5 }}
             >
               <NextMeeting
-                date="15 Dez"
-                time="14:00"
-                with="Ana Silva"
-                withRole="Gestora de Conta"
+                date={nextMeeting?.date}
+                time={nextMeeting?.time}
+                with={nextMeeting?.with}
+                withRole={nextMeeting?.withRole}
+                href={nextMeeting?.href || "/cliente/agenda"}
               />
             </motion.div>
 
@@ -475,7 +482,7 @@ export default function ClienteDashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.6 }}
             >
-              <RecentActivities />
+              <RecentActivities activities={activities} />
             </motion.div>
 
             {/* Card de Suporte */}
