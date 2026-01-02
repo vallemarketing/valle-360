@@ -12,6 +12,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { perplexityWebSearch } from '@/lib/integrations/perplexity';
 import { tavilyClient } from '@/lib/integrations/tavily/client';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,7 +80,9 @@ export async function GET(_request: NextRequest) {
     // Buscar dados do cliente (segmento/concorrentes)
     let clientRow: any = null;
     {
-      const tryRich = await supabase
+      // Usa service role para evitar bloqueio por RLS, mas SEMPRE valida ownership via user_id.
+      const admin = getSupabaseAdmin();
+      const tryRich = await admin
         .from('clients')
         .select('id, company_name, industry, segment, competitors, concorrentes')
         .eq('user_id', user.id)
@@ -87,7 +90,7 @@ export async function GET(_request: NextRequest) {
 
       if (!tryRich.error) clientRow = tryRich.data;
       else {
-        const tryBasic = await supabase
+        const tryBasic = await admin
           .from('clients')
           .select('id, company_name, industry')
           .eq('user_id', user.id)
