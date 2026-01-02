@@ -22,6 +22,12 @@ DROP FUNCTION IF EXISTS public.trigger_nps_survey();
 DROP TRIGGER IF EXISTS trg_nps_on_complete ON public.kanban_tasks;
 DROP FUNCTION IF EXISTS public.trigger_nps_request();
 
+-- Some databases may contain an extra legacy trigger created outside migrations
+-- (e.g. trg_penalty_late -> trigger_penalty_late_task) that also compares NEW.column_id to strings.
+-- Drop it defensively if present.
+DROP TRIGGER IF EXISTS trg_penalty_late ON public.kanban_tasks;
+DROP FUNCTION IF EXISTS public.trigger_penalty_late_task();
+
 -- 2) Recreate corrected versions (status-based)
 CREATE OR REPLACE FUNCTION public.calculate_task_points()
 RETURNS TRIGGER
