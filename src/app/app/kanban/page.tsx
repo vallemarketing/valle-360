@@ -128,6 +128,13 @@ function resolveColumnIdFromDndOver(
   const overId = String((over as any).id || '').trim();
   if (!overId) return null;
 
+  // Caso comum (deploys antigos): droppable id é stage_key/status/name (ex.: 'done', 'todo', 'qualificacao').
+  // Se não for UUID, tentar resolver para UUID real do board.
+  if (!UUID_RE.test(overId)) {
+    const resolved = resolveColumnUuidFromAny(columns, overId);
+    if (resolved) return resolved;
+  }
+
   if (columns.some((c) => c.id === overId)) return overId;
 
   const overTask = tasks.find((t) => t.id === overId) || null;
