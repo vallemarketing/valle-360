@@ -70,6 +70,9 @@ interface Board {
 
 type KanbanBoardFilter = 'all' | 'area_only';
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function inferDbStatusFromColumn(column?: Column | null): DbTaskStatus {
   const stage = String(column?.stage_key || '').toLowerCase();
   const name = String(column?.name || '').toLowerCase();
@@ -492,12 +495,14 @@ export default function KanbanPage() {
             clientName,
             assignees: [t.assigned_to].filter(Boolean) as string[],
             dueDate: t.due_date ? new Date(String(t.due_date)) : undefined,
-            stageKey: c.stage_key || undefined,
+            stageKey: c.stage_key || c.name || undefined,
           };
         });
       return {
-        id: c.stage_key || c.name,
-        stageKey: c.stage_key || undefined,
+        // IMPORTANTE: manter `id` como UUID real (compatível com DB/kanban_columns)
+        // e usar `stageKey` como metadado para insights/agrupamentos.
+        id: c.id,
+        stageKey: c.stage_key || c.name || undefined,
         title: c.name,
         color: c.color,
         cards,
@@ -747,6 +752,8 @@ export default function KanbanPage() {
     const overTask = tasks.find(t => t.id === overId);
 
     if (overColumn && activeTask.column_id !== overColumn.id) {
+      // Guard extra: nunca deixar `column_id` virar algo que não seja UUID (ex.: "done")
+      if (!UUID_RE.test(String(overColumn.id || ''))) return;
       setTasks(prevTasks => {
         const updatedTasks = prevTasks.map(t =>
           t.id === activeId ? { ...t, column_id: overColumn.id } : t
@@ -798,8 +805,7 @@ export default function KanbanPage() {
         activeTask.column_id;
 
       // Guard: evitar mandar valores inválidos (ex.: 'done') para colunas UUID no banco
-      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (!uuidRe.test(String(toColumnId || ''))) {
+      if (!UUID_RE.test(String(toColumnId || ''))) {
         console.error('DnD: toColumnId inválido (não-uuid)', { toColumnId, overId });
         if (selectedBoardId) await loadKanbanData(selectedBoardId);
         return;
@@ -869,7 +875,7 @@ export default function KanbanPage() {
       }
 
       // Se mudou de coluna, reindexar a coluna origem também
-      if (fromColumnId && fromColumnId !== toColumnId && uuidRe.test(String(fromColumnId))) {
+      if (fromColumnId && fromColumnId !== toColumnId && UUID_RE.test(String(fromColumnId))) {
         const remainingFrom = tasks
           .filter((t) => t.column_id === fromColumnId && t.id !== activeId)
           .slice()
