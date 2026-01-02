@@ -139,6 +139,11 @@ export async function POST(request: NextRequest) {
               display_name: 'WhatsApp Business',
               category: 'communication',
             }
+          : integrationId === 'perplexity'
+            ? {
+                display_name: 'Perplexity (Sonar)',
+                category: 'ai',
+              }
           : {}),
       api_key: apiKey ?? null,
       api_secret: apiSecret ?? null,
@@ -208,6 +213,35 @@ async function validateCredentials(
   const cfg = extra?.config || {};
 
   switch (integrationId) {
+    case 'perplexity':
+      if (!apiKey || apiKey.length < 16) {
+        return {
+          valid: false,
+          error: 'API Key inválida',
+          details: 'Informe a API Key do Perplexity (geralmente começa com "pplx-").',
+        };
+      }
+      // Best-effort: não bloquear se rede falhar.
+      try {
+        const r = await fetch('https://api.perplexity.ai/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: String(cfg?.model || 'sonar'),
+            messages: [{ role: 'user', content: 'ping' }],
+            max_tokens: 8,
+            temperature: 0,
+          }),
+        });
+        if (!r.ok) {
+          const raw = await r.text().catch(() => '');
+          return { valid: false, error: 'API Key inválida ou sem permissão', details: raw.slice(0, 200) };
+        }
+      } catch {
+        // ignore
+      }
+      break;
+
     case 'openai':
       if (!apiKey || !apiKey.startsWith('sk-')) {
         return { valid: false, error: 'API Key inválida', details: 'A API Key da OpenAI deve começar com "sk-"' };

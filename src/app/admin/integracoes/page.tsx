@@ -68,6 +68,25 @@ const INTEGRATION_CONFIGS: Record<string, { fields: IntegrationField[] }> = {
       { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'sk-...', required: true, helpText: 'Encontre em platform.openai.com' }
     ]
   },
+  perplexity: {
+    fields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        type: 'password',
+        placeholder: 'pplx-...',
+        required: true,
+        helpText: 'Chave do Perplexity API (Sonar). Usada para “busca web com fontes” dentro da Val.',
+      },
+      {
+        key: 'config.model',
+        label: 'Modelo (opcional)',
+        type: 'text',
+        placeholder: 'sonar',
+        helpText: 'Deixe vazio para usar "sonar". Você pode testar "sonar-pro" se estiver disponível na sua conta.',
+      },
+    ],
+  },
   stripe: {
     fields: [
       { key: 'apiKey', label: 'Secret Key', type: 'password', placeholder: 'sk_live_... ou sk_test_...', required: true },
@@ -230,6 +249,15 @@ const INTEGRATIONS_BASE: Omit<Integration, 'connected' | 'lastSync' | 'status' |
     color: '#10A37F',
     category: 'ai',
     fields: INTEGRATION_CONFIGS.openai.fields
+  },
+  {
+    id: 'perplexity',
+    name: 'Perplexity (Sonar)',
+    description: 'Busca web com fontes (para a Val responder com links)',
+    icon: <IntegrationIcon integrationId="perplexity" className="w-6 h-6" fallback={<Globe className="w-6 h-6" />} />,
+    color: '#111827',
+    category: 'ai',
+    fields: INTEGRATION_CONFIGS.perplexity.fields,
   },
   // Pagamentos
   {

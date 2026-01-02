@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
       openai: !!process.env.OPENAI_API_KEY,
       anthropic: !!process.env.ANTHROPIC_API_KEY,
       gemini: !!(process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_CLOUD_API_KEY),
+      perplexity: !!process.env.PERPLEXITY_API_KEY,
       stripe: !!process.env.STRIPE_SECRET_KEY,
       sendgrid: !!process.env.SENDGRID_API_KEY,
       whatsapp: !!process.env.WHATSAPP_ACCESS_TOKEN,
@@ -130,6 +131,7 @@ export async function POST(request: NextRequest) {
       openai: !!process.env.OPENAI_API_KEY,
       anthropic: !!process.env.ANTHROPIC_API_KEY,
       gemini: !!(process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_CLOUD_API_KEY),
+      perplexity: !!process.env.PERPLEXITY_API_KEY,
       stripe: !!process.env.STRIPE_SECRET_KEY,
       sendgrid: !!process.env.SENDGRID_API_KEY,
       whatsapp: !!process.env.WHATSAPP_ACCESS_TOKEN,
@@ -196,6 +198,33 @@ async function checkIntegrationHealth(
 
   try {
     switch (integrationId) {
+      case 'perplexity':
+        {
+          const key = config.api_key || process.env.PERPLEXITY_API_KEY;
+          const model = String(config?.config?.model || 'sonar').trim() || 'sonar';
+          if (!key) return { healthy: false, error: 'API Key não configurada (db/env)', responseTime: Date.now() - startTime };
+
+          const r = await fetch('https://api.perplexity.ai/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${key}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: 'user', content: 'ping' }],
+              max_tokens: 8,
+              temperature: 0,
+            }),
+          });
+          const raw = await r.text().catch(() => '');
+          return {
+            healthy: r.ok,
+            error: r.ok ? undefined : raw.slice(0, 200) || 'Falha na autenticação',
+            responseTime: Date.now() - startTime,
+          };
+        }
+
       case 'whatsapp':
         {
           const rawToken = String(config?.access_token || process.env.WHATSAPP_ACCESS_TOKEN || '').trim();

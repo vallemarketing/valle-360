@@ -9,6 +9,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { generateWithAI } from '@/lib/ai/aiRouter';
 import { getValPersona, buildValPrompt } from '@/lib/ai/val-personas';
+import { perplexityWebSearch } from '@/lib/integrations/perplexity';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +52,12 @@ function inferTaskFromPersona(personaKey: string) {
   if (p === 'notificacoes' || p === 'operacao') return 'analysis';
   if (p === 'super_admin' || p === 'admin') return 'strategy';
   return 'general';
+}
+
+function wantsWebSearch(message: string) {
+  const m = String(message || '');
+  // Heurística simples: só dispara quando o usuário explicitamente pede “web/internet/fontes”
+  return /(\bpesquis|\bbusca\b|\binternet\b|\bweb\b|\bnot[ií]cia|\batualizad|\bfonte(s)?\b|\blink(s)?\b)/i.test(m);
 }
 
 // POST - Conversar com a Val
@@ -210,6 +217,36 @@ export async function POST(request: NextRequest) {
 
     // Adicionar mensagem atual
     messages.push({ role: 'user', content: message });
+
+    // (Opcional) Busca web com Perplexity (quando o usuário pedir).
+    // Fazemos isso antes da IA principal para entregar "fontes" e evitar alucinação.
+    if (wantsWebSearch(message)) {
+      try {
+        const web = await perplexityWebSearch({ query: message });
+        if (web?.answer) {
+          const sourcesBlock = (web.sources || []).slice(0, 8).map((u) => `- ${u}`).join('\n');
+          const webBlock =
+            `Pesquisa web (Perplexity Sonar) — use como base:\n\n` +
+            `${web.answer}\n\n` +
+            (sourcesBlock ? `Fontes (URLs):\n${sourcesBlock}\n\n` : '') +
+            `Instruções: se você usar essa pesquisa, inclua no final da sua resposta uma seção "Fontes:" com os links (1 por linha).`;
+
+          // Insere antes da mensagem do usuário atual (último item)
+          messages.splice(Math.max(1, messages.length - 1), 0, { role: 'system', content: webBlock });
+        }
+      } catch (e: any) {
+        // Best-effort: não bloqueia a Val se a integração não estiver configurada.
+        const msg = String(e?.message || '');
+        if (msg.includes('PERPLEXITY_API_KEY')) {
+          // Se o usuário explicitamente pediu web search mas não está configurado, orienta.
+          messages.splice(Math.max(1, messages.length - 1), 0, {
+            role: 'system',
+            content:
+              'Observação: o usuário pediu busca web com fontes, mas Perplexity não está configurado (db/env). Se necessário, responda instruindo a conectar em Admin → Integrações → Perplexity (Sonar).',
+          });
+        }
+      }
+    }
 
     let parsedResponse;
     try {
