@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { 
@@ -25,6 +25,13 @@ import { cn } from "@/lib/utils";
 // Hub central com todos os insights organizados por tópicos
 // ============================================
 
+function formatCompact(n: number) {
+  if (!Number.isFinite(n)) return "0";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return `${Math.round(n)}`;
+}
+
 interface TopicCard {
   id: string;
   title: string;
@@ -36,83 +43,125 @@ interface TopicCard {
   highlights?: string[];
 }
 
-const topics: TopicCard[] = [
-  {
-    id: "desempenho",
-    title: "Desempenho",
-    description: "Métricas de performance, ROI e conversões das suas campanhas",
-    icon: TrendingUp,
-    href: "/cliente/painel/desempenho",
-    color: "from-[#1672d6] to-[#1260b5]",
-    stats: [
-      { label: "Impressões", value: "125.4K", change: 12 },
-      { label: "Cliques", value: "8.2K", change: 8 },
-      { label: "Conversões", value: "432", change: 23 },
-    ],
-    highlights: [
-      "ROI aumentou 15% este mês",
-      "Melhor dia: Terça-feira",
-      "Campanha Black Friday superou meta"
-    ]
-  },
-  {
-    id: "setor",
-    title: "Seu Setor",
-    description: "Notícias, tendências e novidades do seu mercado de atuação",
-    icon: Newspaper,
-    href: "/cliente/painel/setor",
-    color: "from-orange-500 to-orange-600",
-    stats: [
-      { label: "Notícias", value: "12", change: 3 },
-      { label: "Tendências", value: "5" },
-      { label: "Alertas", value: "2" },
-    ],
-    highlights: [
-      "Nova regulamentação no setor",
-      "Tendência: IA em marketing",
-      "Oportunidade de mercado identificada"
-    ]
-  },
-  {
-    id: "concorrentes",
-    title: "Concorrentes",
-    description: "Análise competitiva e benchmarking com seus principais concorrentes",
-    icon: Target,
-    href: "/cliente/painel/concorrentes",
-    color: "from-purple-500 to-purple-600",
-    stats: [
-      { label: "Monitorados", value: "5" },
-      { label: "Seu Ranking", value: "#2", change: 1 },
-      { label: "Share of Voice", value: "28%", change: 5 },
-    ],
-    highlights: [
-      "Você está à frente em engajamento",
-      "Concorrente X lançou campanha nova",
-      "Oportunidade: nicho pouco explorado"
-    ]
-  },
-  {
-    id: "insights",
-    title: "Insights IA",
-    description: "Recomendações inteligentes e personalizadas da Val para seu negócio",
-    icon: Sparkles,
-    href: "/cliente/painel/insights",
-    color: "from-emerald-500 to-emerald-600",
-    stats: [
-      { label: "Recomendações", value: "8" },
-      { label: "Implementadas", value: "5" },
-      { label: "Impacto", value: "+18%" },
-    ],
-    highlights: [
-      "Aumente posts às 19h",
-      "Teste formato carrossel",
-      "Invista mais em Reels"
-    ]
-  },
-];
+type DashboardSummary = {
+  success: boolean;
+  client: { id: string; company_name: string; segment: string; industry: string; competitors_count: number };
+  kpis: {
+    impressions: { value: number; change: number };
+    clicks: { value: number; change: number; label?: string };
+    conversions: { value: number; change: number };
+    spend: { value: number; change: number };
+    roi: { value: number; change: number };
+  };
+  ads: { available: boolean };
+  insights: { available: boolean; total: number; new: number; latestTitles: string[] };
+};
 
 export default function PainelPage() {
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const r = await fetch("/api/client/dashboard/summary?days=30", { cache: "no-store" });
+        const j = await r.json().catch(() => null);
+        if (r.ok && j?.success) setSummary(j as DashboardSummary);
+        else setSummary(null);
+      } catch {
+        setSummary(null);
+      }
+    };
+    load();
+  }, []);
+
+  const topics: TopicCard[] = useMemo(() => {
+    const k = summary?.kpis;
+    const hasAds = !!summary?.ads?.available;
+    const segment = summary?.client?.segment?.trim();
+    const industry = summary?.client?.industry?.trim();
+    const competitorsCount = summary?.client?.competitors_count ?? 0;
+    const insightsNew = summary?.insights?.available ? summary.insights.new : 0;
+    const insightTitles = summary?.insights?.available ? summary.insights.latestTitles : [];
+
+    const desempenhoHighlights: string[] = [];
+    if (hasAds) desempenhoHighlights.push("Ads conectado: métricas consolidadas (30d)");
+    else desempenhoHighlights.push("Ads não conectado: exibindo Social (30d)");
+    if (k) desempenhoHighlights.push(`Variação semanal de impressões: ${k.impressions.change >= 0 ? "+" : ""}${k.impressions.change}%`);
+
+    const setorHighlights: string[] = [];
+    if (industry) setorHighlights.push(`Indústria: ${industry}`);
+    if (segment) setorHighlights.push(`Segmento: ${segment}`);
+    if (!industry && !segment) setorHighlights.push("Defina seu setor/segmento para melhorar as recomendações");
+
+    const concorrentesHighlights: string[] = [];
+    if (competitorsCount > 0) concorrentesHighlights.push("Concorrentes configurados: pronto para gerar comparativos");
+    else concorrentesHighlights.push("Adicione concorrentes para gerar análises e benchmarking");
+
+    const insightsHighlights: string[] =
+      insightTitles.length > 0
+        ? insightTitles.slice(0, 3)
+        : ["Gere insights com fontes (Perplexity/Tavily) para receber recomendações personalizadas"];
+
+    return [
+      {
+        id: "desempenho",
+        title: "Desempenho",
+        description: "Métricas reais (Social + Ads quando conectado)",
+        icon: TrendingUp,
+        href: "/cliente/painel/desempenho",
+        color: "from-[#1672d6] to-[#1260b5]",
+        stats: [
+          { label: "Impressões (30d)", value: k ? formatCompact(k.impressions.value) : "—", change: k ? k.impressions.change : 0 },
+          { label: hasAds ? "Cliques (ads)" : "Visitas ao perfil", value: k ? formatCompact(k.clicks.value) : "—", change: k ? k.clicks.change : 0 },
+          { label: "Conversões", value: hasAds && k ? formatCompact(k.conversions.value) : "—" },
+        ],
+        highlights: desempenhoHighlights,
+      },
+      {
+        id: "setor",
+        title: "Seu Setor",
+        description: "Notícias e tendências baseadas no seu setor/segmento",
+        icon: Newspaper,
+        href: "/cliente/painel/setor",
+        color: "from-orange-500 to-orange-600",
+        stats: [
+          { label: "Indústria", value: industry || "—" },
+          { label: "Segmento", value: segment || "—" },
+          { label: "Atualização", value: "Hoje" },
+        ],
+        highlights: setorHighlights,
+      },
+      {
+        id: "concorrentes",
+        title: "Concorrentes",
+        description: "Monitoramento e comparação com seus principais concorrentes",
+        icon: Target,
+        href: "/cliente/painel/concorrentes",
+        color: "from-purple-500 to-purple-600",
+        stats: [
+          { label: "Monitorados", value: competitorsCount ? String(competitorsCount) : "0" },
+          { label: "Status", value: competitorsCount ? "Config." : "Pendente" },
+          { label: "Comparativos", value: competitorsCount ? "Disponível" : "—" },
+        ],
+        highlights: concorrentesHighlights,
+      },
+      {
+        id: "insights",
+        title: "Insights IA",
+        description: "Recomendações da Val com fontes (cache diário)",
+        icon: Sparkles,
+        href: "/cliente/painel/insights",
+        color: "from-emerald-500 to-emerald-600",
+        stats: [
+          { label: "Novos (hoje)", value: summary?.insights?.available ? String(insightsNew) : "—" },
+          { label: "Disponível", value: summary?.insights?.available ? "Sim" : "—" },
+          { label: "Ação", value: "Gerar" },
+        ],
+        highlights: insightsHighlights,
+      },
+    ];
+  }, [summary]);
 
   return (
     <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
