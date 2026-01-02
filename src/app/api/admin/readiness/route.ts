@@ -126,26 +126,46 @@ export async function GET(request: NextRequest) {
       error: i.error_message,
     }));
 
-    const critical = ['openrouter', 'openai', 'stripe', 'sendgrid', 'whatsapp', 'instagramback'];
-    const criticalStatus: Record<string, ReadinessStatus> = {};
-    for (const id of critical) {
-      const row = (integrations || []).find((x: any) => x.integration_id === id);
-      const connectedInDb =
-        id === 'whatsapp'
-          ? row?.status === 'connected' && Boolean(row?.access_token) && Boolean(row?.config?.phoneNumberId)
-          : id === 'instagramback'
-            ? row?.status === 'connected' && Boolean(row?.access_token) && Boolean(row?.config?.baseUrl)
-            : row?.status === 'connected' && Boolean(row?.api_key || row?.access_token);
+    // Integrações obrigatórias (impactam prontidão) vs opcionais (N/A se não configuradas)
+    const requiredIntegrations = ['openrouter', 'openai', 'stripe', 'sendgrid'] as const;
+    const optionalIntegrations = ['whatsapp', 'instagramback'] as const;
+
+    const requiredStatus: Record<string, ReadinessStatus> = {};
+    const optionalStatus: Record<string, { status: ReadinessStatus; applicable: boolean }> = {};
+
+    const findIntegrationRow = (id: string) => (integrations || []).find((x: any) => x.integration_id === id);
+
+    for (const id of requiredIntegrations) {
+      const row = findIntegrationRow(id);
+      const connectedInDb = row?.status === 'connected' && Boolean(row?.api_key || row?.access_token);
       const connectedInEnv =
         (id === 'openrouter' && !!process.env.OPENROUTER_API_KEY) ||
         (id === 'openai' && !!process.env.OPENAI_API_KEY) ||
         (id === 'stripe' && !!process.env.STRIPE_SECRET_KEY) ||
-        (id === 'sendgrid' && !!process.env.SENDGRID_API_KEY) ||
+        (id === 'sendgrid' && !!process.env.SENDGRID_API_KEY);
+      requiredStatus[id] = connectedInDb || connectedInEnv ? 'pass' : 'warn';
+    }
+
+    for (const id of optionalIntegrations) {
+      const row = findIntegrationRow(id);
+      const connectedInDb =
+        id === 'whatsapp'
+          ? row?.status === 'connected' && Boolean(row?.access_token) && Boolean(row?.config?.phoneNumberId)
+          : row?.status === 'connected' && Boolean(row?.access_token) && Boolean(row?.config?.baseUrl);
+
+      const connectedInEnv =
         (id === 'whatsapp' && !!process.env.WHATSAPP_ACCESS_TOKEN && !!process.env.WHATSAPP_PHONE_NUMBER_ID) ||
         // InstagramBack é configurado via DB (não env)
         false;
 
-      criticalStatus[id] = connectedInDb || connectedInEnv ? 'pass' : 'warn';
+      // Se não há sinal de configuração (DB/env), tratamos como não aplicável.
+      const hasAnyDbConfig = Boolean(row?.api_key || row?.access_token || (row?.config && Object.keys(row.config || {}).length > 0));
+      const applicable = Boolean(connectedInDb || connectedInEnv || hasAnyDbConfig);
+
+      optionalStatus[id] = {
+        applicable,
+        status: applicable ? (connectedInDb || connectedInEnv ? 'pass' : 'warn') : ('warn' as ReadinessStatus),
+      };
     }
 
     const aiSource = {
@@ -320,16 +340,17 @@ export async function GET(request: NextRequest) {
       },
       integrations: {
         applicable: true,
-        status: Object.values(criticalStatus).some((s) => s === 'warn') ? ('warn' as ReadinessStatus) : ('pass' as ReadinessStatus),
-        critical: criticalStatus,
+        status: Object.values(requiredStatus).some((s) => s === 'warn') ? ('warn' as ReadinessStatus) : ('pass' as ReadinessStatus),
+        required: requiredStatus,
+        optional: optionalStatus,
         items: integrationsSummary,
       },
       ai: {
         applicable: true,
-        status: criticalStatus.openrouter === 'pass' || criticalStatus.openai === 'pass' ? ('pass' as ReadinessStatus) : ('warn' as ReadinessStatus),
+        status: requiredStatus.openrouter === 'pass' || requiredStatus.openai === 'pass' ? ('pass' as ReadinessStatus) : ('warn' as ReadinessStatus),
         providers: {
-          openrouter: criticalStatus.openrouter,
-          openai: criticalStatus.openai,
+          openrouter: requiredStatus.openrouter,
+          openai: requiredStatus.openai,
         },
         source: aiSource,
       },

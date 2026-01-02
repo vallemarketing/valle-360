@@ -26,6 +26,15 @@ function effectiveStatus(status: ReadinessStatus, applicable?: boolean): UiStatu
   return status;
 }
 
+function normalizeIntegrationCheck(v: any): { status: ReadinessStatus; applicable?: boolean } {
+  if (!v) return { status: 'warn', applicable: true };
+  if (typeof v === 'string') return { status: v as ReadinessStatus, applicable: true };
+  if (typeof v === 'object' && typeof v.status === 'string') {
+    return { status: v.status as ReadinessStatus, applicable: v.applicable };
+  }
+  return { status: 'warn', applicable: true };
+}
+
 export default function ProntidaoPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
@@ -234,19 +243,69 @@ export default function ProntidaoPage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {Object.entries(checks.integrations.critical).map(([id, st]: any) => (
-                  <div key={id} className="p-3 rounded-lg border" style={{ borderColor: 'var(--border-light)' }}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{id}</span>
-                      <span className={`px-2 py-0.5 rounded-full border text-xs ${pill(st)}`}>{label(st)}</span>
-                    </div>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                      {st === 'pass' ? 'Conectado' : 'Configure/Conecte nas integrações'}
-                    </p>
+              {checks.integrations.required ? (
+                <>
+                  <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>Obrigatórias</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {Object.entries(checks.integrations.required).map(([id, raw]: any) => {
+                      const st = normalizeIntegrationCheck(raw);
+                      const ui = effectiveStatus(st.status, st.applicable);
+                      return (
+                        <div key={id} className="p-3 rounded-lg border" style={{ borderColor: 'var(--border-light)' }}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{id}</span>
+                            <span className={`px-2 py-0.5 rounded-full border text-xs ${pill(ui)}`}>{label(ui)}</span>
+                          </div>
+                          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                            {ui === 'pass' ? 'Conectado' : 'Configure/Conecte nas integrações'}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {Object.entries(checks.integrations.critical || {}).map(([id, raw]: any) => {
+                    const st = normalizeIntegrationCheck(raw);
+                    const ui = effectiveStatus(st.status, st.applicable);
+                    return (
+                      <div key={id} className="p-3 rounded-lg border" style={{ borderColor: 'var(--border-light)' }}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{id}</span>
+                          <span className={`px-2 py-0.5 rounded-full border text-xs ${pill(ui)}`}>{label(ui)}</span>
+                        </div>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                          {ui === 'pass' ? 'Conectado' : 'Configure/Conecte nas integrações'}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {checks.integrations.optional ? (
+                <>
+                  <p className="text-xs mt-4 mb-2" style={{ color: 'var(--text-secondary)' }}>Opcionais</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {Object.entries(checks.integrations.optional).map(([id, raw]: any) => {
+                      const st = normalizeIntegrationCheck(raw);
+                      const ui = effectiveStatus(st.status, st.applicable);
+                      return (
+                        <div key={id} className="p-3 rounded-lg border" style={{ borderColor: 'var(--border-light)' }}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{id}</span>
+                            <span className={`px-2 py-0.5 rounded-full border text-xs ${pill(ui)}`}>{label(ui)}</span>
+                          </div>
+                          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                            {ui === 'na' ? 'Opcional (não configurado)' : ui === 'pass' ? 'Conectado' : 'Configure/Conecte nas integrações'}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
 
               <div className="mt-4 flex items-center gap-4">
                 <Link className="text-sm underline" href="/admin/integracoes">Abrir Integrações</Link>
