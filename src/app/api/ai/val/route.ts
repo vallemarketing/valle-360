@@ -167,8 +167,31 @@ export async function POST(request: NextRequest) {
       };
     } else if (personaKey === 'cliente') {
       // Buscar dados do cliente
-      const { data: clientRow } = await supabase.from('clients').select('id').eq('user_id', user.id).maybeSingle();
+      let clientRow: any = null;
+      {
+        const tryRich = await supabase
+          .from('clients')
+          .select('id, company_name, industry, segment, competitors, concorrentes')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (!tryRich.error) clientRow = tryRich.data;
+        else {
+          const tryBasic = await supabase.from('clients').select('id, company_name, industry').eq('user_id', user.id).maybeSingle();
+          clientRow = tryBasic.data || null;
+        }
+      }
+
       const clientId = (clientRow as any)?.id as string | undefined;
+      const clientIndustry = String((clientRow as any)?.industry || '');
+      const clientSegment = String((clientRow as any)?.segment || '');
+      const competitorsList: string[] = Array.isArray((clientRow as any)?.competitors)
+        ? ((clientRow as any).competitors as any[]).map((x) => String(x)).filter(Boolean)
+        : typeof (clientRow as any)?.concorrentes === 'string'
+          ? String((clientRow as any).concorrentes)
+              .split(/[\n,;]+/g)
+              .map((x) => x.trim())
+              .filter(Boolean)
+          : [];
 
       const [tasksData, messagesData] = await Promise.all([
         clientId ? supabase.from('kanban_tasks').select('*').eq('client_id', clientId).limit(10) : supabase.from('kanban_tasks').select('*').limit(0),
@@ -179,7 +202,10 @@ export async function POST(request: NextRequest) {
         ...businessContext,
         myTasks: tasksData.data?.length || 0,
         unreadMessages: messagesData.data?.length || 0,
-        companyName: companyName
+        companyName: (clientRow as any)?.company_name || companyName,
+        industry: clientIndustry || undefined,
+        segment: clientSegment || undefined,
+        competitors: competitorsList
       };
     } else {
       // Colaborador genérico

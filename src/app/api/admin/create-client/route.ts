@@ -46,9 +46,13 @@ export async function POST(request: NextRequest) {
       tipo_pessoa,
       cpf_cnpj,
       industry,
+      segment,
       website,
       whatsapp,
       address,
+      // concorrência
+      competitors,
+      concorrentes,
 
       // billing
       monthly_value,
@@ -139,6 +143,28 @@ export async function POST(request: NextRequest) {
     if (clientErr) {
       // rollback best-effort (não deletar auth aqui para evitar lock/edge cases)
       return NextResponse.json({ error: clientErr.message || 'Falha ao criar cliente' }, { status: 500 });
+    }
+
+    // 4.0) Campos opcionais (segmento/concorrentes) — best-effort para não quebrar ambientes com schema antigo
+    try {
+      const updatePayload: any = {};
+      if (segment) updatePayload.segment = String(segment);
+      if (Array.isArray(competitors)) {
+        updatePayload.competitors = competitors.map((x: any) => String(x)).filter(Boolean);
+      }
+      if (typeof concorrentes === 'string' && concorrentes.trim()) updatePayload.concorrentes = concorrentes.trim();
+
+      if (Object.keys(updatePayload).length > 0) {
+        const upd = await supabase.from('clients').update(updatePayload).eq('id', client.id);
+        if (upd.error) {
+          const msg = String((upd.error as any)?.message || '');
+          // Ignora erro de coluna ausente (ambientes com schema antigo)
+          if (!msg.toLowerCase().includes('column')) throw upd.error;
+        }
+      }
+    } catch (e) {
+      // best-effort: não falhar criação do cliente por isso
+      console.warn('Aviso: não foi possível salvar segment/competitors no clients:', e);
     }
 
     // 4.1) contrato básico (se houver plano/serviços)

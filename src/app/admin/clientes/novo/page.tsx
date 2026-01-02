@@ -222,8 +222,16 @@ export default function NovoClientePage() {
           cpf_cnpj: formData.cpf_cnpj,
           data_nascimento: formData.data_nascimento || null,
           industry: formData.area_atuacao || null,
+          // Epic 11: segmento/nicho
+          segment: formData.area_atuacao || null,
           website: formData.site || null,
           address,
+          // Epic 11: concorrentes (texto livre + lista)
+          concorrentes: formData.concorrentes || null,
+          competitors: (formData.concorrentes || '')
+            .split(/[\n,;]+/g)
+            .map((x) => x.trim())
+            .filter(Boolean),
 
           monthly_value: formData.valor_mensal ? parseFloat(formData.valor_mensal) : 0,
           plan_id: formData.plano_id || null,
