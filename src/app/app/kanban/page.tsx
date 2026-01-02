@@ -882,6 +882,8 @@ export default function KanbanPage() {
       const nextStatus = inferDbStatusFromColumn(targetColumn);
 
       // Calcular posição na coluna destino
+      const overId = over?.id ? String(over.id) : null;
+      const overTask = overId ? tasks.find((t) => t.id === overId) || null : null;
       const toTasks = tasks.filter((t) => t.column_id === toColumnId && t.id !== activeId);
       let insertIndex = toTasks.length; // default: fim
       if (overTask && overTask.column_id === toColumnId) {
