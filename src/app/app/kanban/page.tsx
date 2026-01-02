@@ -84,7 +84,13 @@ function normalizeKeyForMatch(input?: string | null) {
 function resolveColumnUuidFromAny(columns: Column[], raw?: string | null) {
   const v = String(raw || '').trim();
   if (!v) return null;
-  if (UUID_RE.test(v)) return v;
+  // IMPORTANTE: ids de cards (tasks) também são UUID. Se retornarmos "qualquer UUID"
+  // vamos confundir taskId com columnId (FK quebra ao persistir).
+  if (UUID_RE.test(v)) {
+    // Se ainda não carregamos colunas, mantemos comportamento antigo (melhor esforço).
+    if (!columns || columns.length === 0) return v;
+    return columns.some((c) => c.id === v) ? v : null;
+  }
 
   const n = normalizeKeyForMatch(v);
 
