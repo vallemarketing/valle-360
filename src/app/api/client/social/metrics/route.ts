@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,14 @@ export async function GET(_request: NextRequest) {
     const user = auth?.user;
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-    const { data: client } = await supabase.from('clients').select('id').eq('user_id', user.id).maybeSingle();
+    // Use service role (evita depender de RLS do clients), mas valida ownership via user_id.
+    const admin = getSupabaseAdmin();
+    const { data: client, error: clientErr } = await admin
+      .from('clients')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (clientErr) return NextResponse.json({ error: clientErr.message }, { status: 500 });
     const clientId = client?.id ? String(client.id) : null;
     if (!clientId) return NextResponse.json({ error: 'Cliente não vinculado (clients.user_id)' }, { status: 400 });
 
@@ -30,7 +38,13 @@ export async function GET(_request: NextRequest) {
     fromDate.setDate(fromDate.getDate() - (days - 1));
     const from = startOfDayIso(fromDate);
 
-    const { data, error } = await supabase
+    const seenTablesErr = (e: any) => {
+      const msg = String(e?.message || '').toLowerCase();
+      const code = String(e?.code || '');
+      return code === '42P01' || msg.includes('relation') || msg.includes('does not exist');
+    };
+
+    const { data, error } = await admin
       .from('social_account_metrics_daily')
       .select('platform, metric_date, metrics')
       .eq('client_id', clientId)
@@ -38,7 +52,21 @@ export async function GET(_request: NextRequest) {
       .order('metric_date', { ascending: true })
       .limit(5000);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      if (seenTablesErr(error)) {
+        return NextResponse.json({
+          success: true,
+          client_id: clientId,
+          range_days: days,
+          latest: null,
+          daily: [],
+          warning: 'missing_table_social_account_metrics_daily',
+          instruction:
+            'A tabela social_account_metrics_daily não existe neste banco. Verifique migrations de social metrics (Supabase).',
+        });
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     const series = (data || []).map((r: any) => ({
       date: String(r.metric_date),
