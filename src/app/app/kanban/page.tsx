@@ -73,6 +73,39 @@ type KanbanBoardFilter = 'all' | 'area_only';
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function normalizeKeyForMatch(input?: string | null) {
+  return String(input || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function resolveColumnUuidFromAny(columns: Column[], raw?: string | null) {
+  const v = String(raw || '').trim();
+  if (!v) return null;
+  if (UUID_RE.test(v)) return v;
+
+  const n = normalizeKeyForMatch(v);
+
+  // 1) match stage_key
+  const byStage = columns.find((c) => normalizeKeyForMatch(c.stage_key) === n);
+  if (byStage?.id && UUID_RE.test(byStage.id)) return byStage.id;
+
+  // 2) match column name
+  const byName = columns.find((c) => {
+    const cn = normalizeKeyForMatch(c.name);
+    return cn === n || cn.includes(n) || n.includes(cn);
+  });
+  if (byName?.id && UUID_RE.test(byName.id)) return byName.id;
+
+  // 3) raw might actually be a DbTaskStatus ('done', 'todo', ...)
+  const byStatus = columns.find((c) => inferDbStatusFromColumn(c) === v);
+  if (byStatus?.id && UUID_RE.test(byStatus.id)) return byStatus.id;
+
+  return null;
+}
+
 function inferDbStatusFromColumn(column?: Column | null): DbTaskStatus {
   const stage = String(column?.stage_key || '').toLowerCase();
   const name = String(column?.name || '').toLowerCase();
@@ -735,7 +768,12 @@ export default function KanbanPage() {
     const id = event.active.id as string;
     setActiveId(id);
     const t = tasks.find((x) => x.id === id);
-    if (t?.column_id) setDragContext({ taskId: id, fromColumnId: t.column_id });
+    if (t?.column_id) {
+      setDragContext({
+        taskId: id,
+        fromColumnId: resolveColumnUuidFromAny(columns, t.column_id) || t.column_id,
+      });
+    }
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -748,15 +786,19 @@ export default function KanbanPage() {
     const activeTask = tasks.find(t => t.id === activeId);
     if (!activeTask) return;
 
-    const overColumn = columns.find(c => c.id === overId);
     const overTask = tasks.find(t => t.id === overId);
 
-    if (overColumn && activeTask.column_id !== overColumn.id) {
-      // Guard extra: nunca deixar `column_id` virar algo que não seja UUID (ex.: "done")
-      if (!UUID_RE.test(String(overColumn.id || ''))) return;
+    const toColumnId =
+      // quando passa por cima de uma coluna (ou algum id derivado)
+      resolveColumnUuidFromAny(columns, overId) ||
+      // quando passa por cima de um card (Sortable), ir para a coluna do card
+      resolveColumnUuidFromAny(columns, overTask?.column_id) ||
+      null;
+
+    if (toColumnId && activeTask.column_id !== toColumnId) {
       setTasks(prevTasks => {
         const updatedTasks = prevTasks.map(t =>
-          t.id === activeId ? { ...t, column_id: overColumn.id } : t
+          t.id === activeId ? { ...t, column_id: toColumnId } : t
         );
         return updatedTasks;
       });
@@ -788,25 +830,27 @@ export default function KanbanPage() {
 
     try {
       const now = new Date().toISOString();
-      const fromColumnId =
+      const fromColumnIdRaw =
         dragContext?.taskId === activeId ? dragContext.fromColumnId : activeTask.column_id;
+      const fromColumnId = resolveColumnUuidFromAny(columns, fromColumnIdRaw) || fromColumnIdRaw;
 
       const overId = over?.id ? (over.id as string) : null;
-      const overColumn = overId ? columns.find((c) => c.id === overId) || null : null;
       const overTask = overId ? tasks.find((t) => t.id === overId) || null : null;
 
       // Determinar coluna destino com base no drop:
       // - se droppou sobre uma coluna, usar essa coluna
       // - se droppou sobre um card, usar a coluna do card
       // - fallback: manter a coluna atual
-      const toColumnId =
-        (overColumn?.id as string | undefined) ||
-        (overTask?.column_id as string | undefined) ||
+      const toColumnIdRaw =
+        resolveColumnUuidFromAny(columns, overId) ||
+        resolveColumnUuidFromAny(columns, overTask?.column_id) ||
+        resolveColumnUuidFromAny(columns, activeTask.column_id) ||
         activeTask.column_id;
 
-      // Guard: evitar mandar valores inválidos (ex.: 'done') para colunas UUID no banco
-      if (!UUID_RE.test(String(toColumnId || ''))) {
-        console.error('DnD: toColumnId inválido (não-uuid)', { toColumnId, overId });
+      // Guard: se não conseguimos resolver pra UUID, recarregar estado do board
+      const toColumnId = resolveColumnUuidFromAny(columns, toColumnIdRaw);
+      if (!toColumnId) {
+        console.error('DnD: coluna destino inválida (não-uuid)', { toColumnIdRaw, overId });
         if (selectedBoardId) await loadKanbanData(selectedBoardId);
         return;
       }
@@ -965,16 +1009,22 @@ export default function KanbanPage() {
           return;
         }
 
-        const columnTasks = tasks.filter(t => t.column_id === taskData.column_id);
+        const resolvedColumnId = resolveColumnUuidFromAny(columns, taskData.column_id);
+        if (!resolvedColumnId) {
+          console.error('Erro ao salvar tarefa: column_id inválido (não-uuid)', taskData.column_id);
+          return;
+        }
+
+        const columnTasks = tasks.filter(t => t.column_id === resolvedColumnId);
         const newPosition = columnTasks.length;
-        const targetColumn = columns.find((c) => c.id === taskData.column_id) || null;
+        const targetColumn = columns.find((c) => c.id === resolvedColumnId) || null;
         const status = inferDbStatusFromColumn(targetColumn);
 
         const { data, error } = await supabase
           .from('kanban_tasks')
           .insert({
             board_id: board.id,
-            column_id: taskData.column_id,
+            column_id: resolvedColumnId,
             title: taskData.title,
             description: taskData.description,
             priority: taskData.priority,
