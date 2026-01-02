@@ -2,110 +2,44 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useState } from "react";
-import { 
-  Sparkles, 
+import { useEffect, useMemo, useState } from "react";
+import {
+  Sparkles,
   ArrowLeft,
   TrendingUp,
-  Target,
-  Clock,
   CheckCircle,
   AlertTriangle,
   Lightbulb,
   ChevronRight,
-  ThumbsUp,
   ThumbsDown,
   Zap,
-  Calendar,
-  BarChart3,
-  Users,
-  MessageCircle
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// ============================================
-// PAINEL DE INSIGHTS IA - VALLE AI
-// Recomendações inteligentes da Val
-// ============================================
 
 type InsightType = "oportunidade" | "melhoria" | "alerta" | "tendencia";
 type InsightPriority = "alta" | "media" | "baixa";
 type InsightStatus = "novo" | "em_analise" | "implementado" | "ignorado";
 
-interface Insight {
+type InsightRow = {
   id: string;
   type: InsightType;
   priority: InsightPriority;
   status: InsightStatus;
   title: string;
   description: string;
-  impact: string;
-  action: string;
-  metrics?: { before: string; after: string; improvement: string };
-  createdAt: string;
-}
+  impact?: string | null;
+  action?: string | null;
+  sources?: string[] | null;
+  provider?: string | null;
+  created_at?: string | null;
+};
 
-const insights: Insight[] = [
-  {
-    id: "1",
-    type: "oportunidade",
-    priority: "alta",
-    status: "novo",
-    title: "Aumente publicações às 19h",
-    description: "Análise dos últimos 30 dias mostra que seus seguidores são 45% mais ativos entre 19h e 21h. Ajustar horários de publicação pode aumentar significativamente o alcance.",
-    impact: "+35% de alcance estimado",
-    action: "Reagendar próximas publicações para o período de 19h-21h",
-    createdAt: "2025-12-03"
-  },
-  {
-    id: "2",
-    type: "melhoria",
-    priority: "alta",
-    status: "em_analise",
-    title: "Formato carrossel tem melhor desempenho",
-    description: "Posts em carrossel tiveram 2.3x mais engajamento que imagens únicas. Recomendo aumentar a frequência deste formato.",
-    impact: "+120% de engajamento",
-    action: "Converter 50% dos posts de imagem única para carrossel",
-    metrics: { before: "2.1%", after: "4.8%", improvement: "+128%" },
-    createdAt: "2025-12-02"
-  },
-  {
-    id: "3",
-    type: "tendencia",
-    priority: "media",
-    status: "implementado",
-    title: "Reels curtos dominam o algoritmo",
-    description: "Vídeos de 15-30 segundos estão tendo alcance orgânico 3x maior. O algoritmo está priorizando conteúdo dinâmico e rápido.",
-    impact: "+200% de alcance orgânico",
-    action: "Produzir 2-3 Reels curtos por semana",
-    metrics: { before: "5.2K", after: "15.8K", improvement: "+203%" },
-    createdAt: "2025-11-28"
-  },
-  {
-    id: "4",
-    type: "alerta",
-    priority: "alta",
-    status: "novo",
-    title: "Queda no engajamento de Stories",
-    description: "Stories tiveram 25% menos visualizações na última semana. Pode indicar fadiga de conteúdo ou mudança de comportamento do público.",
-    impact: "Risco de perda de 15% do alcance",
-    action: "Diversificar formatos de Stories com enquetes, perguntas e bastidores",
-    createdAt: "2025-12-03"
-  },
-  {
-    id: "5",
-    type: "oportunidade",
-    priority: "media",
-    status: "novo",
-    title: "Hashtags com potencial inexplorado",
-    description: "Identificamos 5 hashtags do seu nicho com alto volume e baixa competição que podem aumentar a descoberta do seu conteúdo.",
-    impact: "+40% de descoberta",
-    action: "Incluir as hashtags sugeridas nas próximas publicações",
-    createdAt: "2025-12-01"
-  },
-];
-
-const typeConfig: Record<InsightType, { icon: React.ElementType; color: string; bgColor: string; label: string }> = {
+const typeConfig: Record<
+  InsightType,
+  { icon: React.ElementType; color: string; bgColor: string; label: string }
+> = {
   oportunidade: { icon: Lightbulb, color: "text-emerald-600", bgColor: "bg-emerald-500", label: "Oportunidade" },
   melhoria: { icon: TrendingUp, color: "text-[#1672d6]", bgColor: "bg-[#1672d6]", label: "Melhoria" },
   alerta: { icon: AlertTriangle, color: "text-orange-600", bgColor: "bg-orange-500", label: "Alerta" },
@@ -125,17 +59,107 @@ const statusConfig: Record<InsightStatus, { color: string; label: string }> = {
   ignorado: { color: "bg-gray-500/10 text-gray-600", label: "Ignorado" },
 };
 
+function hostLabel(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
 export default function InsightsIAPage() {
   const [filter, setFilter] = useState<InsightStatus | "all">("all");
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [banner, setBanner] = useState<string | null>(null);
+  const [insights, setInsights] = useState<InsightRow[]>([]);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const filteredInsights = insights.filter(
-    insight => filter === "all" || insight.status === filter
-  );
+  const loadInsights = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/client/insights");
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(data?.error || "Falha ao carregar insights");
+      if (data?.warning === "missing_table_client_ai_insights") {
+        setBanner(String(data?.instruction || "Banco ainda não preparado para Insights IA."));
+        setInsights([]);
+        return;
+      }
+      setInsights(Array.isArray(data?.insights) ? data.insights : []);
+    } catch (e: any) {
+      setError(String(e?.message || "Erro ao carregar"));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const stats = {
-    total: insights.length,
-    implementados: insights.filter(i => i.status === "implementado").length,
-    impactoTotal: "+18%",
+  useEffect(() => {
+    void loadInsights();
+  }, []);
+
+  const filteredInsights = useMemo(() => {
+    return insights.filter((i) => filter === "all" || i.status === filter);
+  }, [insights, filter]);
+
+  const stats = useMemo(() => {
+    const total = insights.length;
+    const implementados = insights.filter((i) => i.status === "implementado").length;
+    const alta = insights.filter((i) => i.priority === "alta" && i.status === "novo").length;
+    return { total, implementados, alta };
+  }, [insights]);
+
+  const summary = useMemo(() => {
+    const urgent = insights.find((i) => i.status === "novo" && i.priority === "alta") || insights[0];
+    if (!urgent) return null;
+    const countNew = insights.filter((i) => i.status === "novo").length;
+    return {
+      count: insights.length,
+      countNew,
+      urgentTitle: urgent.title,
+    };
+  }, [insights]);
+
+  const generateToday = async () => {
+    setGenerating(true);
+    setBanner(null);
+    setError(null);
+    try {
+      const r = await fetch("/api/client/insights", { method: "POST" });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(data?.error || "Falha ao gerar insights");
+      if (data?.skipped) {
+        setBanner(`Já existem insights gerados hoje (${data.existingCount}).`);
+      } else {
+        setBanner(`Insights gerados com sucesso: ${Number(data?.created || 0)}.`);
+      }
+      await loadInsights();
+    } catch (e: any) {
+      setError(String(e?.message || "Erro ao gerar"));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const updateStatus = async (id: string, status: InsightStatus) => {
+    setUpdatingId(id);
+    setError(null);
+    try {
+      const r = await fetch("/api/client/insights", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(data?.error || "Falha ao atualizar status");
+      setInsights((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
+    } catch (e: any) {
+      setError(String(e?.message || "Erro ao atualizar"));
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   return (
@@ -148,31 +172,73 @@ export default function InsightsIAPage() {
       >
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <Link 
-              href="/cliente/painel"
-              className="p-2 rounded-lg bg-[#001533]/5 hover:bg-[#001533]/10 transition-colors"
-            >
+            <Link href="/cliente/painel" className="p-2 rounded-lg bg-[#001533]/5 hover:bg-[#001533]/10 transition-colors">
               <ArrowLeft className="size-5 text-[#001533] dark:text-white" />
             </Link>
             <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600">
               <Sparkles className="size-5 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-[#001533] dark:text-white">
-              Insights IA
-            </h1>
+            <h1 className="text-3xl font-bold text-[#001533] dark:text-white">Insights IA</h1>
           </div>
           <p className="text-[#001533]/60 dark:text-white/60 ml-12">
-            Recomendações personalizadas da Val para seu negócio
+            Recomendações personalizadas da Val para seu negócio (com fontes)
           </p>
         </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => void loadInsights()}
+            disabled={loading || generating}
+            className={cn(
+              "px-4 py-3 rounded-xl font-semibold transition-colors",
+              "border-2 border-[#001533]/10 dark:border-white/10",
+              "text-[#001533] dark:text-white hover:bg-[#001533]/5 dark:hover:bg-white/5",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+          >
+            Atualizar
+          </button>
+          <button
+            onClick={() => void generateToday()}
+            disabled={loading || generating}
+            className={cn(
+              "px-4 py-3 rounded-xl font-semibold transition-colors",
+              "bg-[#1672d6] text-white hover:bg-[#1260b5]",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+          >
+            {generating ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" /> Gerando…
+              </span>
+            ) : (
+              "Gerar insights (hoje)"
+            )}
+          </button>
+        </div>
       </motion.div>
+
+      {(banner || error) && (
+        <div
+          className={cn(
+            "rounded-xl border p-4 text-sm flex items-start gap-2",
+            error ? "border-red-200 bg-red-50 text-red-700" : "border-[#001533]/10 bg-[#001533]/5 text-[#001533]"
+          )}
+        >
+          <AlertTriangle className="size-4 mt-0.5" />
+          <div>
+            <p className="font-medium">{error ? "Atenção" : "Info"}</p>
+            <p className="mt-1 opacity-80">{error || banner}</p>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-3 gap-4"
+        className={cn("grid grid-cols-3 gap-4", loading && "opacity-70")}
       >
         <div className="rounded-xl border-2 border-[#001533]/10 dark:border-white/10 bg-white dark:bg-[#001533]/50 p-4 text-center">
           <p className="text-3xl font-bold text-[#001533] dark:text-white">{stats.total}</p>
@@ -183,8 +249,8 @@ export default function InsightsIAPage() {
           <p className="text-sm text-[#001533]/60 dark:text-white/60">Implementados</p>
         </div>
         <div className="rounded-xl border-2 border-[#001533]/10 dark:border-white/10 bg-white dark:bg-[#001533]/50 p-4 text-center">
-          <p className="text-3xl font-bold text-[#1672d6]">{stats.impactoTotal}</p>
-          <p className="text-sm text-[#001533]/60 dark:text-white/60">Impacto Total</p>
+          <p className="text-3xl font-bold text-[#1672d6]">{stats.alta}</p>
+          <p className="text-sm text-[#001533]/60 dark:text-white/60">Alta prioridade (novos)</p>
         </div>
       </motion.div>
 
@@ -207,7 +273,7 @@ export default function InsightsIAPage() {
           Todos ({insights.length})
         </button>
         {Object.entries(statusConfig).map(([key, config]) => {
-          const count = insights.filter(i => i.status === key).length;
+          const count = insights.filter((i) => i.status === key).length;
           return (
             <button
               key={key}
@@ -225,25 +291,25 @@ export default function InsightsIAPage() {
         })}
       </motion.div>
 
-      {/* Lista de Insights */}
+      {/* Lista */}
       <div className="space-y-4">
         {filteredInsights.map((insight, index) => {
           const typeConf = typeConfig[insight.type];
           const priorityConf = priorityConfig[insight.priority];
           const statusConf = statusConfig[insight.status];
           const Icon = typeConf.icon;
+          const isUpdating = updatingId === insight.id;
+          const sources = Array.isArray(insight.sources) ? insight.sources.filter(Boolean) : [];
 
           return (
             <motion.div
               key={insight.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + index * 0.05 }}
+              transition={{ delay: 0.2 + index * 0.03 }}
               className={cn(
                 "rounded-2xl border-2 bg-white dark:bg-[#001533]/50 overflow-hidden",
-                insight.priority === "alta" 
-                  ? "border-red-500/30" 
-                  : "border-[#001533]/10 dark:border-white/10"
+                insight.priority === "alta" ? "border-red-500/30" : "border-[#001533]/10 dark:border-white/10"
               )}
             >
               <div className="p-6">
@@ -264,61 +330,68 @@ export default function InsightsIAPage() {
                           {typeConf.label}
                         </span>
                       </div>
-                      <h3 className="text-lg font-bold text-[#001533] dark:text-white mb-2">
-                        {insight.title}
-                      </h3>
-                      <p className="text-[#001533]/70 dark:text-white/70">
-                        {insight.description}
-                      </p>
-
-                      {/* Métricas (se houver) */}
-                      {insight.metrics && (
-                        <div className="flex gap-4 mt-4 p-3 rounded-lg bg-emerald-500/10">
-                          <div>
-                            <p className="text-xs text-[#001533]/60 dark:text-white/60">Antes</p>
-                            <p className="font-bold text-[#001533] dark:text-white">{insight.metrics.before}</p>
-                          </div>
-                          <div className="flex items-center">
-                            <ChevronRight className="size-5 text-emerald-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-[#001533]/60 dark:text-white/60">Depois</p>
-                            <p className="font-bold text-emerald-600">{insight.metrics.after}</p>
-                          </div>
-                          <div className="ml-auto">
-                            <p className="text-xs text-[#001533]/60 dark:text-white/60">Melhoria</p>
-                            <p className="font-bold text-emerald-600">{insight.metrics.improvement}</p>
-                          </div>
-                        </div>
-                      )}
+                      <h3 className="text-lg font-bold text-[#001533] dark:text-white mb-2">{insight.title}</h3>
+                      <p className="text-[#001533]/70 dark:text-white/70">{insight.description}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Impacto e Ação */}
                 <div className="mt-4 pt-4 border-t border-[#001533]/10 dark:border-white/10 grid md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs font-semibold text-[#001533]/60 dark:text-white/60 uppercase mb-1">
-                      Impacto Estimado
-                    </p>
-                    <p className="font-bold text-[#1672d6]">{insight.impact}</p>
+                    <p className="text-xs font-semibold text-[#001533]/60 dark:text-white/60 uppercase mb-1">Impacto Estimado</p>
+                    <p className="font-bold text-[#1672d6]">{insight.impact || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-[#001533]/60 dark:text-white/60 uppercase mb-1">
-                      Ação Recomendada
-                    </p>
-                    <p className="text-[#001533] dark:text-white">{insight.action}</p>
+                    <p className="text-xs font-semibold text-[#001533]/60 dark:text-white/60 uppercase mb-1">Ação Recomendada</p>
+                    <p className="text-[#001533] dark:text-white">{insight.action || "—"}</p>
                   </div>
                 </div>
 
-                {/* Botões de Ação */}
+                {sources.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-[#001533]/10 dark:border-white/10">
+                    <p className="text-xs font-semibold text-[#001533]/60 dark:text-white/60 uppercase mb-2">
+                      Fontes {insight.provider ? `(${insight.provider})` : ""}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {sources.slice(0, 8).map((u) => (
+                        <a
+                          key={u}
+                          href={u}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center justify-between gap-2 rounded-xl border border-[#001533]/10 dark:border-white/10 bg-white/60 dark:bg-[#001533]/30 px-3 py-2 hover:border-[#1672d6]/30 transition-colors"
+                        >
+                          <span className="text-xs text-[#1672d6] underline break-all">{hostLabel(u)}</span>
+                          <ExternalLink className="size-4 text-[#001533]/40 dark:text-white/40" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {insight.status === "novo" && (
-                  <div className="mt-4 flex gap-3">
-                    <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#1672d6] text-white font-semibold hover:bg-[#1672d6]/90 transition-colors">
-                      <CheckCircle className="size-5" />
+                  <div className="mt-4 flex flex-col md:flex-row gap-3">
+                    <button
+                      onClick={() => void updateStatus(insight.id, "implementado")}
+                      disabled={isUpdating}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#1672d6] text-white font-semibold hover:bg-[#1672d6]/90 transition-colors disabled:opacity-50"
+                    >
+                      {isUpdating ? <Loader2 className="size-5 animate-spin" /> : <CheckCircle className="size-5" />}
                       Implementar
                     </button>
-                    <button className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-[#001533]/10 text-[#001533] dark:text-white hover:bg-[#001533]/5 transition-colors">
+                    <button
+                      onClick={() => void updateStatus(insight.id, "em_analise")}
+                      disabled={isUpdating}
+                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-[#001533]/10 text-[#001533] dark:text-white hover:bg-[#001533]/5 transition-colors disabled:opacity-50"
+                    >
+                      <ChevronRight className="size-5" />
+                      Em análise
+                    </button>
+                    <button
+                      onClick={() => void updateStatus(insight.id, "ignorado")}
+                      disabled={isUpdating}
+                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-[#001533]/10 text-[#001533] dark:text-white hover:bg-[#001533]/5 transition-colors disabled:opacity-50"
+                    >
                       <ThumbsDown className="size-5" />
                       Ignorar
                     </button>
@@ -328,13 +401,26 @@ export default function InsightsIAPage() {
             </motion.div>
           );
         })}
+
+        {!loading && filteredInsights.length === 0 && (
+          <div className="text-center py-12">
+            <Sparkles className="size-12 text-[#001533]/20 dark:text-white/20 mx-auto mb-4" />
+            <p className="text-[#001533]/60 dark:text-white/60">Nenhum insight encontrado.</p>
+            <button
+              onClick={() => void generateToday()}
+              className="mt-4 px-4 py-3 rounded-xl bg-[#1672d6] text-white font-semibold hover:bg-[#1260b5] transition-colors"
+            >
+              Gerar insights (hoje)
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Val Assistant */}
+      {/* Resumo da Val */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.4 }}
         className="rounded-2xl bg-gradient-to-r from-[#001533] to-[#1672d6] p-6"
       >
         <div className="flex items-center gap-4">
@@ -342,12 +428,12 @@ export default function InsightsIAPage() {
             <Sparkles className="size-8 text-white" />
           </div>
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-white">
-              💜 Resumo da Val
-            </h3>
+            <h3 className="text-lg font-bold text-white">💜 Resumo da Val</h3>
             <p className="text-white/80 mt-1">
-              "Esta semana identifiquei 5 insights importantes para você! O mais urgente é ajustar os horários de publicação - 
-              isso pode trazer um aumento de 35% no alcance. Quer que eu detalhe algum insight específico?"
+              {summary
+                ? `Hoje eu tenho ${summary.count} insights para você (${summary.countNew} novos). O mais importante agora: "${summary.urgentTitle}". Quer que eu detalhe e transforme isso em um plano de ação?`
+                : "Gere seus insights do dia e eu te ajudo a transformar em um plano de ação."
+              }
             </p>
           </div>
           <Link
@@ -361,6 +447,5 @@ export default function InsightsIAPage() {
     </div>
   );
 }
-
 
 
