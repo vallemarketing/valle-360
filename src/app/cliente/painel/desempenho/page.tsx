@@ -51,6 +51,8 @@ function formatCompact(n: number) {
 
 export default function DesempenhoPage() {
   const [daily, setDaily] = useState<SocialDaily[]>([]);
+  const [adsTotals, setAdsTotals] = useState<{ total_spend: number; total_clicks: number; total_conversions: number; avg_roas: number } | null>(null);
+  const [adsAvailable, setAdsAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +64,22 @@ export default function DesempenhoPage() {
       const j = await res.json().catch(() => null);
       if (!res.ok) throw new Error(j?.error || "Falha ao carregar métricas");
       setDaily(Array.isArray(j?.daily) ? j.daily : []);
+
+      // Ads (best-effort): consolida spend/clicks/conv/roas se houver integração
+      try {
+        const r2 = await fetch("/api/client/performance?days=30", { cache: "no-store" });
+        const p = await r2.json().catch(() => null);
+        if (r2.ok && p?.success && p?.ads) {
+          setAdsAvailable(!!p.ads.available);
+          setAdsTotals(p.ads.totals || null);
+        } else {
+          setAdsAvailable(false);
+          setAdsTotals(null);
+        }
+      } catch {
+        setAdsAvailable(false);
+        setAdsTotals(null);
+      }
     } catch (e: any) {
       setDaily([]);
       setError(e?.message || "Erro ao carregar métricas");
@@ -196,6 +214,61 @@ export default function DesempenhoPage() {
             variant="primary"
           />
         </StatsGrid>
+      </motion.div>
+
+      {/* Ads (quando disponível) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="rounded-2xl border-2 border-[#001533]/10 dark:border-white/10 bg-white dark:bg-[#001533]/50 p-6"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[#1672d6]/10">
+              <DollarSign className="size-5 text-[#1672d6]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-[#001533] dark:text-white">Ads (30d)</h3>
+              <p className="text-sm text-[#001533]/60 dark:text-white/60">
+                {adsAvailable ? "Métricas consolidadas de anúncios" : "Integração de Ads não conectada (ou sem dados)"}
+              </p>
+            </div>
+          </div>
+          <Link href="/admin/integracoes" className="text-sm text-[#1672d6] font-medium hover:underline flex items-center gap-1">
+            Conectar Ads <ArrowUpRight className="size-4" />
+          </Link>
+        </div>
+
+        <div className="mt-4">
+          <StatsGrid>
+            <StatsCard
+              title="Investimento"
+              value={adsAvailable && adsTotals ? `R$ ${adsTotals.total_spend.toFixed(0)}` : "—"}
+              change={0}
+              icon={<DollarSign className="size-5 text-[#1672d6]" />}
+            />
+            <StatsCard
+              title="Cliques"
+              value={adsAvailable && adsTotals ? formatCompact(adsTotals.total_clicks) : "—"}
+              change={0}
+              icon={<MousePointerClick className="size-5 text-[#1672d6]" />}
+            />
+            <StatsCard
+              title="Conversões"
+              value={adsAvailable && adsTotals ? formatCompact(adsTotals.total_conversions) : "—"}
+              change={0}
+              icon={<Target className="size-5 text-[#1672d6]" />}
+            />
+            <StatsCard
+              title="ROAS"
+              value={adsAvailable && adsTotals ? adsTotals.avg_roas.toFixed(2) : "—"}
+              change={0}
+              icon={<PieChart className="size-5 text-[#1672d6]" />}
+              variant="primary"
+            />
+          </StatsGrid>
+        </div>
       </motion.div>
 
       {/* Gráfico de Evolução */}
