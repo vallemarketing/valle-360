@@ -33,6 +33,12 @@ import type { DbTaskPriority, DbTaskStatus } from '@/lib/kanban/types';
 import { fetchProfileByAuthId, fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 import { resolveEmployeeAreaKey } from '@/lib/employee/areaKey';
 import type { AreaKey } from '@/lib/kanban/areaBoards';
+import {
+  formatRequiredFieldsPtBr,
+  requiredFieldsForStage,
+  validateTaskAgainstRequiredFields,
+} from '@/lib/kanban/requiredFields';
+import { toast } from 'sonner';
 
 interface Task {
   id: string;
@@ -556,6 +562,63 @@ export default function KanbanPage() {
   });
   const [currentUserType, setCurrentUserType] = useState<string>('');
   const [preferredAreaKey, setPreferredAreaKey] = useState<AreaKey | null>(null);
+  const [pendingMove, setPendingMove] = useState<{ taskId: string; toColumnId: string } | null>(null);
+
+  const moveTaskToColumn = async (params: { taskId: string; toColumnId: string }) => {
+    if (!params?.taskId || !params?.toColumnId) return;
+    const taskId = String(params.taskId);
+    const toColumnId = String(params.toColumnId);
+    if (!UUID_RE.test(toColumnId)) return;
+
+    const t = tasks.find((x) => x.id === taskId) || null;
+    if (!t) return;
+
+    const now = new Date().toISOString();
+    const targetColumn = columns.find((c) => c.id === toColumnId) || null;
+    const nextStatus = inferDbStatusFromColumn(targetColumn);
+    const toTasks = tasks.filter((x) => x.column_id === toColumnId && x.id !== taskId);
+    const newPosition = toTasks.length;
+
+    // janela de aprovação do cliente
+    const fromCol = columns.find((c) => c.id === String(t.column_id)) || null;
+    const enteredApproval =
+      String(targetColumn?.stage_key || '').toLowerCase() === 'aprovacao' &&
+      String(fromCol?.stage_key || '').toLowerCase() !== 'aprovacao';
+
+    const existingRef = (t as any)?.reference_links || {};
+    const existingApproval = (existingRef?.client_approval || {}) as any;
+    function addHours(iso: string, hours: number) {
+      const d = new Date(iso);
+      d.setHours(d.getHours() + hours);
+      return d.toISOString();
+    }
+    const nextRef =
+      enteredApproval
+        ? {
+            ...existingRef,
+            client_approval: {
+              ...existingApproval,
+              status: 'pending',
+              requested_at: existingApproval.requested_at || now,
+              due_at:
+                existingApproval.due_at ||
+                addHours(existingApproval.requested_at || now, Number(targetColumn?.sla_hours || 48)),
+            },
+          }
+        : existingRef;
+
+    const { error } = await supabase
+      .from('kanban_tasks')
+      .update({
+        column_id: toColumnId,
+        position: newPosition,
+        status: nextStatus,
+        updated_at: now,
+        ...(enteredApproval ? { reference_links: nextRef } : {}),
+      })
+      .eq('id', taskId);
+    if (error) throw error;
+  };
 
   const insightsColumns = useMemo(() => {
     return (columns || []).map((c) => {
@@ -896,6 +959,32 @@ export default function KanbanPage() {
       const targetColumn = columns.find((c) => c.id === toColumnId) || null;
       const nextStatus = inferDbStatusFromColumn(targetColumn);
 
+      // Epic 10: validação de campos obrigatórios por fase/coluna (somente boards por área)
+      if (targetColumn?.stage_key) {
+        const required = requiredFieldsForStage({
+          areaKey: board?.area_key,
+          stageKey: targetColumn.stage_key,
+        });
+        if (required.length) {
+          const v = validateTaskAgainstRequiredFields(
+            { description: activeTask.description, assigned_to: activeTask.assigned_to },
+            required
+          );
+          if (!v.ok) {
+            const labels = formatRequiredFieldsPtBr(v.missing);
+            toast.error(`Antes de mover para "${targetColumn.name}", preencha: ${labels.join(', ')}`);
+
+            // Reverter estado otimista (dragOver) e abrir edição do card
+            if (selectedBoardId) await loadKanbanData(selectedBoardId);
+            setPendingMove({ taskId: activeId, toColumnId });
+            setEditingTask(activeTask);
+            setSelectedColumnId(String(activeTask.column_id || ''));
+            setIsTaskModalOpen(true);
+            return;
+          }
+        }
+      }
+
       // Calcular posição na coluna destino
       const overId = over?.id ? String(over.id) : null;
       const overTask = overId ? tasks.find((t) => t.id === overId) || null : null;
@@ -1041,6 +1130,19 @@ export default function KanbanPage() {
 
         if (selectedBoardId) {
           await loadKanbanData(selectedBoardId);
+        }
+
+        // Se o usuário estava preenchendo campos obrigatórios para completar um move, tentar agora.
+        if (pendingMove?.taskId === editingTask.id && pendingMove?.toColumnId) {
+          try {
+            await moveTaskToColumn({ taskId: pendingMove.taskId, toColumnId: pendingMove.toColumnId });
+            if (selectedBoardId) await loadKanbanData(selectedBoardId);
+            toast.success('Movimentação concluída.');
+          } catch (e: any) {
+            toast.error(e?.message || 'Não foi possível mover a tarefa após salvar.');
+          } finally {
+            setPendingMove(null);
+          }
         }
       } else {
         if (!board) return;
