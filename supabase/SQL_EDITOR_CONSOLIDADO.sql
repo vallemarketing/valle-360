@@ -591,9 +591,9 @@ CREATE TABLE IF NOT EXISTS renewal_predictions (
   
   -- Data de término do contrato
   contract_end_date DATE NOT NULL,
-  days_until_renewal INTEGER GENERATED ALWAYS AS (
-    contract_end_date - CURRENT_DATE
-  ) STORED,
+  -- OBS: não pode ser GENERATED porque CURRENT_DATE não é IMMUTABLE no Postgres (erro 42P17).
+  -- Calculado via trigger abaixo.
+  days_until_renewal INTEGER,
   
   -- Valor previsto de renovação
   predicted_renewal_value NUMERIC(12, 2),
@@ -627,6 +627,31 @@ CREATE INDEX idx_renewal_predictions_likelihood ON renewal_predictions(renewal_l
 CREATE INDEX idx_renewal_predictions_end_date ON renewal_predictions(contract_end_date);
 
 COMMENT ON TABLE renewal_predictions IS 'Predições de renovação de contratos';
+
+-- =====================================================
+-- TRIGGER: manter days_until_renewal atualizado (não pode ser GENERATED)
+-- =====================================================
+
+ALTER TABLE public.renewal_predictions
+  ADD COLUMN IF NOT EXISTS days_until_renewal INTEGER;
+
+CREATE OR REPLACE FUNCTION public.set_days_until_renewal()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.contract_end_date IS NULL THEN
+    NEW.days_until_renewal := NULL;
+  ELSE
+    NEW.days_until_renewal := (NEW.contract_end_date - CURRENT_DATE);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_set_days_until_renewal ON public.renewal_predictions;
+CREATE TRIGGER trg_set_days_until_renewal
+  BEFORE INSERT OR UPDATE OF contract_end_date ON public.renewal_predictions
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_days_until_renewal();
 
 -- =====================================================
 -- 4. TABELA: upsell_opportunities
@@ -814,12 +839,9 @@ CREATE TABLE IF NOT EXISTS predictive_alerts (
   
   -- Deadline para ação
   action_deadline DATE,
-  days_until_deadline INTEGER GENERATED ALWAYS AS (
-    CASE 
-      WHEN action_deadline IS NOT NULL THEN action_deadline - CURRENT_DATE
-      ELSE NULL
-    END
-  ) STORED,
+  -- OBS: não pode ser GENERATED porque CURRENT_DATE não é IMMUTABLE no Postgres (erro 42P17).
+  -- Calculado via trigger abaixo.
+  days_until_deadline INTEGER,
   
   -- Status
   status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'acknowledged', 'in_progress', 'resolved', 'dismissed')),
@@ -848,6 +870,31 @@ CREATE INDEX idx_predictive_alerts_status ON predictive_alerts(status);
 CREATE INDEX idx_predictive_alerts_deadline ON predictive_alerts(action_deadline) WHERE status IN ('active', 'acknowledged', 'in_progress');
 
 COMMENT ON TABLE predictive_alerts IS 'Alertas preditivos para ações proativas';
+
+-- =====================================================
+-- TRIGGER: manter days_until_deadline atualizado (não pode ser GENERATED)
+-- =====================================================
+
+ALTER TABLE public.predictive_alerts
+  ADD COLUMN IF NOT EXISTS days_until_deadline INTEGER;
+
+CREATE OR REPLACE FUNCTION public.set_days_until_deadline()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.action_deadline IS NULL THEN
+    NEW.days_until_deadline := NULL;
+  ELSE
+    NEW.days_until_deadline := (NEW.action_deadline - CURRENT_DATE);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_set_days_until_deadline ON public.predictive_alerts;
+CREATE TRIGGER trg_set_days_until_deadline
+  BEFORE INSERT OR UPDATE OF action_deadline ON public.predictive_alerts
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_days_until_deadline();
 
 -- =====================================================
 -- 8. TABELA: client_behavior_patterns

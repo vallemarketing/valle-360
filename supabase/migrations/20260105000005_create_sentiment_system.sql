@@ -327,3 +327,4 @@ CREATE POLICY sentiment_automation_config_admin_all
   WITH CHECK ((SELECT auth.role()) = 'service_role' OR (SELECT public.is_admin()));
 
 
+

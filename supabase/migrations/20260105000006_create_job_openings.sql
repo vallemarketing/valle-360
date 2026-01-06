@@ -71,3 +71,4 @@ FOR DELETE
 USING ((SELECT public.is_admin()));
 
 
+
