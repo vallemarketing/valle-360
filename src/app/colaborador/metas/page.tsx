@@ -58,45 +58,48 @@ export default function MetasPage() {
 
       setCareerPath(career)
 
-      // Mock de metas (integrar com banco depois)
-      setGoals([
-        {
-          id: '1',
-          title: 'Completar 50 tarefas este mês',
-          description: 'Meta de produtividade mensal',
+      // Metas reais via API (collaborator_goals)
+      const { data: session } = await supabase.auth.getSession()
+      const token = session.session?.access_token
+      if (!token) {
+        setGoals([])
+        return
+      }
+
+      const res = await fetch(`/api/goals?collaborator_id=${encodeURIComponent(String(employee.id))}&status=active`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.success) {
+        setGoals([])
+        return
+      }
+
+      const row = (json.data || [])[0]
+      const metrics = (row?.goals || {}) as Record<string, { target: number; current: number; unit: string }>
+      const deadline = row?.period_end ? new Date(String(row.period_end)) : new Date()
+
+      const mapped: Goal[] = Object.entries(metrics).map(([metric, v], idx) => {
+        const target = Number(v?.target || 0)
+        const current = Number(v?.current || 0)
+        const progress = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0
+
+        return {
+          id: `${row?.id || 'goal'}:${metric}:${idx}`,
+          title: metric,
+          description: row?.ai_reasoning ? String(row.ai_reasoning) : 'Meta definida pelo sistema',
           type: 'short_term',
-          progress: 32,
-          target: 50,
-          unit: 'tarefas',
-          deadline: new Date('2024-12-31'),
+          progress,
+          target,
+          unit: String(v?.unit || ''),
+          deadline,
           status: 'active',
-          created_at: new Date()
-        },
-        {
-          id: '2',
-          title: 'Alcançar 90% de qualidade',
-          description: 'Melhorar score de qualidade',
-          type: 'medium_term',
-          progress: 75,
-          target: 90,
-          unit: '%',
-          deadline: new Date('2025-03-31'),
-          status: 'active',
-          created_at: new Date()
-        },
-        {
-          id: '3',
-          title: 'Certificação em Design Avançado',
-          description: 'Concluir curso e obter certificado',
-          type: 'long_term',
-          progress: 40,
-          target: 100,
-          unit: '%',
-          deadline: new Date('2025-06-30'),
-          status: 'active',
-          created_at: new Date()
-        },
-      ])
+          created_at: row?.created_at ? new Date(String(row.created_at)) : new Date()
+        }
+      })
+
+      setGoals(mapped)
     } catch (error) {
       console.error('Erro ao carregar metas:', error)
     } finally {

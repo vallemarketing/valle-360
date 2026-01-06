@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Building2, RefreshCw, Search } from 'lucide-react';
+import { Building2, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 type LeadRow = {
@@ -20,6 +20,13 @@ export default function AdminProspeccaoPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  const [runLoading, setRunLoading] = useState(false);
+  const [segment, setSegment] = useState('ecommerce');
+  const [location, setLocation] = useState('');
+  const [keywords, setKeywords] = useState('');
+  const [limit, setLimit] = useState(10);
 
   const load = async () => {
     setLoading(true);
@@ -29,11 +36,45 @@ export default function AdminProspeccaoPage() {
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao carregar leads');
       setItems((data.data || []) as LeadRow[]);
+      setNote(data?.note ? String(data.note) : null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha ao carregar');
+      setNote(null);
       setItems([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runSearch = async () => {
+    const seg = segment.trim();
+    if (!seg) return;
+    setRunLoading(true);
+    setError(null);
+    setNote(null);
+    try {
+      const res = await fetch('/api/prospecting', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'search',
+          segment: seg,
+          location: location.trim() || undefined,
+          keywords: keywords.trim() || undefined,
+          limit,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao buscar leads');
+      setNote(
+        `Busca concluída: encontrados ${Number(data?.found || 0)}, criados ${Number(data?.created || 0)}, atualizados ${Number(data?.updated || 0)}.` +
+          (data?.note ? ` ${String(data.note)}` : '')
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Falha ao buscar leads');
+    } finally {
+      setRunLoading(false);
     }
   };
 
@@ -98,6 +139,86 @@ export default function AdminProspeccaoPage() {
             className="w-full bg-transparent outline-none text-sm"
             style={{ color: 'var(--text-primary)' }}
           />
+        </div>
+
+        <div
+          className="rounded-2xl border p-4 space-y-3"
+          style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Buscar leads (sem mock)
+            </div>
+            <button
+              onClick={runSearch}
+              disabled={runLoading || !segment.trim()}
+              className="px-4 py-2 rounded-xl border text-sm flex items-center gap-2 disabled:opacity-60"
+              style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)', color: 'var(--text-primary)' }}
+              title={!segment.trim() ? 'Informe o segmento' : undefined}
+            >
+              <Sparkles className={runLoading ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />
+              {runLoading ? 'Buscando…' : 'Buscar agora'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="md:col-span-1">
+              <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                Segmento *
+              </div>
+              <input
+                value={segment}
+                onChange={(e) => setSegment(e.target.value)}
+                placeholder="ecommerce, clinica, restaurante…"
+                className="w-full px-3 py-2 rounded-xl border text-sm"
+                style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-light)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <div className="md:col-span-1">
+              <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                Local (opcional)
+              </div>
+              <input
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="SP, São Paulo…"
+                className="w-full px-3 py-2 rounded-xl border text-sm"
+                style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-light)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <div className="md:col-span-1">
+              <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                Keywords (opcional)
+              </div>
+              <input
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                placeholder="contato, orçamento, site…"
+                className="w-full px-3 py-2 rounded-xl border text-sm"
+                style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-light)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <div className="md:col-span-1">
+              <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                Limite
+              </div>
+              <input
+                value={String(limit)}
+                onChange={(e) => setLimit(Math.max(1, Math.min(20, Number(e.target.value || 10))))}
+                type="number"
+                min={1}
+                max={20}
+                className="w-full px-3 py-2 rounded-xl border text-sm"
+                style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-light)', color: 'var(--text-primary)' }}
+              />
+            </div>
+          </div>
+
+          {note ? (
+            <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              {note}
+            </div>
+          ) : null}
         </div>
 
         <div

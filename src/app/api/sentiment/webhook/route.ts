@@ -8,6 +8,24 @@ import { analyzeAndStore, queueForAnalysis, SentimentSourceType } from '@/lib/ai
 
 export const dynamic = 'force-dynamic';
 
+function isUuid(v: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v || ''));
+}
+
+function safeUuid(input?: unknown) {
+  const s = String(input || '').trim();
+  if (s && isUuid(s)) return s;
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+}
+
 // Verificar API Key
 function verifyApiKey(request: NextRequest): boolean {
   const apiKey = request.headers.get('x-api-key') || 
@@ -56,13 +74,25 @@ export async function POST(request: NextRequest) {
     let content: string;
     let sourceId: string;
     let priority = 5;
+    const externalSourceIdRaw =
+      data?.message_id ||
+      data?.response_id ||
+      data?.feedback_id ||
+      data?.review_id ||
+      data?.comment_id ||
+      data?.ticket_id ||
+      data?.email_id ||
+      data?.id ||
+      null;
+    const clientId = data?.client_id && isUuid(String(data.client_id)) ? String(data.client_id) : undefined;
+    const userId = data?.user_id && isUuid(String(data.user_id)) ? String(data.user_id) : undefined;
 
     // Mapear evento para tipo de fonte
     switch (event) {
       case 'new_message':
         sourceType = 'message';
         content = data.content || data.text || data.message;
-        sourceId = data.message_id || data.id;
+        sourceId = safeUuid(data.message_id || data.id);
         priority = 5;
         break;
 
@@ -70,7 +100,7 @@ export async function POST(request: NextRequest) {
       case 'nps_response':
         sourceType = 'nps_response';
         content = data.feedback || data.comment || data.text;
-        sourceId = data.response_id || data.id;
+        sourceId = safeUuid(data.response_id || data.id);
         // NPS detractor (0-6) tem prioridade alta
         priority = data.score <= 6 ? 10 : data.score <= 8 ? 5 : 1;
         break;
@@ -78,14 +108,14 @@ export async function POST(request: NextRequest) {
       case 'new_feedback':
         sourceType = 'feedback';
         content = data.content || data.text || data.feedback;
-        sourceId = data.feedback_id || data.id;
+        sourceId = safeUuid(data.feedback_id || data.id);
         priority = 7;
         break;
 
       case 'new_review':
         sourceType = 'review';
         content = data.content || data.text || data.review;
-        sourceId = data.review_id || data.id;
+        sourceId = safeUuid(data.review_id || data.id);
         // Reviews negativos têm prioridade alta
         priority = data.rating <= 2 ? 10 : data.rating <= 3 ? 5 : 1;
         break;
@@ -94,21 +124,21 @@ export async function POST(request: NextRequest) {
       case 'task_comment':
         sourceType = 'task_comment';
         content = data.content || data.text || data.comment;
-        sourceId = data.comment_id || data.id;
+        sourceId = safeUuid(data.comment_id || data.id);
         priority = 3;
         break;
 
       case 'support_ticket':
         sourceType = 'support_ticket';
         content = data.description || data.content || data.text;
-        sourceId = data.ticket_id || data.id;
+        sourceId = safeUuid(data.ticket_id || data.id);
         priority = 8;
         break;
 
       case 'email':
         sourceType = 'email';
         content = data.body || data.content || data.text;
-        sourceId = data.email_id || data.id;
+        sourceId = safeUuid(data.email_id || data.id);
         priority = 4;
         break;
 
@@ -136,8 +166,8 @@ export async function POST(request: NextRequest) {
         sourceId,
         content,
         {
-          clientId: data.client_id,
-          userId: data.user_id,
+          clientId,
+          userId,
           sourceTable: data.source_table,
           provider: data.provider
         }
@@ -160,12 +190,13 @@ export async function POST(request: NextRequest) {
         sourceId,
         content,
         {
-          clientId: data.client_id,
-          userId: data.user_id,
+          clientId,
+          userId,
           sourceTable: data.source_table,
           priority,
           metadata: {
             event,
+            external_source_id: externalSourceIdRaw && !isUuid(String(externalSourceIdRaw)) ? String(externalSourceIdRaw) : null,
             ...data
           }
         }

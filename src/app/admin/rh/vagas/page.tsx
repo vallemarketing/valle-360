@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Briefcase, Plus, Search, Filter, Users, Eye,
@@ -8,6 +8,7 @@ import {
   TrendingUp, CheckCircle, XCircle, Pause
 } from 'lucide-react';
 import { JobPostGenerator } from '@/components/rh/JobPostGenerator';
+import { supabase } from '@/lib/supabase';
 
 interface Job {
   id: string;
@@ -19,68 +20,10 @@ interface Job {
   status: 'draft' | 'active' | 'paused' | 'closed';
   applications: number;
   views: number;
-  createdAt: Date;
-  publishedAt?: Date;
+  createdAt?: string;
+  publishedAt?: string;
   platforms: string[];
 }
-
-const SAMPLE_JOBS: Job[] = [
-  {
-    id: '1',
-    title: 'Designer Gráfico Sênior',
-    department: 'Design',
-    location: 'São Paulo, SP',
-    locationType: 'hybrid',
-    contractType: 'CLT',
-    status: 'active',
-    applications: 47,
-    views: 1234,
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    publishedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    platforms: ['linkedin', 'website']
-  },
-  {
-    id: '2',
-    title: 'Gestor de Tráfego Pago',
-    department: 'Marketing',
-    location: 'Remoto',
-    locationType: 'remote',
-    contractType: 'PJ',
-    status: 'active',
-    applications: 32,
-    views: 890,
-    createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
-    publishedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
-    platforms: ['linkedin']
-  },
-  {
-    id: '3',
-    title: 'Social Media Pleno',
-    department: 'Marketing',
-    location: 'São Paulo, SP',
-    locationType: 'onsite',
-    contractType: 'CLT',
-    status: 'paused',
-    applications: 18,
-    views: 456,
-    createdAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000),
-    publishedAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000),
-    platforms: ['linkedin', 'website']
-  },
-  {
-    id: '4',
-    title: 'Desenvolvedor Front-end',
-    department: 'Desenvolvimento',
-    location: 'Remoto',
-    locationType: 'remote',
-    contractType: 'PJ',
-    status: 'draft',
-    applications: 0,
-    views: 0,
-    createdAt: new Date(),
-    platforms: []
-  }
-];
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string; icon: React.ReactNode }> = {
   draft: { color: 'var(--neutral-700)', bg: 'var(--neutral-100)', label: 'Rascunho', icon: <Edit3 className="w-4 h-4" /> },
@@ -90,11 +33,45 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string; 
 };
 
 export default function VagasPage() {
-  const [jobs, setJobs] = useState<Job[]>(SAMPLE_JOBS);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [note, setNote] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  const loadJobs = async () => {
+    setLoading(true);
+    setNote(null);
+    try {
+      const headers = await getAuthHeaders();
+      const qs = new URLSearchParams();
+      if (filterStatus !== 'all') qs.set('status', filterStatus);
+      if (searchTerm.trim()) qs.set('q', searchTerm.trim());
+      const res = await fetch(`/api/admin/rh/jobs?${qs.toString()}`, { headers, cache: 'no-store' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao carregar vagas');
+      setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+      setNote(data?.note ? String(data.note) : null);
+    } catch (e) {
+      setJobs([]);
+      setNote(e instanceof Error ? e.message : 'Falha ao carregar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadJobs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -103,23 +80,104 @@ export default function VagasPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const stats = {
-    total: jobs.length,
-    active: jobs.filter(j => j.status === 'active').length,
-    applications: jobs.reduce((sum, j) => sum + j.applications, 0),
-    views: jobs.reduce((sum, j) => sum + j.views, 0)
-  };
+  const stats = useMemo(() => {
+    return {
+      total: jobs.length,
+      active: jobs.filter((j) => j.status === 'active').length,
+      applications: jobs.reduce((sum, j) => sum + (Number(j.applications || 0) || 0), 0),
+      views: jobs.reduce((sum, j) => sum + (Number(j.views || 0) || 0), 0),
+    };
+  }, [jobs]);
 
   const handleSaveJob = (jobData: any) => {
-    console.log('Salvar vaga:', jobData);
-    setShowCreateModal(false);
-    // TODO: Save to database
+    (async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const payload = {
+          title: String(jobData?.title || '').trim(),
+          department: String(jobData?.department || '').trim(),
+          location: String(jobData?.location || '').trim(),
+          locationType: jobData?.locationType || 'hybrid',
+          contractType: String(jobData?.contractType || '').trim(),
+          status: 'draft',
+          platforms: [],
+          applications: 0,
+          views: 0,
+          jobPost: jobData,
+        };
+        const res = await fetch('/api/admin/rh/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers },
+          body: JSON.stringify({ job: payload }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao salvar');
+        setShowCreateModal(false);
+        await loadJobs();
+      } catch (e) {
+        setNote(e instanceof Error ? e.message : 'Falha ao salvar');
+      }
+    })();
   };
 
   const handlePublishJob = (jobData: any, platforms: string[]) => {
-    console.log('Publicar vaga:', jobData, 'em:', platforms);
-    setShowCreateModal(false);
-    // TODO: Publish to platforms
+    (async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const payload = {
+          title: String(jobData?.title || '').trim(),
+          department: String(jobData?.department || '').trim(),
+          location: String(jobData?.location || '').trim(),
+          locationType: jobData?.locationType || 'hybrid',
+          contractType: String(jobData?.contractType || '').trim(),
+          status: 'active',
+          platforms: Array.isArray(platforms) ? platforms : [],
+          applications: 0,
+          views: 0,
+          jobPost: jobData,
+        };
+        const res = await fetch('/api/admin/rh/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers },
+          body: JSON.stringify({ job: payload }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao publicar');
+        setShowCreateModal(false);
+        await loadJobs();
+      } catch (e) {
+        setNote(e instanceof Error ? e.message : 'Falha ao publicar');
+      }
+    })();
+  };
+
+  const togglePause = async (job: Job) => {
+    try {
+      const headers = await getAuthHeaders();
+      const next = job.status === 'active' ? 'paused' : 'active';
+      const res = await fetch('/api/admin/rh/jobs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ id: job.id, status: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao atualizar');
+      await loadJobs();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : 'Falha ao atualizar');
+    }
+  };
+
+  const removeJob = async (job: Job) => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/api/admin/rh/jobs?id=${encodeURIComponent(job.id)}`, { method: 'DELETE', headers });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao remover');
+      await loadJobs();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : 'Falha ao remover');
+    }
   };
 
   return (
@@ -156,6 +214,12 @@ export default function VagasPage() {
             Nova Vaga
           </motion.button>
         </div>
+
+        {note ? (
+          <div className="text-sm px-4 py-3 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)', color: 'var(--text-secondary)' }}>
+            {note}
+          </div>
+        ) : null}
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -206,7 +270,11 @@ export default function VagasPage() {
 
         {/* Jobs List */}
         <div className="space-y-4">
-          {filteredJobs.map((job, index) => {
+          {loading ? (
+            <div className="text-center py-12" style={{ color: 'var(--text-secondary)' }}>
+              Carregando…
+            </div>
+          ) : filteredJobs.map((job, index) => {
             const status = STATUS_CONFIG[job.status];
             
             return (
@@ -297,13 +365,24 @@ export default function VagasPage() {
                     </button>
                     {job.status === 'active' && (
                       <button
+                        onClick={() => togglePause(job)}
                         className="p-2 rounded-lg transition-colors"
                         style={{ backgroundColor: 'var(--warning-100)' }}
                       >
                         <Pause className="w-4 h-4" style={{ color: 'var(--warning-600)' }} />
                       </button>
                     )}
+                    {job.status === 'paused' && (
+                      <button
+                        onClick={() => togglePause(job)}
+                        className="p-2 rounded-lg transition-colors"
+                        style={{ backgroundColor: 'var(--success-100)' }}
+                      >
+                        <TrendingUp className="w-4 h-4" style={{ color: 'var(--success-700)' }} />
+                      </button>
+                    )}
                     <button
+                      onClick={() => removeJob(job)}
                       className="p-2 rounded-lg transition-colors"
                       style={{ backgroundColor: 'var(--error-100)' }}
                     >
@@ -315,7 +394,7 @@ export default function VagasPage() {
             );
           })}
 
-          {filteredJobs.length === 0 && (
+          {!loading && filteredJobs.length === 0 && (
             <div className="text-center py-12">
               <Briefcase 
                 className="w-16 h-16 mx-auto mb-4 opacity-20"

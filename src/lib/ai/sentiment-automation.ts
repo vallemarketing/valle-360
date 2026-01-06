@@ -3,9 +3,14 @@
  * Processa automaticamente mensagens, feedbacks, NPS, etc.
  */
 
-import { supabase } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 import { analyzeSentiment, UnifiedSentimentResult } from './sentiment-analyzer';
 import { googleNLP } from '@/lib/integrations/google/nlp';
+
+function db() {
+  // Server-side only. Route handlers fazem o gate (auth/admin/webhook key) antes de chamar este módulo.
+  return getSupabaseAdmin();
+}
 
 // =====================================================
 // TIPOS
@@ -166,7 +171,7 @@ export async function analyzeAndStore(
     };
 
     // Salvar no banco
-    const { data: savedAnalysis, error } = await supabase
+    const { data: savedAnalysis, error } = await db()
       .from('sentiment_analyses')
       .insert(analysisData)
       .select()
@@ -191,7 +196,7 @@ export async function analyzeAndStore(
     
     // Registrar falha na fila se houver
     if (sourceId) {
-      await supabase
+      await db()
         .from('sentiment_processing_queue')
         .update({ 
           status: 'failed', 
@@ -220,7 +225,7 @@ export async function queueForAnalysis(
   } = {}
 ): Promise<string | null> {
   try {
-    const { data, error } = await supabase.rpc('add_to_sentiment_queue', {
+    const { data, error } = await db().rpc('add_to_sentiment_queue', {
       p_source_type: sourceType,
       p_source_id: sourceId,
       p_source_table: options.sourceTable,
@@ -245,7 +250,7 @@ export async function queueForAnalysis(
 export async function processNextInQueue(): Promise<SentimentAnalysisRecord | null> {
   try {
     // Pegar próximo item
-    const { data: items, error } = await supabase
+    const { data: items, error } = await db()
       .rpc('get_next_sentiment_queue_item');
 
     if (error || !items || items.length === 0) {
@@ -267,7 +272,7 @@ export async function processNextInQueue(): Promise<SentimentAnalysisRecord | nu
     );
 
     // Atualizar fila
-    await supabase
+    await db()
       .from('sentiment_processing_queue')
       .update({
         status: result ? 'completed' : 'failed',
@@ -369,12 +374,12 @@ async function generateAlert(
     // Buscar nome do cliente se houver
     let clientName: string | undefined;
     if (analysis.client_id) {
-      const { data: client } = await supabase
-        .from('user_profiles')
-        .select('full_name')
+      const { data: client } = await db()
+        .from('clients')
+        .select('company_name, name')
         .eq('id', analysis.client_id)
-        .single();
-      clientName = client?.full_name;
+        .maybeSingle();
+      clientName = (client as any)?.company_name || (client as any)?.name || undefined;
     }
 
     // Criar alerta
@@ -392,7 +397,7 @@ async function generateAlert(
       notification_channels: config.alert_channels
     };
 
-    const { data: alert, error } = await supabase
+    const { data: alert, error } = await db()
       .from('sentiment_alerts')
       .insert(alertData)
       .select()
@@ -401,7 +406,7 @@ async function generateAlert(
     if (error) throw error;
 
     // Atualizar análise com referência ao alerta
-    await supabase
+    await db()
       .from('sentiment_analyses')
       .update({ alert_generated: true, alert_id: alert.id })
       .eq('id', analysis.id);
@@ -423,7 +428,7 @@ async function generateAlert(
  */
 async function getClientConfig(clientId: string): Promise<AutomationConfig> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db()
       .from('sentiment_automation_config')
       .select('*')
       .eq('client_id', clientId)
@@ -457,7 +462,7 @@ async function updateDailyStats(
 
   try {
     // Verificar se já existe registro para hoje
-    const { data: existing } = await supabase
+    const { data: existing } = await db()
       .from('sentiment_daily_stats')
       .select('id')
       .eq('date', today)
@@ -471,7 +476,7 @@ async function updateDailyStats(
 
     if (existing) {
       // Atualizar existente
-      await supabase.rpc('increment_sentiment_stat', {
+      await db().rpc('increment_sentiment_stat', {
         p_stat_id: existing.id,
         p_sentiment_field: incrementField,
         p_source_field: sourceField
@@ -491,7 +496,7 @@ async function updateDailyStats(
         reviews_count: sourceType === 'review' ? 1 : 0
       };
 
-      await supabase.from('sentiment_daily_stats').insert(newStats);
+      await db().from('sentiment_daily_stats').insert(newStats);
     }
   } catch (error) {
     console.error('Erro ao atualizar estatísticas:', error);

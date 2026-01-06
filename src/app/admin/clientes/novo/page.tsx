@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, Send, User, Building, Phone, Mail, MapPin, FileText, Briefcase, Users as UsersIcon, DollarSign, Instagram, Facebook, Link as LinkIcon, Trophy } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { toast } from 'sonner'
 
 export default function NovoClientePage() {
   const router = useRouter()
@@ -269,7 +270,7 @@ export default function NovoClientePage() {
 
     } catch (error: any) {
       console.error('Erro ao criar cliente:', error)
-      alert('Erro ao criar cliente: ' + error.message)
+      toast.error('Erro ao criar cliente: ' + (error?.message || 'Erro desconhecido'))
     } finally {
       setLoading(false)
     }

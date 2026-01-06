@@ -22,6 +22,7 @@ import {
   Zap
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import { 
   getRewardIcon, 
   getRewardStatusColor, 
@@ -150,7 +151,7 @@ export default function RHRecompensasPage() {
       setSelectedReward(null)
     } catch (error) {
       console.error('Erro ao aprovar:', error)
-      alert('Erro ao aprovar recompensa')
+      toast.error('Erro ao aprovar recompensa')
     } finally {
       setActionLoading(null)
     }
@@ -158,7 +159,7 @@ export default function RHRecompensasPage() {
 
   const handleReject = async (rewardId: string) => {
     if (!currentUserId || !rejectReason.trim()) {
-      alert('Por favor, informe o motivo da rejeição')
+      toast.error('Por favor, informe o motivo da rejeição')
       return
     }
     setActionLoading(rewardId)
@@ -183,7 +184,7 @@ export default function RHRecompensasPage() {
       setRejectReason('')
     } catch (error) {
       console.error('Erro ao rejeitar:', error)
-      alert('Erro ao rejeitar recompensa')
+      toast.error('Erro ao rejeitar recompensa')
     } finally {
       setActionLoading(null)
     }

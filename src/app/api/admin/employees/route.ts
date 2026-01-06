@@ -1,25 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/auth/requireAdmin';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const adminSupabase = createClient(
-  supabaseUrl || 'https://setup-missing.supabase.co',
-  supabaseServiceKey || 'setup-missing',
-  { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
-);
-
-async function requireUser(request: NextRequest) {
-  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
-  if (!token) return null;
-  const { data: { user } } = await adminSupabase.auth.getUser(token);
-  return user || null;
-}
 
 function mapAreasToDepartment(areas?: string[] | null) {
   const a = (areas || []).map(x => String(x).toLowerCase());
@@ -38,14 +21,16 @@ function mapAreasToExpertise(areas?: string[] | null) {
 }
 
 export async function GET(request: NextRequest) {
-  const user = await requireUser(request);
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  const gate = await requireAdmin(request);
+  if (!gate.ok) return gate.res;
+
+  const db = getSupabaseAdmin();
 
   // employees + users (fallback para user_profiles se necessário)
   try {
-    const { data: employees, error } = await adminSupabase
+    const { data: employees, error } = await db
       .from('employees')
-      .select('user_id,first_name,last_name,whatsapp,admission_date,areas,photo_url,created_at')
+      .select('id,user_id,first_name,last_name,whatsapp,admission_date,areas,photo_url,created_at')
       .order('created_at', { ascending: false })
       .limit(500);
 
@@ -55,13 +40,13 @@ export async function GET(request: NextRequest) {
 
     let usersRows: any[] = [];
     {
-      const tryRich = await adminSupabase
+      const tryRich = await db
         .from('users')
         .select('id,email,full_name,phone,account_status,name,role,user_type')
         .in('id', userIds);
       if (!tryRich.error) usersRows = tryRich.data || [];
       else {
-        const tryBasic = await adminSupabase.from('users').select('id,email,name,role').in('id', userIds);
+        const tryBasic = await db.from('users').select('id,email,name,role').in('id', userIds);
         usersRows = tryBasic.data || [];
       }
     }
@@ -73,6 +58,8 @@ export async function GET(request: NextRequest) {
 
       return {
         id: e.user_id,
+        employeeId: e.id,
+        userId: e.user_id,
         fullName,
         email: u.email || '',
         phone: u.phone || e.whatsapp || '',
@@ -93,7 +80,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ employees: mapped });
   } catch {
-    const { data: profiles } = await adminSupabase
+    const { data: profiles } = await db
       .from('user_profiles')
       .select('user_id,full_name,email,phone,user_type,is_active,created_at,avatar_url')
       .neq('user_type', 'client')

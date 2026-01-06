@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface Contract {
   id: string;
@@ -155,21 +156,34 @@ export default function ContratosPage() {
   };
 
   const handleSendToLegal = async (contractId: string) => {
-    alert('📧 Enviando contrato para aprovação do Jurídico...');
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    alert('✅ Contrato enviado para aprovação do Jurídico com sucesso!');
+    // Integração jurídica ainda não está conectada nesta tela.
+    toast.message('Envio para Jurídico ainda não está integrado. Use o Kanban/Mensagens para acompanhar.');
+    void contractId;
   };
 
   const handleSendForSignature = async () => {
-    alert('✉️ Enviando contrato para assinatura eletrônica...');
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    alert('✅ Link de assinatura enviado para o cliente por e-mail!');
+    toast.message('Assinatura eletrônica ainda não está integrada. Use Mensagens para enviar o contrato ao cliente.');
   };
 
   const handleDownloadPDF = async () => {
-    alert('📥 Gerando PDF do contrato...');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    alert('✅ PDF gerado! O download iniciará automaticamente.');
+    try {
+      if (!selectedContract) {
+        toast.error('Selecione um contrato para exportar.');
+        return;
+      }
+      const blob = new Blob([JSON.stringify(selectedContract, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contrato-${String(selectedContract.id || 'export')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Contrato exportado (JSON).');
+    } catch {
+      toast.error('Falha ao exportar contrato.');
+    }
   };
 
   const handleNewContract = () => {
@@ -178,9 +192,35 @@ export default function ContratosPage() {
   };
 
   const handleExportCSV = async () => {
-    alert('📊 Exportando lista de contratos...');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    alert('✅ Arquivo CSV gerado com sucesso!');
+    try {
+      const headers = ['id', 'cliente', 'empresa', 'status', 'tipo', 'valor', 'inicio', 'fim'];
+      const escape = (v: any) => `"${String(v ?? '').replace(/\"/g, '""')}"`;
+      const rows = filteredContracts.map((c) =>
+        [
+          escape(c.id),
+          escape(c.clientName),
+          escape(c.clientCompany),
+          escape(c.status),
+          escape(c.type),
+          escape(c.value),
+          escape(c.startDate),
+          escape(c.endDate),
+        ].join(',')
+      );
+      const csv = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contratos-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('CSV exportado com sucesso!');
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao exportar CSV');
+    }
   };
 
   return (

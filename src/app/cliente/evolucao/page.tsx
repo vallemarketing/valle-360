@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp,
@@ -58,118 +58,7 @@ interface EvolutionMetric {
   data: { month: string; value: number }[];
 }
 
-// Mock data
-const mockMilestones: Milestone[] = [
-  {
-    id: '1',
-    date: new Date('2024-11-15'),
-    title: '15.000 Seguidores Alcançados! 🎉',
-    description: 'Você atingiu a marca de 15 mil seguidores no Instagram.',
-    type: 'achievement',
-    metric: { label: 'Seguidores', before: '14.2K', after: '15K' },
-    badge: '🏆 15K Club'
-  },
-  {
-    id: '2',
-    date: new Date('2024-11-01'),
-    title: 'Campanha Black Friday Iniciada',
-    description: 'Lançamento da campanha com 20% de desconto.',
-    type: 'campaign',
-    metric: { label: 'Alcance', before: '8K', after: '45K' }
-  },
-  {
-    id: '3',
-    date: new Date('2024-10-20'),
-    title: 'Reel Viral - 50K Views',
-    description: 'Seu Reel sobre tendências atingiu 50 mil visualizações.',
-    type: 'growth',
-    metric: { label: 'Views', before: '5K média', after: '50K' },
-    badge: '🔥 Viral'
-  },
-  {
-    id: '4',
-    date: new Date('2024-10-01'),
-    title: 'Nova Identidade Visual',
-    description: 'Implementação do novo design de posts e stories.',
-    type: 'feature'
-  },
-  {
-    id: '5',
-    date: new Date('2024-09-15'),
-    title: '10.000 Seguidores',
-    description: 'Primeira grande marca atingida!',
-    type: 'achievement',
-    metric: { label: 'Seguidores', before: '8.5K', after: '10K' },
-    badge: '⭐ 10K Club'
-  },
-  {
-    id: '6',
-    date: new Date('2024-08-01'),
-    title: 'Início da Parceria Valle 360',
-    description: 'Bem-vindo à família Valle 360! Início do trabalho de gestão de redes sociais.',
-    type: 'feature',
-    metric: { label: 'Seguidores', before: '5.2K', after: '5.2K' }
-  }
-];
-
-const mockMetrics: EvolutionMetric[] = [
-  {
-    label: 'Seguidores',
-    icon: Users,
-    startValue: 5200,
-    currentValue: 15420,
-    unit: '',
-    color: '#4370d1',
-    data: [
-      { month: 'Ago', value: 5200 },
-      { month: 'Set', value: 7800 },
-      { month: 'Out', value: 10500 },
-      { month: 'Nov', value: 15420 }
-    ]
-  },
-  {
-    label: 'Alcance Médio',
-    icon: Eye,
-    startValue: 2500,
-    currentValue: 12800,
-    unit: '',
-    color: '#22c55e',
-    data: [
-      { month: 'Ago', value: 2500 },
-      { month: 'Set', value: 5200 },
-      { month: 'Out', value: 8400 },
-      { month: 'Nov', value: 12800 }
-    ]
-  },
-  {
-    label: 'Engajamento',
-    icon: Heart,
-    startValue: 2.1,
-    currentValue: 4.8,
-    unit: '%',
-    color: '#ef4444',
-    data: [
-      { month: 'Ago', value: 2.1 },
-      { month: 'Set', value: 3.2 },
-      { month: 'Out', value: 4.1 },
-      { month: 'Nov', value: 4.8 }
-    ]
-  },
-  {
-    label: 'Leads Gerados',
-    icon: DollarSign,
-    startValue: 5,
-    currentValue: 45,
-    unit: '/mês',
-    color: '#f59e0b',
-    data: [
-      { month: 'Ago', value: 5 },
-      { month: 'Set', value: 15 },
-      { month: 'Out', value: 28 },
-      { month: 'Nov', value: 45 }
-    ]
-  }
-];
+// Dados reais são carregados via /api/client/evolution (sem mocks)
 
 const MILESTONE_COLORS: Record<string, { bg: string; border: string; icon: string }> = {
   achievement: { bg: 'var(--purple-50)', border: 'var(--purple-200)', icon: 'var(--purple-500)' },
@@ -185,15 +74,26 @@ const MILESTONE_ICONS: Record<string, React.ElementType> = {
   feature: Zap
 };
 
-const CLIENT_JOIN_DATE = new Date('2024-06-15'); // Data de entrada no time Valle 360
+const CLIENT_JOIN_DATE = new Date('2024-06-15'); // fallback local (será substituído por clients.created_at quando disponível)
 
 export default function EvolucaoPage() {
-  const [milestones] = useState<Milestone[]>(mockMilestones);
-  const [metrics] = useState<EvolutionMetric[]>(mockMetrics);
-  const [selectedMetric, setSelectedMetric] = useState<EvolutionMetric>(metrics[0]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [metrics, setMetrics] = useState<EvolutionMetric[]>([]);
+  const [selectedMetric, setSelectedMetric] = useState<EvolutionMetric>({
+    label: 'Seguidores',
+    icon: Users,
+    startValue: 0,
+    currentValue: 0,
+    unit: '',
+    color: '#4370d1',
+    data: [],
+  });
   const [expandedMilestone, setExpandedMilestone] = useState<string | null>(null);
+  const [joinDate, setJoinDate] = useState<Date>(CLIENT_JOIN_DATE);
+  const [loading, setLoading] = useState(true);
 
   const calculateGrowth = (start: number, current: number) => {
+    if (!start) return 0;
     return Math.round(((current - start) / start) * 100);
   };
 
@@ -201,6 +101,98 @@ export default function EvolucaoPage() {
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toString();
   };
+
+  const sinceLabel = useMemo(() => {
+    return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).format(joinDate);
+  }, [joinDate]);
+
+  const startSeriesLabel = selectedMetric?.data?.[0]?.month ? `Início (${selectedMetric.data[0].month})` : 'Início';
+  const endSeriesLabel = selectedMetric?.data?.length
+    ? `Atual (${selectedMetric.data[selectedMetric.data.length - 1].month})`
+    : 'Atual';
+
+  const downloadJson = (filename: string, payload: any) => {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/client/evolution?months=6', { cache: 'no-store' });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success) throw new Error(json?.error || 'Falha ao carregar evolução');
+
+        if (json?.join_date) {
+          const jd = new Date(String(json.join_date));
+          if (!Number.isNaN(jd.getTime())) setJoinDate(jd);
+        }
+
+        const cfg = [
+          { key: 'followers', label: 'Seguidores', icon: Users, unit: '', color: '#4370d1' },
+          { key: 'reach_avg', label: 'Alcance Médio', icon: Eye, unit: '', color: '#22c55e' },
+          { key: 'engagement_rate', label: 'Engajamento', icon: Heart, unit: '%', color: '#ef4444' },
+          { key: 'profile_views', label: 'Visitas ao Perfil', icon: DollarSign, unit: '', color: '#f59e0b' },
+        ];
+
+        const apiMetrics = Array.isArray(json?.metrics) ? json.metrics : [];
+        const mappedMetrics: EvolutionMetric[] = cfg
+          .map((c: any) => {
+            const m = apiMetrics.find((x: any) => String(x?.key) === c.key) || null;
+            if (!m) return null;
+            const series = Array.isArray(m?.series) ? m.series : [];
+            return {
+              label: c.label,
+              icon: c.icon,
+              startValue: Number(m?.startValue || 0),
+              currentValue: Number(m?.currentValue || 0),
+              unit: c.unit,
+              color: c.color,
+              data: series.map((p: any) => ({ month: String(p?.month || ''), value: Number(p?.value || 0) })),
+            } as EvolutionMetric;
+          })
+          .filter(Boolean) as EvolutionMetric[];
+
+        const apiMilestones = Array.isArray(json?.milestones) ? json.milestones : [];
+        const mappedMilestones: Milestone[] = apiMilestones
+          .map((m: any) => {
+            const dt = new Date(String(m?.date || ''));
+            return {
+              id: String(m?.id || ''),
+              date: Number.isNaN(dt.getTime()) ? new Date() : dt,
+              title: String(m?.title || 'Atualização'),
+              description: String(m?.description || ''),
+              type: (m?.type || 'feature') as any,
+              metric: m?.metric
+                ? { label: String(m.metric.label || ''), before: String(m.metric.before || ''), after: String(m.metric.after || '') }
+                : undefined,
+              badge: m?.badge ? String(m.badge) : undefined,
+            } as Milestone;
+          })
+          .filter((m: Milestone) => !!m.id)
+          .sort((a: Milestone, b: Milestone) => b.date.getTime() - a.date.getTime());
+
+        setMetrics(mappedMetrics);
+        setSelectedMetric(mappedMetrics[0] || selectedMetric);
+        setMilestones(mappedMilestones);
+      } catch (e) {
+        console.error('Falha ao carregar evolução:', e);
+        setMetrics([]);
+        setMilestones([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
@@ -216,6 +208,13 @@ export default function EvolucaoPage() {
           </p>
         </div>
         <button
+          onClick={() =>
+            downloadJson('minha-evolucao.json', {
+              joinDate: joinDate.toISOString(),
+              metrics,
+              milestones: milestones.map((m) => ({ ...m, date: m.date.toISOString() })),
+            })
+          }
           className="flex items-center gap-2 px-4 py-2 rounded-xl"
           style={{ backgroundColor: 'var(--primary-500)', color: 'white' }}
         >
@@ -235,7 +234,7 @@ export default function EvolucaoPage() {
       >
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-5 h-5 text-white" />
-          <span className="text-white/80">Desde Agosto 2024</span>
+          <span className="text-white/80">Desde {sinceLabel}</span>
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -264,6 +263,14 @@ export default function EvolucaoPage() {
               </motion.div>
             );
           })}
+
+          {!loading && metrics.length === 0 && (
+            <div className="col-span-2 md:col-span-4 p-4 rounded-xl bg-white/10">
+              <p className="text-white/80 text-sm">
+                Ainda não há métricas suficientes coletadas. Conecte suas redes e aguarde a coleta diária.
+              </p>
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -326,7 +333,7 @@ export default function EvolucaoPage() {
         {/* Before/After Comparison */}
         <div className="mt-4 flex items-center justify-center gap-8 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
           <div className="text-center">
-            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Início (Ago/24)</p>
+            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{startSeriesLabel}</p>
             <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
               {formatNumber(selectedMetric.startValue)}{selectedMetric.unit}
             </p>
@@ -338,7 +345,7 @@ export default function EvolucaoPage() {
             </span>
           </div>
           <div className="text-center">
-            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Atual (Nov/24)</p>
+            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{endSeriesLabel}</p>
             <p className="text-xl font-bold" style={{ color: selectedMetric.color }}>
               {formatNumber(selectedMetric.currentValue)}{selectedMetric.unit}
             </p>

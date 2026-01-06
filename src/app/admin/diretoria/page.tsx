@@ -15,7 +15,7 @@ export default function DiretoriaVirtualPage() {
           <div>
             <h1 className="text-2xl font-bold text-[#001533] dark:text-white">Diretoria Virtual</h1>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Removemos dados simulados. Este módulo será ativado apenas com dados reais (financeiro, churn, capacidade, etc.).
+              Sem mocks: KPIs só com dados reais. O chat executivo (CFO/CTO/CMO/CHRO) já está disponível.
             </p>
           </div>
         </div>
@@ -27,7 +27,7 @@ export default function DiretoriaVirtualPage() {
           <EmptyState
             type="default"
             title="Diretoria baseada em dados reais"
-            description="Para manter 100% de confiança, a Diretoria Virtual não exibe mais KPIs fake. Conecte as fontes (financeiro/contratos/health score) e eu habilito os painéis CFO/CTO/CMO/CHRO com dados reais."
+            description="Para manter 100% de confiança, a Diretoria Virtual não exibe KPIs fake. Conecte as fontes (financeiro/contratos/health score/analytics) e eu habilito os painéis com dados reais. Enquanto isso, use o chat executivo para análise e próximos passos."
             animated={false}
             action={{ label: 'Abrir CFO', onClick: () => (window.location.href = '/admin/diretoria/cfo') }}
             secondaryAction={{ label: 'Abrir Prontidão', onClick: () => (window.location.href = '/admin/prontidao') }}
@@ -38,6 +38,7 @@ export default function DiretoriaVirtualPage() {
               { href: '/admin/diretoria/cfo', label: 'CFO' },
               { href: '/admin/diretoria/cto', label: 'CTO' },
               { href: '/admin/diretoria/cmo', label: 'CMO' },
+              { href: '/admin/diretoria/chro', label: 'CHRO' },
             ].map((x) => (
               <Link
                 key={x.href}

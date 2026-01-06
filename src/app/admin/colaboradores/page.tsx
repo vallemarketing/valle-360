@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 
 interface Employee {
   id: string
@@ -95,7 +96,7 @@ export default function EmployeesListPage() {
 
       await loadEmployeesReal()
     } catch (e: any) {
-      alert(e?.message || 'Erro ao criar colaboradores de teste')
+      toast.error(e?.message || 'Erro ao criar colaboradores de teste')
     } finally {
       setCreatingTestEmployees(false)
     }

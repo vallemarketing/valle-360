@@ -32,6 +32,20 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION update_updated_at_column() IS 'Atualiza automaticamente o campo updated_at antes de cada UPDATE';
 
+-- Compat: alguns arquivos usam trigger function `moddatetime(updated_at)`.
+-- No Postgres/Supabase, a trigger function não recebe parâmetros na assinatura;
+-- os argumentos (ex.: updated_at) entram via TG_ARGV. Para manter compatibilidade,
+-- definimos `moddatetime()` como alias simples que atualiza NEW.updated_at.
+CREATE OR REPLACE FUNCTION moddatetime()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION moddatetime() IS 'Compat: atualiza NEW.updated_at antes de cada UPDATE (alias de update_updated_at_column).';
+
 -- =====================================================
 -- FUNÇÃO: Gerar número sequencial (para contracts, invoices, etc)
 -- =====================================================

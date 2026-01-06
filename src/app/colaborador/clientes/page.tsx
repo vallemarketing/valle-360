@@ -18,14 +18,17 @@ interface Client {
   plan: string
   status: 'active' | 'inactive' | 'at_risk'
   lastInteraction: Date
-  revenue: number
+  revenue: number | null
+  revenueKnown?: boolean
   performance: {
     trend: 'up' | 'down' | 'stable'
-    value: number
+    value: number | null
+    score?: number | null
   }
   email: string
   phone: string
   location: string
+  website?: string | null
 }
 
 export default function ClientesPage() {
@@ -57,81 +60,41 @@ export default function ClientesPage() {
 
   const loadClients = async () => {
     try {
-      // Mock data - integrar com banco depois
-      const mockClients: Client[] = [
-        {
-          id: '1',
-          name: 'João Silva',
-          company: 'Tech Solutions',
-          logo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=techsolutions',
-          plan: 'Premium',
-          status: 'active',
-          lastInteraction: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-          revenue: 12500,
-          performance: {
-            trend: 'up',
-            value: 15
-          },
-          email: 'joao@techsolutions.com',
-          phone: '(11) 99999-9999',
-          location: 'São Paulo, SP'
-        },
-        {
-          id: '2',
-          name: 'Maria Santos',
-          company: 'Marketing Pro',
-          logo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=marketingpro',
-          plan: 'Business',
-          status: 'active',
-          lastInteraction: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-          revenue: 8500,
-          performance: {
-            trend: 'stable',
-            value: 0
-          },
-          email: 'maria@marketingpro.com',
-          phone: '(11) 98888-8888',
-          location: 'Rio de Janeiro, RJ'
-        },
-        {
-          id: '3',
-          name: 'Pedro Costa',
-          company: 'E-commerce Plus',
-          logo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ecommerceplus',
-          plan: 'Premium',
-          status: 'at_risk',
-          lastInteraction: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
-          revenue: 15000,
-          performance: {
-            trend: 'down',
-            value: -20
-          },
-          email: 'pedro@ecommerceplus.com',
-          phone: '(11) 97777-7777',
-          location: 'Campinas, SP'
-        },
-        {
-          id: '4',
-          name: 'Ana Lima',
-          company: 'Consultoria Estratégica',
-          logo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=consultoria',
-          plan: 'Enterprise',
-          status: 'active',
-          lastInteraction: new Date(Date.now() - 3 * 60 * 60 * 1000),
-          revenue: 25000,
-          performance: {
-            trend: 'up',
-            value: 25
-          },
-          email: 'ana@consultoria.com',
-          phone: '(11) 96666-6666',
-          location: 'São Paulo, SP'
-        }
-      ]
+      setLoading(true)
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
 
-      setClients(mockClients)
+      const res = await fetch('/api/collaborator/clients', { headers, cache: 'no-store' })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.success) throw new Error(json?.error || 'Falha ao carregar clientes')
+
+      const rows = Array.isArray(json?.clients) ? json.clients : []
+      const mapped: Client[] = rows.map((c: any) => ({
+        id: String(c?.id || ''),
+        name: String(c?.name || 'Contato'),
+        company: String(c?.company || 'Cliente'),
+        logo: String(c?.logo || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(c?.company || 'Cliente'))}`),
+        plan: String(c?.plan || '—'),
+        status: (c?.status || 'active') as any,
+        lastInteraction: new Date(String(c?.lastInteractionAt || new Date().toISOString())),
+        revenue: c?.revenue != null ? Number(c.revenue) : null,
+        revenueKnown: !!c?.revenueKnown,
+        performance: {
+          trend: (c?.performance?.trend || 'stable') as any,
+          value: c?.performance?.value != null ? Number(c.performance.value) : null,
+          score: c?.performance?.score != null ? Number(c.performance.score) : null,
+        },
+        email: String(c?.email || ''),
+        phone: String(c?.phone || ''),
+        location: String(c?.location || '—'),
+        website: c?.website ? String(c.website) : null,
+      }))
+
+      setClients(mapped)
     } catch (error) {
       console.error('Erro ao carregar clientes:', error)
+      setClients([])
     } finally {
       setLoading(false)
     }
@@ -256,7 +219,7 @@ export default function ClientesPage() {
                 <DollarSign className="w-5 h-5" style={{ color: 'var(--success-500)' }} />
               </div>
               <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                R$ {clients.reduce((acc, c) => acc + c.revenue, 0).toLocaleString('pt-BR')}
+                R$ {clients.reduce((acc, c) => acc + Number(c.revenue || 0), 0).toLocaleString('pt-BR')}
               </p>
             </motion.div>
           )}
@@ -358,7 +321,7 @@ export default function ClientesPage() {
                   <div>
                     <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Receita Mensal</p>
                     <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      R$ {client.revenue.toLocaleString('pt-BR')}
+                      {client.revenueKnown ? `R$ ${Number(client.revenue || 0).toLocaleString('pt-BR')}` : '—'}
                     </p>
                   </div>
                 )}
@@ -371,11 +334,14 @@ export default function ClientesPage() {
                 <div>
                   <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Performance</p>
                   <div className="flex items-center gap-1">
+                    {client.performance.value == null && client.performance.score == null && (
+                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>—</span>
+                    )}
                     {client.performance.trend === 'up' && (
                       <>
                         <TrendingUp className="w-4 h-4" style={{ color: 'var(--success-500)' }} />
                         <span className="text-sm font-semibold" style={{ color: 'var(--success-600)' }}>
-                          +{client.performance.value}%
+                          {client.performance.value != null ? `+${client.performance.value}%` : '↑'}
                         </span>
                       </>
                     )}
@@ -383,7 +349,7 @@ export default function ClientesPage() {
                       <>
                         <TrendingDown className="w-4 h-4" style={{ color: 'var(--error-500)' }} />
                         <span className="text-sm font-semibold" style={{ color: 'var(--error-600)' }}>
-                          {client.performance.value}%
+                          {client.performance.value != null ? `${client.performance.value}%` : '↓'}
                         </span>
                       </>
                     )}
@@ -413,6 +379,7 @@ export default function ClientesPage() {
               {/* Quick Actions */}
               <div className="flex gap-2">
                 <button
+                  onClick={() => (window.location.href = '/colaborador/mensagens')}
                   className="flex-1 px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-all hover:scale-105"
                   style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                 >
@@ -420,6 +387,7 @@ export default function ClientesPage() {
                   Mensagem
                 </button>
                 <button
+                  onClick={() => (window.location.href = '/colaborador/kanban')}
                   className="flex-1 px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-all hover:scale-105"
                   style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                 >
@@ -427,10 +395,14 @@ export default function ClientesPage() {
                   Relatório
                 </button>
                 <button
+                  onClick={() => {
+                    if (client.website) window.open(client.website, '_blank');
+                    else window.location.href = '/colaborador/kanban';
+                  }}
                   className="px-4 py-2 rounded-lg flex items-center justify-center transition-all hover:scale-105"
                   style={{ backgroundColor: 'var(--primary-50)', color: 'var(--primary-700)' }}
                 >
-                  <ChevronRight className="w-5 h-5" />
+                  {client.website ? <ExternalLink className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                 </button>
               </div>
             </motion.div>

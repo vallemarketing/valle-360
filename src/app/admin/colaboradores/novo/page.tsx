@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, Send, User, Mail, Phone, MapPin, Briefcase, Shield, Calendar, DollarSign, Building } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { toast } from 'sonner'
 
 export default function NovoColaboradorPage() {
   const router = useRouter()
@@ -249,7 +250,7 @@ export default function NovoColaboradorPage() {
     e.preventDefault()
     
     if (emailConflito) {
-      alert('Este email já está em uso. Por favor, escolha outro email manualmente.')
+      toast.error('Este email já está em uso. Por favor, escolha outro email manualmente.')
       return
     }
 
@@ -340,21 +341,24 @@ export default function NovoColaboradorPage() {
       await enviarBoasVindas(result.employeeId, formData.email, formData.email_pessoal, senhaProvisoria, formData.areas_atuacao)
 
       // 4. Mostrar mensagem de sucesso
-      alert(
-        `✅ Colaborador criado com sucesso!\n\n📧 Email do sistema: ${formData.email}\n🔑 Senha provisória: ${senhaProvisoria}\n\n📨 As credenciais foram enviadas para: ${formData.email_pessoal}` +
-          (mailboxCreated
-            ? `\n\n📬 Mailbox criada no cPanel: OK`
-            : mailboxWarning
-              ? `\n\n⚠️ Mailbox (cPanel): NÃO criada automaticamente.\nMotivo: ${mailboxWarning}`
-              : `\n\n⚠️ Mailbox (cPanel): NÃO criada automaticamente.`)
-      )
+      toast.success('Colaborador criado com sucesso!');
+      toast.message(`Credenciais enviadas para: ${formData.email_pessoal}`);
+      if (mailboxCreated) {
+        toast.success('Mailbox criada no cPanel.');
+      } else {
+        toast.warning(
+          mailboxWarning
+            ? `Mailbox (cPanel) não criada automaticamente: ${mailboxWarning}`
+            : 'Mailbox (cPanel) não criada automaticamente.'
+        );
+      }
 
       // 5. Redirecionar
       router.push('/admin/colaboradores?success=colaborador_criado')
 
     } catch (error: any) {
       console.error('Erro ao criar colaborador:', error)
-      alert('❌ Erro ao criar colaborador: ' + error.message)
+      toast.error('Erro ao criar colaborador: ' + (error?.message || 'Erro desconhecido'))
     } finally {
       setLoading(false)
     }

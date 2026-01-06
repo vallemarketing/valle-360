@@ -75,6 +75,7 @@ export default function ProntidaoPage() {
         { job: 'collection', url: '/api/cron/collection' },
         { job: 'overdue', url: '/api/cron/overdue' },
         { job: 'ml', url: '/api/cron/ml' },
+        { job: 'alerts', url: '/api/cron/alerts' },
         { job: 'social-publish', url: '/api/cron/social-publish' },
         { job: 'social-metrics', url: '/api/cron/social-metrics' },
       ];
@@ -206,6 +207,19 @@ export default function ProntidaoPage() {
               <div className="mt-3">
                 <Link className="text-sm underline" href="/admin/fluxos">Abrir Central de Fluxos</Link>
               </div>
+            </div>
+
+            {/* Segurança */}
+            <div className="p-5 rounded-xl border" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Segurança</h2>
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.security?.status || 'warn', checks.security?.applicable))}`}>
+                  {label(effectiveStatus(checks.security?.status || 'warn', checks.security?.applicable))}
+                </span>
+              </div>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {checks.security?.notes || 'OK'}
+              </p>
             </div>
 
             {/* Áreas */}
@@ -452,6 +466,92 @@ export default function ProntidaoPage() {
               </p>
             </div>
 
+            {/* Alertas */}
+            <div className="p-5 rounded-xl border lg:col-span-2" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Alertas (threshold)</h2>
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.alerts?.status || 'warn', checks.alerts?.applicable))}`}>
+                  {label(effectiveStatus(checks.alerts?.status || 'warn', checks.alerts?.applicable))}
+                </span>
+              </div>
+              <div className="text-sm space-y-2" style={{ color: 'var(--text-secondary)' }}>
+                <div className="flex items-center justify-between">
+                  <span>Actor (ALERTS_ACTOR_USER_ID)</span>
+                  <span className="font-medium">{checks.alerts?.actorUserIdValid ? 'OK' : 'Falta/Inválido'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>SendGrid (FROM)</span>
+                  <span className="font-medium">{checks.alerts?.sendgridFromConfigured ? 'OK' : 'Falta'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Destinatários (Email env)</span>
+                  <span className="font-medium">
+                    {checks.alerts?.hasEmailRecipientsEnv ? 'OK' : checks.alerts?.fallbackAdminEmails > 0 ? `OK (db: ${checks.alerts?.fallbackAdminEmails})` : 'Nenhum'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Destinatários (WhatsApp env)</span>
+                  <span className="font-medium">{checks.alerts?.hasWhatsAppRecipientsEnv ? 'OK' : 'Opcional'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Destinatários (Intranet env)</span>
+                  <span className="font-medium">
+                    {checks.alerts?.hasIntranetRecipientsEnv ? 'OK' : checks.alerts?.fallbackAdminUserIds > 0 ? `OK (db: ${checks.alerts?.fallbackAdminUserIds})` : 'Nenhum'}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3">
+                <Link className="text-sm underline" href="/admin/analytics/preditivo">Abrir Analytics Preditivo</Link>
+              </div>
+            </div>
+
+            {/* QA (smoke checks) */}
+            <div className="p-5 rounded-xl border lg:col-span-2" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>QA (smoke checks)</h2>
+                <span className={`px-2 py-1 rounded-full border text-xs font-medium ${pill(effectiveStatus(checks.qa?.status || 'warn', checks.qa?.applicable))}`}>
+                  {label(effectiveStatus(checks.qa?.status || 'warn', checks.qa?.applicable))}
+                </span>
+              </div>
+              <div className="text-sm space-y-2" style={{ color: 'var(--text-secondary)' }}>
+                <div className="flex items-center justify-between">
+                  <span>Kanban • Boards por área</span>
+                  <span className="font-medium">
+                    {Array.isArray(checks.qa?.kanban?.missingAreaBoards) && checks.qa.kanban.missingAreaBoards.length > 0
+                      ? `Faltando: ${checks.qa.kanban.missingAreaBoards.length}`
+                      : 'OK'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Solicitações • Coluna “Demanda”</span>
+                  <span className="font-medium">
+                    {checks.qa?.kanban?.requestsDemandColumn?.ok ? 'OK' : 'Falta (RH/Operação)'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Colaborador • Assignments (clientes)</span>
+                  <span className="font-medium">
+                    {checks.qa?.collaborator?.employeeClientAssignments?.status ? label(checks.qa.collaborator.employeeClientAssignments.status) : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Cliente • Perfil (segment/competitors)</span>
+                  <span className="font-medium">
+                    {checks.qa?.client?.profileColumns?.ok ? 'OK' : 'Falha (migração?)'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Prospecção • Tavily</span>
+                  <span className="font-medium">
+                    {checks.qa?.prospecting?.tavilyConfigured ? 'OK' : 'Não configurado'}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs mt-3" style={{ color: 'var(--text-tertiary)' }}>
+                Esses checks validam “pré‑requisitos” de dados/config para fluxos de Cliente/Colaborador/Admin (não substitui navegação manual).
+              </p>
+            </div>
+
             <div className="p-5 rounded-xl border lg:col-span-2" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>SQL / RPC</h2>
@@ -495,6 +595,56 @@ export default function ProntidaoPage() {
               </div>
               <p className="text-xs mt-3" style={{ color: 'var(--text-secondary)' }}>
                 A plataforma não expõe webmail internamente; isso só afeta o e-mail de boas-vindas enviado ao e-mail pessoal.
+              </p>
+            </div>
+
+            {/* Roteiro QA por perfil */}
+            <div className="p-5 rounded-xl border lg:col-span-2" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Roteiro de validação (por perfil)</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                <div className="space-y-2">
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>Super Admin</div>
+                  <div className="flex flex-col gap-1">
+                    <Link className="underline" href="/admin/centro-inteligencia">Centro de Inteligência</Link>
+                    <Link className="underline" href="/admin/analytics/preditivo">Analytics Preditivo</Link>
+                    <Link className="underline" href="/admin/machine-learning">Machine Learning</Link>
+                    <Link className="underline" href="/admin/financeiro/clientes">Financeiro • Clientes</Link>
+                    <Link className="underline" href="/admin/prospeccao">Prospecção</Link>
+                    <Link className="underline" href="/admin/solicitacoes">Solicitações</Link>
+                    <Link className="underline" href="/admin/diretoria">Diretoria Virtual</Link>
+                    <Link className="underline" href="/admin/monitoramento-sentimento">Sentimento</Link>
+                    <Link className="underline" href="/admin/rh">RH</Link>
+                    <Link className="underline" href="/admin/mensagens">Mensagens</Link>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>Colaborador</div>
+                  <div className="flex flex-col gap-1">
+                    <Link className="underline" href="/colaborador/kanban">Kanban</Link>
+                    <Link className="underline" href="/colaborador/clientes">Clientes</Link>
+                    <Link className="underline" href="/colaborador/aprovacoes">Aprovações</Link>
+                    <Link className="underline" href="/colaborador/solicitacoes">Solicitações</Link>
+                    <Link className="underline" href="/colaborador/social/calendario">Social • Calendário</Link>
+                    <Link className="underline" href="/colaborador/mensagens">Mensagens</Link>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>Cliente</div>
+                  <div className="flex flex-col gap-1">
+                    <Link className="underline" href="/cliente/dashboard">Dashboard</Link>
+                    <Link className="underline" href="/cliente/painel">Painel</Link>
+                    <Link className="underline" href="/cliente/painel/insights">Insights</Link>
+                    <Link className="underline" href="/cliente/painel/desempenho">Desempenho</Link>
+                    <Link className="underline" href="/cliente/painel/concorrentes">Concorrentes</Link>
+                    <Link className="underline" href="/cliente/evolucao">Evolução</Link>
+                    <Link className="underline" href="/cliente/valle-club">Valle Club</Link>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs mt-3" style={{ color: 'var(--text-tertiary)' }}>
+                Dica: rode “Rodar agora” no Cron e depois valide se aparecem logs em <code>integration_logs</code> e insights em <code>super_admin_insights</code>.
               </p>
             </div>
           </div>

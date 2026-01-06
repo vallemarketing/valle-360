@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle, XCircle, Clock, MessageSquare, Eye,
-  Download, ChevronRight, AlertTriangle, User,
-  Calendar, FileText, Image, Video, Send
+  AlertTriangle, User,
+  Calendar, FileText, Image, Video
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -22,9 +21,9 @@ interface ApprovalItem {
   createdBy: string;
   createdByName: string;
   createdByArea: string;
-  createdAt: Date;
-  updatedAt: Date;
-  dueDate?: Date;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  dueDate?: Date | string;
   attachments: string[];
   thumbnail?: string;
   comments: ApprovalComment[];
@@ -37,7 +36,7 @@ interface ApprovalComment {
   author: string;
   authorName: string;
   isClient: boolean;
-  createdAt: Date;
+  createdAt: Date | string;
 }
 
 interface ApprovalFlowProps {
@@ -48,6 +47,7 @@ interface ApprovalFlowProps {
   onRequestRevision?: (itemId: string, comment: string) => void;
   onViewDetails?: (item: ApprovalItem) => void;
   isClientView?: boolean;
+  readOnly?: boolean;
 }
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -94,17 +94,25 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string; 
 };
 
 export function ApprovalFlow({
-  items = SAMPLE_ITEMS,
+  items = [],
   viewMode = 'all',
   onApprove,
   onReject,
   onRequestRevision,
   onViewDetails,
-  isClientView = false
+  isClientView = false,
+  readOnly = false
 }: ApprovalFlowProps) {
   const [selectedItem, setSelectedItem] = useState<ApprovalItem | null>(null);
   const [comment, setComment] = useState('');
   const [showCommentModal, setShowCommentModal] = useState<{ type: 'approve' | 'reject' | 'revision'; item: ApprovalItem } | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // ao abrir/fechar modal, limpa erro e comentário
+    setModalError(null);
+    setComment('');
+  }, [showCommentModal?.type, showCommentModal?.item?.id]);
 
   // Filter items based on viewMode
   const filteredItems = items.filter(item => {
@@ -120,7 +128,7 @@ export function ApprovalFlow({
 
   const handleReject = (item: ApprovalItem) => {
     if (!comment.trim()) {
-      alert('Por favor, adicione um comentário explicando a rejeição.');
+      setModalError('Por favor, adicione um comentário explicando a rejeição.');
       return;
     }
     onReject?.(item.id, comment);
@@ -130,7 +138,7 @@ export function ApprovalFlow({
 
   const handleRevision = (item: ApprovalItem) => {
     if (!comment.trim()) {
-      alert('Por favor, adicione um comentário com as alterações necessárias.');
+      setModalError('Por favor, adicione um comentário com as alterações necessárias.');
       return;
     }
     onRequestRevision?.(item.id, comment);
@@ -244,7 +252,7 @@ export function ApprovalFlow({
                         </span>
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {formatDistanceToNow(item.createdAt, { addSuffix: true, locale: ptBR })}
+                          {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true, locale: ptBR })}
                         </span>
                         {item.comments.length > 0 && (
                           <span className="flex items-center gap-1">
@@ -268,7 +276,7 @@ export function ApprovalFlow({
                         <Eye className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
                       </button>
 
-                      {item.status === 'pending' && (
+                      {!readOnly && item.status === 'pending' && onApprove && onReject && onRequestRevision && (
                         <>
                           <button
                             onClick={() => setShowCommentModal({ type: 'approve', item })}
@@ -360,6 +368,12 @@ export function ApprovalFlow({
                 }}
               />
 
+              {modalError && (
+                <p className="text-sm mt-2" style={{ color: 'var(--error-600)' }}>
+                  {modalError}
+                </p>
+              )}
+
               <div className="flex items-center gap-3 mt-4">
                 <button
                   onClick={() => setShowCommentModal(null)}
@@ -411,67 +425,6 @@ function StatCard({ label, value, color }: { label: string; value: number; color
     </div>
   );
 }
-
-// Sample Data
-const SAMPLE_ITEMS: ApprovalItem[] = [
-  {
-    id: '1',
-    title: 'Banner Promocional - Black Friday',
-    description: 'Banner para campanha de Black Friday',
-    type: 'design',
-    status: 'pending',
-    clientId: '1',
-    clientName: 'Tech Corp',
-    createdBy: '1',
-    createdByName: 'João Designer',
-    createdByArea: 'Design',
-    createdAt: new Date(Date.now() - 86400000),
-    updatedAt: new Date(),
-    dueDate: new Date(Date.now() + 86400000),
-    attachments: ['banner.png'],
-    thumbnail: 'https://picsum.photos/200/150?random=1',
-    comments: [],
-    priority: 'high'
-  },
-  {
-    id: '2',
-    title: 'Vídeo Institucional - 30s',
-    description: 'Vídeo curto para redes sociais',
-    type: 'video',
-    status: 'pending',
-    clientId: '2',
-    clientName: 'Startup XYZ',
-    createdBy: '2',
-    createdByName: 'Maria VideoMaker',
-    createdByArea: 'Video',
-    createdAt: new Date(Date.now() - 172800000),
-    updatedAt: new Date(),
-    attachments: ['video.mp4'],
-    thumbnail: 'https://picsum.photos/200/150?random=2',
-    comments: [
-      { id: '1', text: 'Ficou ótimo!', author: '1', authorName: 'Cliente', isClient: true, createdAt: new Date() }
-    ],
-    priority: 'normal'
-  },
-  {
-    id: '3',
-    title: 'Post Instagram - Lançamento',
-    description: 'Carrossel de lançamento de produto',
-    type: 'post',
-    status: 'approved',
-    clientId: '1',
-    clientName: 'Tech Corp',
-    createdBy: '3',
-    createdByName: 'Ana Social',
-    createdByArea: 'Social Media',
-    createdAt: new Date(Date.now() - 259200000),
-    updatedAt: new Date(),
-    attachments: ['post1.png', 'post2.png'],
-    thumbnail: 'https://picsum.photos/200/150?random=3',
-    comments: [],
-    priority: 'normal'
-  }
-];
 
 export default ApprovalFlow;
 

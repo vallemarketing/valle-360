@@ -20,8 +20,7 @@ export default function LoginPage() {
 
   // #region agent log - Page Mount
   useEffect(() => {
-    console.log('LOGIN PAGE MOUNTED');
-    fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:mount',message:'Login page mounted',data:{timestamp: new Date().toISOString(), url: typeof window !== 'undefined' ? window.location.href : 'ssr'},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'page-render'})}).catch(()=>{});
+    // noop: mantemos o mount limpo (sem telemetria local hardcoded)
   }, []);
   // #endregion
 
@@ -31,18 +30,12 @@ export default function LoginPage() {
     setError('')
 
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:27',message:'Login attempt',data:{email, envUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, envKeyStart: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 10)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'login-failure'})}).catch(()=>{});
-      // #endregion
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (signInError) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:33',message:'Login failed',data:{error:signInError},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'login-failure'})}).catch(()=>{});
-        // #endregion
         setError('Email ou senha incorretos')
         setLoading(false)
         return
@@ -154,24 +147,11 @@ export default function LoginPage() {
         .eq('user_id', data.user.id)
         .single()
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:96',message:'Fetched user data',data:{userData,profileData,employeeData,userId:data.user.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'login-failure'})}).catch(()=>{});
-      // #endregion
-
-      console.log('User Data:', userData)
-      console.log('Profile Data:', profileData)
-      console.log('Employee Data:', employeeData)
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:117',message:'Redirect decision data',data:{userData,profileData,employeeData,email},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'login-loop'})}).catch(()=>{});
-      // #endregion
+      // Debug opcional: se precisar, habilitar via env no futuro.
 
       // 1. Verificar tabela employees (Mais específica para colaboradores)
       if (employeeData) {
         console.log('Redirecionando para /colaborador/dashboard (via employees)')
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:120',message:'Redirecting to /colaborador/dashboard via employees',data:{employeeData},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'login-loop'})}).catch(()=>{});
-        // #endregion
         router.push('/colaborador/dashboard')
         return
       }
@@ -181,9 +161,6 @@ export default function LoginPage() {
       // PRIORIZAR users.role (é onde os colaboradores são criados)
       if (userData?.role === 'employee') {
         console.log('Redirecionando para /colaborador/dashboard')
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:130',message:'Redirecting to /colaborador/dashboard via users.role',data:{userData},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'login-loop'})}).catch(()=>{});
-        // #endregion
         router.push('/colaborador/dashboard')
         return
       }
@@ -217,9 +194,6 @@ export default function LoginPage() {
       }
 
     } catch (err) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:134',message:'Login exception',data:{error:err},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'login-failure'})}).catch(()=>{});
-      // #endregion
       console.error('Erro no login:', err)
       setError('Erro ao fazer login. Tente novamente.')
       setLoading(false)

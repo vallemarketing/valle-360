@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin'
 
 export const dynamic = 'force-dynamic';
 
@@ -19,23 +20,21 @@ export async function GET(request: NextRequest) {
         }
     )
 
+    // Require auth (leaderboard is internal)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const admin = getSupabaseAdmin()
+
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '10')
     const period = searchParams.get('period') || 'alltime' // alltime, month, week
 
-    // Get leaderboard data
-    const { data, error } = await supabase
-      .from('employee_gamification')
-      .select(`
-        employee_id,
-        productivity_score,
-        quality_score,
-        collaboration_score,
-        wellbeing_score,
-        level,
-        employees!inner(full_name, area_of_expertise)
-      `)
-      .order('productivity_score', { ascending: false })
+    // Ranking real via view (best-effort)
+    const { data, error } = await admin
+      .from('ranking_ops_view')
+      .select('user_id, full_name, avatar, total_points, rank_position')
+      .order('rank_position', { ascending: true })
       .limit(limit)
 
     if (error) {
@@ -44,17 +43,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform data
-    const leaderboard = data.map((item: any, index: number) => ({
-      rank: index + 1,
-      employee_id: item.employee_id,
-      name: item.employees?.full_name || 'Unknown',
-      area: item.employees?.area_of_expertise || 'Unknown',
-      total_score: item.productivity_score,
-      level: item.level,
-      productivity: item.productivity_score,
-      quality: item.quality_score,
-      collaboration: item.collaboration_score,
-      wellbeing: item.wellbeing_score
+    const leaderboard = (data || []).map((item: any) => ({
+      rank: Number(item.rank_position),
+      user_id: item.user_id,
+      name: item.full_name || 'Unknown',
+      total_points: Number(item.total_points || 0),
     }))
 
     return NextResponse.json({

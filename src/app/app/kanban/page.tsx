@@ -33,6 +33,8 @@ import type { DbTaskPriority, DbTaskStatus } from '@/lib/kanban/types';
 import { fetchProfileByAuthId, fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
 import { resolveEmployeeAreaKey } from '@/lib/employee/areaKey';
 import type { AreaKey } from '@/lib/kanban/areaBoards';
+import PhaseTransitionModal from '@/components/kanban/PhaseTransitionModal';
+import { getStageTransitionFields } from '@/lib/kanban/stageTransitionFields';
 import {
   formatRequiredFieldsPtBr,
   requiredFieldsForStage,
@@ -563,6 +565,166 @@ export default function KanbanPage() {
   const [currentUserType, setCurrentUserType] = useState<string>('');
   const [preferredAreaKey, setPreferredAreaKey] = useState<AreaKey | null>(null);
   const [pendingMove, setPendingMove] = useState<{ taskId: string; toColumnId: string } | null>(null);
+  const [phaseMoveOpen, setPhaseMoveOpen] = useState(false);
+  const [phaseMoveCtx, setPhaseMoveCtx] = useState<{
+    taskId: string;
+    fromColumnId: string;
+    toColumnId: string;
+    fromColumnTitle: string;
+    fromColumnColor: string;
+    toColumnTitle: string;
+    toColumnColor: string;
+    toStageKey: string;
+  } | null>(null);
+  const [phaseMoveExistingData, setPhaseMoveExistingData] = useState<Record<string, any>>({});
+
+  const dateToInput = (iso?: string | null) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const inputDateToIso = (yyyyMmDd?: string | null) => {
+    const v = String(yyyyMmDd || '').trim();
+    if (!v) return null;
+    // Fix timezone drift: anchor noon UTC
+    const d = new Date(`${v}T12:00:00.000Z`);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+  };
+
+  const openPhaseMoveModal = (params: {
+    task: Task;
+    fromColumn: Column | null;
+    toColumn: Column;
+    toColumnId: string;
+  }) => {
+    const task = params.task;
+    const toStageKey = String(params.toColumn.stage_key || '').trim();
+    if (!toStageKey) return false;
+
+    const fromStageKey = String(params.fromColumn?.stage_key || '').trim();
+    const ref = ((task as any)?.reference_links || {}) as any;
+    const stageForms = (ref?.stage_forms || {}) as any;
+    const existingStage = (stageForms?.[toStageKey] || {}) as any;
+
+    setPhaseMoveExistingData({
+      ...existingStage,
+      title: existingStage.title ?? task.title ?? '',
+      description: existingStage.description ?? task.description ?? '',
+      priority: existingStage.priority ?? task.priority ?? 'medium',
+      due_date: existingStage.due_date ?? dateToInput(task.due_date as any),
+      assigned_to: existingStage.assigned_to ?? task.assigned_to ?? '',
+    });
+
+    setPhaseMoveCtx({
+      taskId: task.id,
+      fromColumnId: String(params.fromColumn?.id || task.column_id || ''),
+      toColumnId: params.toColumnId,
+      fromColumnTitle: params.fromColumn?.name || fromStageKey || 'Atual',
+      fromColumnColor: params.fromColumn?.color || '#6B7280',
+      toColumnTitle: params.toColumn.name,
+      toColumnColor: params.toColumn.color,
+      toStageKey,
+    });
+    setPhaseMoveOpen(true);
+    return true;
+  };
+
+  const confirmPhaseMove = async (data: Record<string, any>) => {
+    const ctx = phaseMoveCtx;
+    if (!ctx?.taskId || !ctx.toColumnId) return;
+
+    const task = tasks.find((t) => t.id === ctx.taskId) || null;
+    if (!task) return;
+
+    const toColumn = columns.find((c) => c.id === ctx.toColumnId) || null;
+    if (!toColumn) return;
+
+    try {
+      const now = new Date().toISOString();
+
+      const fromCol = columns.find((c) => c.id === String(task.column_id)) || null;
+      const enteredApproval =
+        String(toColumn?.stage_key || '').toLowerCase() === 'aprovacao' &&
+        String(fromCol?.stage_key || '').toLowerCase() !== 'aprovacao';
+
+      const existingRef = ((task as any)?.reference_links || {}) as any;
+      const existingApproval = (existingRef?.client_approval || {}) as any;
+
+      function addHours(iso: string, hours: number) {
+        const d = new Date(iso);
+        d.setHours(d.getHours() + hours);
+        return d.toISOString();
+      }
+
+      const mergedStageForms = {
+        ...(existingRef?.stage_forms || {}),
+        [ctx.toStageKey]: data,
+      };
+
+      const refWithForms = {
+        ...existingRef,
+        stage_forms: mergedStageForms,
+      };
+
+      const nextRef =
+        enteredApproval
+          ? {
+              ...refWithForms,
+              client_approval: {
+                ...existingApproval,
+                status: 'pending',
+                requested_at: existingApproval.requested_at || now,
+                due_at:
+                  existingApproval.due_at ||
+                  addHours(existingApproval.requested_at || now, Number(toColumn?.sla_hours || 48)),
+              },
+            }
+          : refWithForms;
+
+      const nextStatus = inferDbStatusFromColumn(toColumn);
+
+      // posição no destino (melhor esforço): fim da coluna no estado atual
+      const toTasks = tasks.filter((t) => t.column_id === ctx.toColumnId && t.id !== ctx.taskId);
+      const newPosition = toTasks.length;
+
+      const payload: any = {
+        column_id: ctx.toColumnId,
+        position: newPosition,
+        status: nextStatus,
+        updated_at: now,
+        reference_links: nextRef,
+      };
+
+      // Mapear campos “core” -> colunas reais (para também satisfazer trigger server-side)
+      if (typeof data.title === 'string' && data.title.trim()) payload.title = data.title.trim();
+      if (typeof data.description === 'string') payload.description = data.description;
+      if (typeof data.priority === 'string' && data.priority) payload.priority = data.priority;
+      if (typeof data.assigned_to === 'string') payload.assigned_to = data.assigned_to || null;
+
+      const dueIso = inputDateToIso(data.due_date);
+      if (dueIso) payload.due_date = dueIso;
+
+      const { error } = await supabase.from('kanban_tasks').update(payload).eq('id', ctx.taskId);
+      if (error) throw error;
+
+      if (selectedBoardId) await loadKanbanData(selectedBoardId);
+    } catch (e: any) {
+      // Quando o trigger server-side bloquear, mostramos mensagem amigável
+      const msg = String(e?.message || 'Falha ao mover tarefa');
+      toast.error(msg);
+      if (selectedBoardId) await loadKanbanData(selectedBoardId);
+    } finally {
+      setPhaseMoveOpen(false);
+      setPhaseMoveCtx(null);
+      setPhaseMoveExistingData({});
+    }
+  };
 
   const moveTaskToColumn = async (params: { taskId: string; toColumnId: string }) => {
     if (!params?.taskId || !params?.toColumnId) return;
@@ -959,6 +1121,18 @@ export default function KanbanPage() {
       const targetColumn = columns.find((c) => c.id === toColumnId) || null;
       const nextStatus = inferDbStatusFromColumn(targetColumn);
 
+      // Pipefy-like: ao mudar de coluna em boards por área (stage_key), abrir formulário da fase
+      if (fromColumnId && toColumnId && fromColumnId !== toColumnId && targetColumn?.stage_key) {
+        const fromCol = columns.find((c) => c.id === fromColumnId) || null;
+        const opened = openPhaseMoveModal({
+          task: activeTask,
+          fromColumn: fromCol,
+          toColumn: targetColumn,
+          toColumnId,
+        });
+        if (opened) return;
+      }
+
       // Epic 10: validação de campos obrigatórios por fase/coluna (somente boards por área)
       if (targetColumn?.stage_key) {
         const required = requiredFieldsForStage({
@@ -1336,11 +1510,11 @@ export default function KanbanPage() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="flex gap-4 overflow-x-auto pb-4">
             {columns.map((column) => {
               const columnTasks = filteredTasks.filter(t => t.column_id === column.id);
               return (
-                <div key={column.id} className="flex flex-col">
+                <div key={column.id} className="flex flex-col flex-shrink-0 w-[340px]">
                   <ColumnHeader
                     column={column}
                     taskCount={columnTasks.length}
@@ -1409,6 +1583,25 @@ export default function KanbanPage() {
           onUpdate={() => {
             if (selectedBoardId) void loadKanbanData(selectedBoardId);
           }}
+        />
+      )}
+
+      {phaseMoveOpen && phaseMoveCtx && (
+        <PhaseTransitionModal
+          isOpen={phaseMoveOpen}
+          onClose={() => {
+            setPhaseMoveOpen(false);
+            setPhaseMoveCtx(null);
+            setPhaseMoveExistingData({});
+            if (selectedBoardId) void loadKanbanData(selectedBoardId);
+          }}
+          onConfirm={confirmPhaseMove}
+          cardTitle={(tasks.find((t) => t.id === phaseMoveCtx.taskId)?.title || 'Card') as string}
+          fromPhase={{ id: phaseMoveCtx.fromColumnId, title: phaseMoveCtx.fromColumnTitle, color: phaseMoveCtx.fromColumnColor }}
+          toPhase={{ id: phaseMoveCtx.toStageKey, title: phaseMoveCtx.toColumnTitle, color: phaseMoveCtx.toColumnColor }}
+          area={String(board?.area_key || '')}
+          existingData={phaseMoveExistingData}
+          fieldsOverride={getStageTransitionFields({ areaKey: board?.area_key, stageKey: phaseMoveCtx.toStageKey })}
         />
       )}
     </div>

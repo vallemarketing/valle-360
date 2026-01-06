@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -91,7 +91,8 @@ const CATEGORIES = [
 
 export default function RecompensasPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [userPoints] = useState(1850);
+  const [userPoints, setUserPoints] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [redeemedId, setRedeemedId] = useState<number | null>(null);
 
   const filteredRewards = REWARDS.filter(
@@ -100,9 +101,27 @@ export default function RecompensasPage() {
 
   const handleRedeem = (rewardId: number) => {
     setRedeemedId(rewardId);
-    // Aqui seria a lógica de resgatar
-    setTimeout(() => setRedeemedId(null), 2000);
+    // Resgate ainda não está implementado no backend.
+    setTimeout(() => setRedeemedId(null), 1200);
   };
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/client/valle-club", { cache: "no-store" });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success) throw new Error(json?.error || "Falha ao carregar pontos");
+        setUserPoints(Number(json?.score?.total_points || 0));
+      } catch (e) {
+        console.error("Falha ao carregar pontos do Valle Club:", e);
+        setUserPoints(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   return (
     <div className="p-4 lg:p-6 space-y-6 max-w-5xl mx-auto">
@@ -134,7 +153,9 @@ export default function RecompensasPage() {
           </div>
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1672d6]/10">
             <Sparkles className="size-5 text-[#1672d6]" />
-            <span className="font-bold text-[#1672d6]">{userPoints.toLocaleString()} pontos</span>
+            <span className="font-bold text-[#1672d6]">
+              {loading ? "Carregando..." : `${userPoints.toLocaleString()} pontos`}
+            </span>
           </div>
         </div>
       </motion.div>
@@ -222,7 +243,7 @@ export default function RecompensasPage() {
 
                     <Button
                       size="sm"
-                      disabled={!canAfford || !reward.available || isRedeemed}
+                      disabled={true}
                       onClick={() => handleRedeem(reward.id)}
                       className={cn(
                         canAfford && reward.available
@@ -235,12 +256,8 @@ export default function RecompensasPage() {
                           <Check className="size-4 mr-1" />
                           Resgatado!
                         </>
-                      ) : !reward.available ? (
-                        "Indisponível"
-                      ) : !canAfford ? (
-                        "Pontos insuficientes"
                       ) : (
-                        "Resgatar"
+                        "Resgate em breve"
                       )}
                     </Button>
                   </div>

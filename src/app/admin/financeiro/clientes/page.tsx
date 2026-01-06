@@ -5,7 +5,7 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { 
   DollarSign, TrendingUp, AlertTriangle, Calendar, CheckCircle, XCircle,
   Download, Plus, FileText, Eye, Phone, Mail, X, FileSpreadsheet,
-  Send, Clock, CreditCard, Building2, User, ChevronRight
+  Send, Clock, CreditCard, Building2, User, ChevronRight, MessageSquare
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -21,6 +21,7 @@ interface ClientFinancial {
   next_billing: string
   health_score: number
   days_late?: number
+  user_id?: string | null
 }
 
 export default function FinancialClientsDashboard() {
@@ -36,6 +37,13 @@ export default function FinancialClientsDashboard() {
   const [showExportModal, setShowExportModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState<ClientFinancial | null>(null)
   const [showDetails, setShowDetails] = useState(false)
+  const [billingModalOpen, setBillingModalOpen] = useState(false)
+  const [billingMessage, setBillingMessage] = useState('')
+  const [integrationsStatus, setIntegrationsStatus] = useState<{ sendgrid: boolean; whatsapp: boolean }>({
+    sendgrid: false,
+    whatsapp: false,
+  })
+  const [loadingIntegrations, setLoadingIntegrations] = useState(true)
 
   const supabase = createClientComponentClient()
 
@@ -45,28 +53,57 @@ export default function FinancialClientsDashboard() {
 
   const loadData = async () => {
     setIsLoading(true)
-    
-    const mockClients: ClientFinancial[] = [
-      { id: '1', name: 'Restaurante Sabor & Arte', email: 'contato@saborarte.com.br', phone: '(11) 99999-1234', contract_value: 2500, status: 'active', payment_status: 'ok', next_billing: '2025-12-05', health_score: 95 },
-      { id: '2', name: 'Clínica Sorriso Perfeito', email: 'financeiro@sorriso.com.br', phone: '(11) 98888-5678', contract_value: 4000, status: 'active', payment_status: 'late', next_billing: '2025-11-20', health_score: 60, days_late: 15 },
-      { id: '3', name: 'Advocacia Silva', email: 'adm@silvaadv.com.br', phone: '(11) 97777-9012', contract_value: 1800, status: 'active', payment_status: 'pending', next_billing: '2025-12-01', health_score: 85 },
-      { id: '4', name: 'Academia FitLife', email: 'gerencia@fitlife.com.br', phone: '(11) 96666-3456', contract_value: 3200, status: 'active', payment_status: 'ok', next_billing: '2025-12-10', health_score: 90 },
-      { id: '5', name: 'Tech Solutions Ltda', email: 'financeiro@techsolutions.com', phone: '(11) 95555-7890', contract_value: 8500, status: 'active', payment_status: 'late', next_billing: '2025-11-25', health_score: 45, days_late: 10 },
-    ]
 
-    setClients(mockClients)
-    
-    const mrr = mockClients.reduce((acc, c) => acc + c.contract_value, 0)
-    const late = mockClients.filter(c => c.payment_status === 'late').reduce((acc, c) => acc + c.contract_value, 0)
-    
-    setMetrics({
-      mrr,
-      late_total: late,
-      active_contracts: mockClients.length,
-      avg_ticket: mrr / mockClients.length
-    })
+    try {
+      // status de integrações (SendGrid/WhatsApp) para habilitar botões
+      try {
+        const res = await fetch('/api/admin/integrations/status', { cache: 'no-store' })
+        const st = await res.json().catch(() => null)
+        setIntegrationsStatus({ sendgrid: !!st?.sendgrid?.configured, whatsapp: !!st?.whatsapp?.configured })
+      } catch {
+        setIntegrationsStatus({ sendgrid: false, whatsapp: false })
+      } finally {
+        setLoadingIntegrations(false)
+      }
 
-    setIsLoading(false)
+      // dados reais (server-side via service role)
+      const res = await fetch('/api/admin/finance/clients', { cache: 'no-store' })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.success) throw new Error(json?.error || 'Falha ao carregar clientes financeiros')
+
+      const rows: ClientFinancial[] = (json.clients || []).map((c: any) => ({
+        id: String(c.id),
+        name: String(c.name || ''),
+        email: String(c.email || ''),
+        phone: String(c.phone || ''),
+        contract_value: Number(c.contract_value || 0),
+        status: String(c.status || 'active') === 'inactive' ? 'inactive' : 'active',
+        payment_status: (String(c.payment_status || 'ok') as any) || 'ok',
+        next_billing: String(c.next_billing || new Date().toISOString().slice(0, 10)),
+        health_score: Number(c.health_score || 0),
+        days_late: typeof c.days_late === 'number' ? c.days_late : undefined,
+        user_id: c.user_id ? String(c.user_id) : null,
+      }))
+
+      setClients(rows)
+
+      const mrr = rows.reduce((acc, c) => acc + (c.contract_value || 0), 0)
+      const late = rows.filter(c => c.payment_status === 'late').reduce((acc, c) => acc + (c.contract_value || 0), 0)
+
+      setMetrics({
+        mrr,
+        late_total: late,
+        active_contracts: rows.length,
+        avg_ticket: rows.length ? mrr / rows.length : 0
+      })
+    } catch (e: any) {
+      console.error(e)
+      toast.error(`Erro ao carregar: ${String(e?.message || e)}`)
+      setClients([])
+      setMetrics({ mrr: 0, late_total: 0, active_contracts: 0, avg_ticket: 0 })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   // Exportar CSV
@@ -115,7 +152,12 @@ export default function FinancialClientsDashboard() {
 
   // Enviar Cobrança
   const handleSendBilling = (client: ClientFinancial) => {
-    toast.success(`Cobrança enviada para ${client.name}!`)
+    setSelectedClient(client)
+    setBillingMessage(
+      `Olá ${client.name}! 😊\n\nIdentificamos uma fatura em aberto referente ao seu contrato com a Valle 360.\n` +
+        `Pode nos confirmar a previsão de pagamento? Se preferir, posso te ajudar com o link/2ª via.\n\nObrigado!`
+    )
+    setBillingModalOpen(true)
   }
 
   // Ligar
@@ -448,6 +490,138 @@ export default function FinancialClientsDashboard() {
                       <Send className="w-4 h-4" /> Cobrar
                     </button>
                   )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal: Enviar Cobrança (Email/WhatsApp/Intranet) */}
+      <AnimatePresence>
+        {billingModalOpen && selectedClient && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setBillingModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white rounded-xl p-6 w-full max-w-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold">Enviar Cobrança</h3>
+                  <p className="text-sm text-gray-500">{selectedClient.name}</p>
+                </div>
+                <button onClick={() => setBillingModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mensagem</label>
+                  <textarea
+                    value={billingMessage}
+                    onChange={(e) => setBillingMessage(e.target.value)}
+                    className="w-full h-40 p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    className="py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 flex items-center justify-center gap-2"
+                    onClick={async () => {
+                      try {
+                        toast.loading('Enviando pela intranet...');
+                        const res = await fetch('/api/admin/outbound/intranet', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ clientId: selectedClient.id, text: billingMessage }),
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data?.error || 'Falha ao enviar intranet');
+                        toast.dismiss();
+                        toast.success('Mensagem enviada pela intranet!');
+                        setBillingModalOpen(false);
+                      } catch (e: any) {
+                        toast.dismiss();
+                        toast.error(`Erro: ${String(e?.message || e)}`);
+                      }
+                    }}
+                    title="Mensagem interna (chat) para o cliente"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Intranet
+                  </button>
+
+                  <button
+                    className="py-2 border rounded-lg font-medium hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-60"
+                    disabled={loadingIntegrations || !integrationsStatus.sendgrid}
+                    title={!integrationsStatus.sendgrid ? 'SendGrid não configurado' : 'Enviar via SendGrid'}
+                    onClick={async () => {
+                      try {
+                        toast.loading('Enviando email...');
+                        const res = await fetch('/api/admin/outbound/email', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            toEmail: selectedClient.email,
+                            toName: selectedClient.name,
+                            subject: 'Cobrança - Valle 360',
+                            text: billingMessage,
+                            html: `<div style="font-family: Arial, sans-serif; line-height: 1.5;">${billingMessage
+                              .replace(/&/g, '&amp;')
+                              .replace(/</g, '&lt;')
+                              .replace(/>/g, '&gt;')
+                              .replace(/\\n/g, '<br/>')}</div>`,
+                          }),
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data?.error || 'Falha ao enviar email');
+                        toast.dismiss();
+                        toast.success('Email enviado!');
+                      } catch (e: any) {
+                        toast.dismiss();
+                        toast.error(`Erro: ${String(e?.message || e)}`);
+                      }
+                    }}
+                  >
+                    <Mail className="w-4 h-4" />
+                    Email
+                  </button>
+
+                  <button
+                    className="py-2 border rounded-lg font-medium hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-60"
+                    disabled={loadingIntegrations || !integrationsStatus.whatsapp}
+                    title={!integrationsStatus.whatsapp ? 'WhatsApp não configurado' : 'Enviar via WhatsApp'}
+                    onClick={async () => {
+                      try {
+                        toast.loading('Enviando WhatsApp...');
+                        const res = await fetch('/api/admin/outbound/whatsapp', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ toPhone: selectedClient.phone, text: billingMessage }),
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data?.error || 'Falha ao enviar WhatsApp');
+                        toast.dismiss();
+                        toast.success('WhatsApp enviado!');
+                      } catch (e: any) {
+                        toast.dismiss();
+                        toast.error(`Erro: ${String(e?.message || e)}`);
+                      }
+                    }}
+                  >
+                    <Phone className="w-4 h-4" />
+                    WhatsApp
+                  </button>
                 </div>
               </div>
             </motion.div>

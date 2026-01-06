@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
   Trophy,
   Crown,
@@ -21,20 +22,6 @@ import { cn } from "@/lib/utils";
 // Leaderboard mensal de clientes
 // ============================================
 
-// Mock de dados do ranking
-const RANKING_DATA = [
-  { position: 1, name: "Empresa Alpha", points: 4520, change: "+3", avatar: "EA" },
-  { position: 2, name: "Você", points: 1850, change: "+1", isUser: true, avatar: "VC" },
-  { position: 3, name: "Empresa Beta", points: 1780, change: "-2", avatar: "EB" },
-  { position: 4, name: "Empresa Gamma", points: 1650, change: "+5", avatar: "EG" },
-  { position: 5, name: "Empresa Delta", points: 1520, change: "0", avatar: "ED" },
-  { position: 6, name: "Empresa Epsilon", points: 1400, change: "+2", avatar: "EE" },
-  { position: 7, name: "Empresa Zeta", points: 1350, change: "-1", avatar: "EZ" },
-  { position: 8, name: "Empresa Eta", points: 1280, change: "+4", avatar: "EH" },
-  { position: 9, name: "Empresa Theta", points: 1150, change: "-3", avatar: "ET" },
-  { position: 10, name: "Empresa Iota", points: 1050, change: "+1", avatar: "EI" },
-];
-
 const getPositionIcon = (position: number) => {
   if (position === 1) return <Crown className="size-5 text-yellow-500" />;
   if (position === 2) return <Medal className="size-5 text-gray-400" />;
@@ -50,6 +37,42 @@ const getPositionStyle = (position: number) => {
 };
 
 export default function RankingPage() {
+  const [loading, setLoading] = useState(true);
+  const [myPosition, setMyPosition] = useState<number | null>(null);
+  const [top10, setTop10] = useState<Array<{ position: number; name: string; points: number; isYou: boolean }>>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/client/valle-club", { cache: "no-store" });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success) throw new Error(json?.error || "Falha ao carregar ranking");
+        setMyPosition(json?.ranking?.my_position != null ? Number(json.ranking.my_position) : null);
+        const list = Array.isArray(json?.ranking?.top10) ? json.ranking.top10 : [];
+        setTop10(
+          list.map((x: any) => ({
+            position: Number(x?.position || 0),
+            name: String(x?.name || "Cliente"),
+            points: Number(x?.points || 0),
+            isYou: !!x?.isYou,
+          }))
+        );
+      } catch (e) {
+        console.error("Falha ao carregar ranking:", e);
+        setMyPosition(null);
+        setTop10([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const monthLabel = useMemo(() => {
+    return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date());
+  }, []);
+
   return (
     <div className="p-4 lg:p-6 space-y-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -71,7 +94,7 @@ export default function RankingPage() {
           <h1 className="text-2xl font-bold text-[#001533] dark:text-white">Ranking Mensal</h1>
         </div>
         <p className="text-[#001533]/60 dark:text-white/60">
-          Dezembro 2024 • Os top 3 ganham prêmios especiais!
+          {monthLabel} • Os top 3 ganham prêmios especiais!
         </p>
       </motion.div>
 
@@ -123,11 +146,19 @@ export default function RankingPage() {
               Top 10 do Mês
             </CardTitle>
             <Badge variant="outline" className="bg-[#1672d6]/10 text-[#1672d6]">
-              Sua posição: #2
+              Sua posição: {myPosition ? `#${myPosition}` : "—"}
             </Badge>
           </CardHeader>
           <CardContent className="space-y-2">
-            {RANKING_DATA.map((item, index) => (
+            {top10.length === 0 && !loading && (
+              <div className="p-4 rounded-xl border border-[#001533]/10 dark:border-white/10 bg-[#001533]/5 dark:bg-white/5">
+                <p className="text-sm text-[#001533]/60 dark:text-white/60">
+                  Ranking indisponível no momento (sem dados de pontuação suficientes).
+                </p>
+              </div>
+            )}
+
+            {top10.map((item, index) => (
               <motion.div
                 key={item.position}
                 initial={{ opacity: 0, x: -20 }}
@@ -136,7 +167,7 @@ export default function RankingPage() {
                 className={cn(
                   "flex items-center gap-4 p-4 rounded-xl border-2",
                   getPositionStyle(item.position),
-                  item.isUser && "ring-2 ring-[#1672d6]/50"
+                  item.isYou && "ring-2 ring-[#1672d6]/50"
                 )}
               >
                 {/* Position */}
@@ -152,11 +183,16 @@ export default function RankingPage() {
                 <Avatar className="h-10 w-10">
                   <AvatarFallback className={cn(
                     "text-sm font-bold",
-                    item.isUser 
+                    item.isYou
                       ? "bg-[#1672d6] text-white" 
                       : "bg-[#001533]/10 text-[#001533] dark:bg-white/10 dark:text-white"
                   )}>
-                    {item.avatar}
+                    {String(item.name || "VC")
+                      .split(" ")
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((p) => p.charAt(0).toUpperCase())
+                      .join("")}
                   </AvatarFallback>
                 </Avatar>
 
@@ -164,10 +200,10 @@ export default function RankingPage() {
                 <div className="flex-1">
                   <p className={cn(
                     "font-semibold",
-                    item.isUser ? "text-[#1672d6]" : "text-[#001533] dark:text-white"
+                    item.isYou ? "text-[#1672d6]" : "text-[#001533] dark:text-white"
                   )}>
                     {item.name}
-                    {item.isUser && <Badge className="ml-2 bg-[#1672d6]">Você</Badge>}
+                    {item.isYou && <Badge className="ml-2 bg-[#1672d6]">Você</Badge>}
                   </p>
                 </div>
 
@@ -177,20 +213,8 @@ export default function RankingPage() {
                     {item.points.toLocaleString()} pts
                   </p>
                   <div className="flex items-center gap-1 justify-end">
-                    <TrendingUp className={cn(
-                      "size-3",
-                      item.change.startsWith("+") ? "text-emerald-500" : 
-                      item.change.startsWith("-") ? "text-red-500 rotate-180" : 
-                      "text-gray-400"
-                    )} />
-                    <span className={cn(
-                      "text-xs",
-                      item.change.startsWith("+") ? "text-emerald-500" : 
-                      item.change.startsWith("-") ? "text-red-500" : 
-                      "text-gray-400"
-                    )}>
-                      {item.change}
-                    </span>
+                    <TrendingUp className="size-3 text-gray-400" />
+                    <span className="text-xs text-gray-400">—</span>
                   </div>
                 </div>
               </motion.div>

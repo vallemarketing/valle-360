@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 import { format, differenceInDays, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { supabase } from '@/lib/supabase';
 
 interface Goal {
   id: string;
@@ -31,60 +32,6 @@ interface GoalsTrackerProps {
   compact?: boolean;
 }
 
-// Mock data - em produção, buscar do banco
-const MOCK_GOALS: Goal[] = [
-  {
-    id: '1',
-    title: 'Sites Entregues',
-    description: 'Meta mensal de entregas',
-    type: 'quantity',
-    currentValue: 3,
-    targetValue: 5,
-    unit: 'sites',
-    deadline: endOfMonth(new Date()),
-    category: 'entregas',
-    trend: 'up',
-    previousValue: 2
-  },
-  {
-    id: '2',
-    title: 'Taxa de Aprovação',
-    description: 'Aprovação na primeira revisão',
-    type: 'percentage',
-    currentValue: 78,
-    targetValue: 85,
-    deadline: endOfMonth(new Date()),
-    category: 'qualidade',
-    trend: 'stable',
-    previousValue: 76
-  },
-  {
-    id: '3',
-    title: 'Tempo Médio de Entrega',
-    description: 'Dias para finalizar projeto',
-    type: 'quantity',
-    currentValue: 12,
-    targetValue: 10,
-    unit: 'dias',
-    deadline: endOfMonth(new Date()),
-    category: 'eficiencia',
-    trend: 'down',
-    previousValue: 14
-  },
-  {
-    id: '4',
-    title: 'Faturamento',
-    description: 'Valor em projetos entregues',
-    type: 'currency',
-    currentValue: 28500,
-    targetValue: 40000,
-    deadline: endOfMonth(new Date()),
-    category: 'financeiro',
-    trend: 'up',
-    previousValue: 22000
-  }
-];
-
 const CATEGORY_CONFIG: Record<string, { color: string; bgColor: string; icon: any }> = {
   entregas: { color: 'text-blue-600', bgColor: 'bg-blue-100', icon: CheckCircle2 },
   qualidade: { color: 'text-purple-600', bgColor: 'bg-purple-100', icon: Star },
@@ -105,10 +52,101 @@ export default function GoalsTracker({
   }, [employeeId, area]);
 
   const loadGoals = async () => {
-    // Simular carregamento
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setGoals(MOCK_GOALS);
-    setLoading(false);
+    setLoading(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+
+      if (!token) {
+        setGoals([]);
+        return;
+      }
+
+      let collaboratorId = employeeId || null;
+      if (!collaboratorId) {
+        const { data: auth } = await supabase.auth.getUser();
+        const userId = auth.user?.id;
+        if (userId) {
+          const { data: emp } = await supabase.from('employees').select('id').eq('user_id', userId).maybeSingle();
+          collaboratorId = emp?.id ? String(emp.id) : null;
+        }
+      }
+
+      const qs = new URLSearchParams();
+      if (collaboratorId) qs.set('collaborator_id', collaboratorId);
+      qs.set('status', 'active');
+
+      const res = await fetch(`/api/goals?${qs.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        setGoals([]);
+        return;
+      }
+
+      const rows = (json.data || []) as any[];
+      const active = rows[0];
+      const periodEnd = active?.period_end ? new Date(String(active.period_end)) : endOfMonth(new Date());
+
+      const metrics = (active?.goals || {}) as Record<string, { target: number; current: number; unit: string }>;
+      const mapped: Goal[] = Object.entries(metrics).map(([metric, v], idx) => {
+        const unit = String(v?.unit || '');
+        const type: Goal['type'] =
+          unit === 'R$' ? 'currency' : unit === '%' ? 'percentage' : 'quantity';
+
+        const titleMap: Record<string, string> = {
+          posts: 'Posts Publicados',
+          stories: 'Stories',
+          engajamento: 'Taxa de Engajamento',
+          alcance: 'Alcance Total',
+          pecas: 'Peças Entregues',
+          revisoes: 'Revisões',
+          tempo_medio: 'Tempo Médio',
+          satisfacao: 'Satisfação',
+          roas: 'ROAS Médio',
+          conversoes: 'Conversões',
+          cpc: 'CPC Médio',
+          investimento_gerenciado: 'Investimento Gerenciado',
+          videos: 'Vídeos Entregues',
+          minutos_produzidos: 'Minutos Produzidos',
+          views_total: 'Views Totais',
+          leads_qualificados: 'Leads Qualificados',
+          reunioes: 'Reuniões Realizadas',
+          propostas: 'Propostas Enviadas',
+          fechamentos: 'Fechamentos',
+        };
+
+        const category: string =
+          ['posts', 'stories', 'engajamento', 'alcance'].includes(metric) ? 'entregas' :
+          ['pecas', 'videos', 'minutos_produzidos', 'views_total'].includes(metric) ? 'entregas' :
+          ['tempo_medio', 'cpc', 'tempo_vaga'].includes(metric) ? 'eficiencia' :
+          ['satisfacao', 'retention_rate', 'satisfacao_onboarding', 'revisoes'].includes(metric) ? 'qualidade' :
+          ['investimento_gerenciado'].includes(metric) ? 'financeiro' :
+          'entregas';
+
+        return {
+          id: `${active?.id || 'goal'}:${metric}:${idx}`,
+          title: titleMap[metric] || metric,
+          description: active?.ai_reasoning ? String(active.ai_reasoning).slice(0, 120) : undefined,
+          type,
+          currentValue: Number(v?.current || 0),
+          targetValue: Number(v?.target || 0),
+          unit: unit || undefined,
+          deadline: periodEnd,
+          category,
+          trend: 'stable',
+          previousValue: undefined,
+        };
+      });
+
+      setGoals(mapped);
+    } catch (e) {
+      setGoals([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const calculateProgress = (goal: Goal): number => {

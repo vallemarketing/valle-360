@@ -72,6 +72,7 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "dashboard", label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
       { id: "intelligence", label: "Centro de Inteligência", href: "/admin/centro-inteligencia", icon: Brain },
+      { id: "messages", label: "Mensagens", href: "/admin/mensagens", icon: MessageSquare },
       { id: "kanban", label: "Kanban Geral", href: "/admin/kanban-app", icon: Kanban },
     ],
   },

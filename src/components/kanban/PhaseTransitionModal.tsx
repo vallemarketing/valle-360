@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowRight, Calendar, Link as LinkIcon, CheckSquare, AlertCircle, Loader2 } from 'lucide-react';
 import { PhaseField, getPhaseFields } from '@/lib/kanban/phaseFields';
+import { UserSelector } from '@/components/kanban/UserSelector';
 
 interface PhaseTransitionModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface PhaseTransitionModalProps {
   clients?: { id: string; name: string }[];
   employees?: { id: string; name: string }[];
   existingData?: Record<string, any>;
+  fieldsOverride?: PhaseField[];
 }
 
 export default function PhaseTransitionModal({
@@ -28,14 +30,15 @@ export default function PhaseTransitionModal({
   area,
   clients = [],
   employees = [],
-  existingData = {}
+  existingData = {},
+  fieldsOverride,
 }: PhaseTransitionModalProps) {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   // Obter campos da fase de destino
-  const fields = getPhaseFields(area, toPhase.id);
+  const fields = fieldsOverride ?? getPhaseFields(area, toPhase.id);
 
   useEffect(() => {
     if (isOpen) {
@@ -138,6 +141,17 @@ export default function PhaseTransitionModal({
       case 'select':
         // Campos especiais que usam dados dinâmicos
         if (field.id === 'client_id') {
+          if (!clients?.length) {
+            return (
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => handleChange(field.id, e.target.value)}
+                placeholder={field.placeholder || 'ID do cliente (opcional)'}
+                className={baseInputClass}
+              />
+            );
+          }
           return (
             <select
               value={value}
@@ -153,16 +167,12 @@ export default function PhaseTransitionModal({
         }
         if (field.id === 'assigned_to' || field.id === 'reviewer') {
           return (
-            <select
-              value={value}
-              onChange={(e) => handleChange(field.id, e.target.value)}
-              className={baseInputClass}
-            >
-              <option value="">Selecione...</option>
-              {employees.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.name}</option>
-              ))}
-            </select>
+            <UserSelector
+              selectedUserId={value || undefined}
+              onSelect={(userId) => handleChange(field.id, userId)}
+              label={field.label}
+              placeholder={field.placeholder || 'Selecione um responsável'}
+            />
           );
         }
         return (

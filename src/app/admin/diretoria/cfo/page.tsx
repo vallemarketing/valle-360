@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { CreditCard } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { DirectorChatModal } from '@/components/diretoria/DirectorChatModal';
 
 export default function CFOPage() {
   return (
@@ -18,6 +19,17 @@ export default function CFOPage() {
               Sem mocks: este painel só será habilitado com dados reais (contratos, cobranças, pagamentos, Stripe).
             </p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <DirectorChatModal
+            director="cfo"
+            title="Conversar com CFO"
+            subtitle="Chat executivo com base em dados reais do sistema (best-effort)."
+          />
+          <Link href="/admin/diretoria" className="text-sm underline" style={{ color: 'var(--primary-500)' }}>
+            Voltar
+          </Link>
         </div>
 
         <div

@@ -81,6 +81,7 @@ interface Alert {
   title: string;
   description: string;
   actionable: boolean;
+  link?: string;
 }
 
 interface AIRecommendation {
@@ -118,6 +119,8 @@ export default function SuperAdminDashboard() {
   const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
   const [isExporting, setIsExporting] = useState(false);
   const [aiInsights, setAiInsights] = useState<any[]>([]);
+  const [predictivePanel, setPredictivePanel] = useState<any | null>(null);
+  const [loadingPredictivePanel, setLoadingPredictivePanel] = useState(true);
   const [showResultModal, setShowResultModal] = useState(false);
   const [resultContent, setResultContent] = useState<any>(null);
   const [showLeadModal, setShowLeadModal] = useState(false);
@@ -126,6 +129,11 @@ export default function SuperAdminDashboard() {
   const [showCallModal, setShowCallModal] = useState(false);
   const [callScheduled, setCallScheduled] = useState(false);
   const [callTime, setCallTime] = useState('');
+  const [integrationsStatus, setIntegrationsStatus] = useState<{
+    sendgrid: { configured: boolean; fromEmail?: string | null };
+    whatsapp: { configured: boolean };
+  }>({ sendgrid: { configured: false, fromEmail: null }, whatsapp: { configured: false } });
+  const [loadingIntegrations, setLoadingIntegrations] = useState(true);
   
   // Dados de leads para Insights de IA
   const aiLeads: AIInsightLead[] = [
@@ -216,6 +224,51 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
   // Hook de IA
   const { generateInsights, generateContent, generateEmail, isLoading: aiLoading, error: aiError } = useAI();
 
+  // Status de integrações (SendGrid / WhatsApp)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/integrations/status', { cache: 'no-store' });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && res.ok && data) {
+          setIntegrationsStatus({
+            sendgrid: { configured: !!data?.sendgrid?.configured, fromEmail: data?.sendgrid?.fromEmail ?? null },
+            whatsapp: { configured: !!data?.whatsapp?.configured },
+          });
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoadingIntegrations(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Painel preditivo/ML (sem mudar layout): alimenta Alertas Críticos com dados reais
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/analytics/preditivo', { cache: 'no-store' });
+        const json = await res.json().catch(() => null);
+        if (!cancelled && res.ok && json?.success) {
+          setPredictivePanel(json);
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoadingPredictivePanel(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Handler para gerar análise de IA - CONECTADO À IA REAL
   const handleGenerateAnalysis = async () => {
     setIsGeneratingAnalysis(true);
@@ -274,10 +327,10 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
       URL.revokeObjectURL(url);
       
       setShowExportModal(false);
-      alert(`✅ Relatório exportado em ${format.toUpperCase()} com sucesso!`);
+      toast.success(`Relatório exportado em ${format.toUpperCase()} com sucesso!`);
     } catch (error) {
       console.error('Erro ao exportar:', error);
-      alert('❌ Erro ao exportar relatório.');
+      toast.error('Erro ao exportar relatório.');
     } finally {
       setIsExporting(false);
     }
@@ -345,11 +398,11 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
           break;
           
         default:
-          alert('⚡ Ação em execução...');
+          toast.message('Ação em execução...');
       }
     } catch (error) {
       console.error('Erro na ação:', error);
-      alert('❌ Erro ao executar ação.');
+      toast.error('Erro ao executar ação.');
     }
   };
 
@@ -362,26 +415,46 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
     if (!selectedAction) return;
     setExecutingAction(true);
     try {
-      // Executar ação baseada na categoria
-      const actionContent = await generateContent('report', {
-        action: selectedAction.title,
-        category: selectedAction.category,
-        description: selectedAction.description
+      toast.loading('Executando ação...');
+
+      // Execução real: materializa a recomendação criando uma tarefa no Kanban do Super Admin
+      const res = await fetch('/api/admin/intelligence/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actionId: selectedAction.id,
+          title: selectedAction.title,
+          description: selectedAction.description,
+          category: selectedAction.category,
+          priority: selectedAction.priority,
+        }),
       });
-      
-    setActionExecuted(prev => [...prev, selectedAction.id]);
-    setShowExecuteModal(false);
-      
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Falha ao executar ação');
+
+      setActionExecuted(prev => [...prev, selectedAction.id]);
+      setShowExecuteModal(false);
+
       setResultContent({
         title: `✅ ${selectedAction.title}`,
-        message: 'Ação executada com sucesso pela IA!',
-        details: actionContent
+        message: data?.already_executed
+          ? 'Esta ação já estava executada (tarefa já existia no Kanban).'
+          : 'Ação executada: tarefa criada no Kanban do Super Admin.',
+        actions: [
+          data?.link ? `🗂️ Abrir no Kanban: ${data.link}` : null,
+        ].filter(Boolean),
+        link: data?.link || null,
       });
       setShowResultModal(true);
+      trackEvent('ci_execute_action_success', { level: 'info', data: { actionId: selectedAction.id, already: !!data?.already_executed } });
     } catch (error) {
       console.error('Erro ao executar:', error);
-      alert('❌ Erro ao executar ação.');
+      toast.dismiss();
+      toast.error(`Erro ao executar ação: ${String((error as any)?.message || error)}`);
+      trackEvent('ci_execute_action_error', { level: 'error', message: String((error as any)?.message || error) });
     } finally {
+      toast.dismiss();
       setExecutingAction(false);
     setSelectedAction(null);
     }
@@ -422,36 +495,138 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
     },
   ];
 
-  const alerts: Alert[] = [
-    {
-      id: '1',
-      type: 'critical',
-      title: 'Cliente A - Risco de Churn',
-      description: 'NPS baixo nos últimos 2 meses e atraso em 3 entregas',
-      actionable: true,
-    },
-    {
-      id: '2',
-      type: 'warning',
-      title: 'João Silva - Performance abaixo da meta',
-      description: 'Apenas 65% das metas atingidas este mês',
-      actionable: true,
-    },
-    {
-      id: '3',
-      type: 'info',
-      title: 'Renovação de contratos - 3 clientes',
-      description: '3 contratos vencem nos próximos 30 dias',
-      actionable: true,
-    },
-    {
-      id: '4',
-      type: 'warning',
-      title: 'Capacidade da equipe em 92%',
-      description: 'Considerar contratação ou redistribuição de tarefas',
-      actionable: true,
-    },
-  ];
+  const alerts: Alert[] = (() => {
+    const fallback: Alert[] = [
+      {
+        id: 'fallback_1',
+        type: 'info',
+        title: loadingPredictivePanel ? 'Carregando preditivo…' : 'Sem alertas preditivos',
+        description: loadingPredictivePanel
+          ? 'Buscando health score e previsões recentes…'
+          : 'Rode o pipeline ML para gerar previsões reais (churn, pagamento, LTV, demanda/capacidade).',
+        actionable: true,
+        link: '/admin/analytics/preditivo',
+      },
+    ];
+
+    if (!predictivePanel) return fallback;
+
+    const riskyClients = Array.isArray(predictivePanel?.riskyClients) ? predictivePanel.riskyClients : [];
+    const predictions = Array.isArray(predictivePanel?.predictions) ? predictivePanel.predictions : [];
+
+    const getVal = (p: any) => {
+      if (p?.value != null) return Number(p.value);
+      const pv = p?.predicted_value;
+      if (pv && typeof pv === 'object' && 'value' in pv) return Number((pv as any).value);
+      return Number.NaN;
+    };
+
+    const byType = (t: string) => predictions.filter((p: any) => String(p?.type || p?.prediction_type || '') === t);
+
+    const out: Alert[] = [];
+
+    // 1) Churn (Health Score)
+    if (riskyClients[0]) {
+      const c = riskyClients[0];
+      out.push({
+        id: `churn_${String(c.client_id)}`,
+        type: 'critical',
+        title: `Risco de Churn: ${String(c.client_name || c.client_id)}`,
+        description: `churn ${Math.round(Number(c.churn_probability || 0))}% • score ${Math.round(Number(c.overall_score || 0))} • ${String(c.risk_level || '-')}`,
+        actionable: true,
+        link: '/admin/analytics/preditivo',
+      });
+    }
+
+    // 2) Risco de pagamento (predição)
+    const pay = byType('payment_risk')
+      .map((p: any) => ({ p, v: getVal(p) }))
+      .filter((x) => Number.isFinite(x.v))
+      .sort((a, b) => b.v - a.v);
+    if (pay[0] && pay[0].v >= 55) {
+      const p = pay[0].p;
+      const name = p?.entity_name || p?.predicted_value?.entity_name || p?.target_id || 'Cliente';
+      out.push({
+        id: `pay_${String(p?.id || 'top')}`,
+        type: pay[0].v >= 75 ? 'critical' : 'warning',
+        title: `Risco de Pagamento: ${String(name)}`,
+        description: `risco ${Math.round(pay[0].v)}% • ver faturas e acionar cobrança`,
+        actionable: true,
+        link: '/admin/financeiro/clientes',
+      });
+    }
+
+    // 3) Capacidade (predição)
+    const cap = byType('demand_capacity')
+      .map((p: any) => ({ p, v: getVal(p) }))
+      .filter((x) => Number.isFinite(x.v))
+      .sort((a, b) => b.v - a.v);
+    if (cap[0]) {
+      const v = cap[0].v;
+      out.push({
+        id: `cap_${String(cap[0].p?.id || 'latest')}`,
+        type: v >= 85 ? 'critical' : v >= 65 ? 'warning' : 'info',
+        title: `Capacidade da equipe em ${Math.round(v)}%`,
+        description: v >= 85 ? 'Capacidade crítica: redistribuir demandas e revisar prioridades.' : v >= 65 ? 'Capacidade pressionada: planejar reforço/automação.' : 'Capacidade saudável no período.',
+        actionable: true,
+        link: '/admin/rh',
+      });
+    }
+
+    // 3.1) Budget overrun (campanhas)
+    const bud = byType('budget_overrun')
+      .map((p: any) => ({ p, v: getVal(p) }))
+      .filter((x) => Number.isFinite(x.v))
+      .sort((a, b) => b.v - a.v);
+    if (bud[0] && bud[0].v >= 70) {
+      const p = bud[0].p;
+      const name = p?.entity_name || p?.predicted_value?.entity_name || p?.target_id || 'Campanha';
+      out.push({
+        id: `bud_${String(p?.id || 'top')}`,
+        type: bud[0].v >= 90 ? 'critical' : 'warning',
+        title: `Risco de orçamento: ${String(name)}`,
+        description: `risco ${Math.round(bud[0].v)}% • revisar budget e otimizações da campanha`,
+        actionable: true,
+        link: '/admin/analytics/preditivo',
+      });
+    }
+
+    // 4) Receita (forecast)
+    const rev = byType('revenue')
+      .map((p: any) => ({ p, v: getVal(p) }))
+      .filter((x) => Number.isFinite(x.v))
+      .sort((a, b) => b.v - a.v);
+    if (rev[0]) {
+      out.push({
+        id: `rev_${String(rev[0].p?.id || 'latest')}`,
+        type: 'info',
+        title: 'Forecast de Receita (ML/heurística)',
+        description: `estimativa: R$ ${Math.round(rev[0].v).toLocaleString('pt-BR')} • veja detalhes em Analytics Preditivo`,
+        actionable: true,
+        link: '/admin/analytics/preditivo',
+      });
+    }
+
+    // 5) Conversão (leads)
+    const conv = byType('conversion')
+      .map((p: any) => ({ p, v: getVal(p) }))
+      .filter((x) => Number.isFinite(x.v))
+      .sort((a, b) => b.v - a.v);
+    if (conv[0] && conv[0].v >= 70) {
+      const p = conv[0].p;
+      const name = p?.entity_name || p?.predicted_value?.entity_name || 'Lead';
+      out.push({
+        id: `conv_${String(p?.id || 'top')}`,
+        type: 'info',
+        title: `Alta conversão provável: ${String(name)}`,
+        description: `probabilidade ${Math.round(conv[0].v)}% • priorizar contato/proposta`,
+        actionable: true,
+        link: '/admin/prospeccao',
+      });
+    }
+
+    return out.length ? out.slice(0, 6) : fallback;
+  })();
 
   const aiRecommendations: AIRecommendation[] = [
     {
@@ -566,9 +741,102 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
     setShowScriptModal(true);
   };
 
+  const handleSendLeadEmail = async (lead: AIInsightLead) => {
+    if (loadingIntegrations) {
+      toast.info('Verificando integrações...');
+      return;
+    }
+    if (!integrationsStatus.sendgrid.configured) {
+      toast.error('SendGrid não configurado. Configure SENDGRID_API_KEY e SENDGRID_FROM_EMAIL na Vercel.');
+      return;
+    }
+
+    toast.loading('Enviando email...');
+    try {
+      let subject = `Valle 360 | ${lead.company}`;
+      let bodyText = lead.script;
+      try {
+        const generated = await generateEmail({
+          objective: 'qualified_lead_outreach',
+          lead: {
+            name: lead.name,
+            company: lead.company,
+            position: lead.position,
+            interest: lead.interest,
+          },
+        });
+        if (generated?.subject) subject = generated.subject;
+        if (generated?.body) bodyText = generated.body;
+      } catch {
+        // fallback para script do lead
+      }
+
+      const html = `<div style="font-family: Arial, sans-serif; line-height: 1.5;">${String(bodyText)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br/>')}</div>`;
+
+      const res = await fetch('/api/admin/outbound/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toEmail: lead.email,
+          toName: lead.name,
+          subject,
+          html,
+          text: bodyText,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Falha ao enviar email');
+
+      toast.dismiss();
+      toast.success('Email enviado com sucesso!');
+      trackEvent('ci_lead_send_email_success', { level: 'info', data: { leadId: lead.id } });
+    } catch (e: any) {
+      toast.dismiss();
+      toast.error(`Erro ao enviar email: ${String(e?.message || e)}`);
+      trackEvent('ci_lead_send_email_error', { level: 'error', message: String(e?.message || e) });
+    }
+  };
+
+  const handleSendLeadWhatsApp = async (lead: AIInsightLead) => {
+    if (loadingIntegrations) {
+      toast.info('Verificando integrações...');
+      return;
+    }
+    if (!integrationsStatus.whatsapp.configured) {
+      toast.error('WhatsApp não configurado. Configure WHATSAPP_PHONE_NUMBER_ID e WHATSAPP_ACCESS_TOKEN na Vercel.');
+      return;
+    }
+
+    toast.loading('Enviando WhatsApp...');
+    try {
+      const res = await fetch('/api/admin/outbound/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toPhone: lead.phone,
+          text: lead.script,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Falha ao enviar WhatsApp');
+
+      toast.dismiss();
+      toast.success('WhatsApp enviado com sucesso!');
+      trackEvent('ci_lead_send_whatsapp_success', { level: 'info', data: { leadId: lead.id } });
+    } catch (e: any) {
+      toast.dismiss();
+      toast.error(`Erro ao enviar WhatsApp: ${String(e?.message || e)}`);
+      trackEvent('ci_lead_send_whatsapp_error', { level: 'error', message: String(e?.message || e) });
+    }
+  };
+
   const handleScheduleCall = () => {
     if (!callTime) {
-      alert('Selecione um horário para a ligação');
+      toast.error('Selecione um horário para a ligação');
       return;
     }
     setCallScheduled(true);
@@ -591,7 +859,7 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
   const handleCopyScript = () => {
     if (selectedLead) {
       navigator.clipboard.writeText(selectedLead.script);
-      alert('✅ Roteiro copiado para a área de transferência!');
+      toast.success('Roteiro copiado para a área de transferência!');
     }
   };
 
@@ -767,7 +1035,15 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
                     <h5 className="font-medium text-sm text-gray-900 dark:text-white mb-1">{alert.title}</h5>
                     <p className="text-xs text-gray-600 dark:text-gray-400">{alert.description}</p>
                     {alert.actionable && (
-                      <Button variant="ghost" size="sm" className="p-0 h-auto mt-1 text-xs">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-0 h-auto mt-1 text-xs"
+                        onClick={() => {
+                          if (alert.link) window.location.href = alert.link;
+                        }}
+                        disabled={!alert.link}
+                      >
                         Ver detalhes →
                       </Button>
                     )}
@@ -1371,6 +1647,37 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
                     Ver Roteiro
                   </Button>
                 </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleSendLeadEmail(selectedLead)}
+                    disabled={loadingIntegrations || !integrationsStatus.sendgrid.configured}
+                    title={
+                      !integrationsStatus.sendgrid.configured
+                        ? 'SendGrid não configurado (SENDGRID_API_KEY / SENDGRID_FROM_EMAIL)'
+                        : ''
+                    }
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    Enviar Email
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleSendLeadWhatsApp(selectedLead)}
+                    disabled={loadingIntegrations || !integrationsStatus.whatsapp.configured}
+                    title={
+                      !integrationsStatus.whatsapp.configured
+                        ? 'WhatsApp não configurado (WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_ACCESS_TOKEN)'
+                        : ''
+                    }
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    WhatsApp
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -1612,6 +1919,19 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
 
               <div className="p-6 space-y-4">
                 <p className="text-muted-foreground">{resultContent.message}</p>
+
+                {/* Link direto (quando a execução cria uma tarefa no Kanban) */}
+                {resultContent.link && (
+                  <div className="flex">
+                    <Button
+                      className="bg-[#1672d6] hover:bg-[#1260b5]"
+                      onClick={() => window.open(String(resultContent.link), '_blank')}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Abrir no Kanban
+                    </Button>
+                  </div>
+                )}
 
                 {/* Se tiver insights */}
                 {resultContent.insights && resultContent.insights.length > 0 && (

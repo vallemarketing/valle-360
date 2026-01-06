@@ -438,40 +438,40 @@ ALTER TABLE super_admin_insights ENABLE ROW LEVEL SECURITY;
 
 -- Super admin vê tudo
 CREATE POLICY super_admin_ml_marketing_patterns ON ml_marketing_patterns FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'super_admin')
+    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.user_id = auth.uid() AND user_profiles.role::text = 'super_admin')
 );
 
 CREATE POLICY super_admin_ml_content_learning ON ml_content_performance_learning FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'super_admin')
+    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.user_id = auth.uid() AND user_profiles.role::text = 'super_admin')
 );
 
 CREATE POLICY super_admin_ml_client_behavior ON ml_client_behavior_patterns FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'super_admin')
+    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.user_id = auth.uid() AND user_profiles.role::text = 'super_admin')
 );
 
 CREATE POLICY super_admin_ml_market_trends ON ml_market_trends FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'super_admin')
+    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.user_id = auth.uid() AND user_profiles.role::text = 'super_admin')
 );
 
 CREATE POLICY super_admin_ml_predictions ON ml_predictions_log FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'super_admin')
+    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.user_id = auth.uid() AND user_profiles.role::text = 'super_admin')
 );
 
 CREATE POLICY super_admin_ml_model_training ON ml_model_training_history FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'super_admin')
+    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.user_id = auth.uid() AND user_profiles.role::text = 'super_admin')
 );
 
 CREATE POLICY super_admin_insights ON super_admin_insights FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'super_admin')
+    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.user_id = auth.uid() AND user_profiles.role::text = 'super_admin')
 );
 
 -- Gestores podem ver patterns e trends gerais
 CREATE POLICY gestores_view_ml_patterns ON ml_marketing_patterns FOR SELECT TO authenticated USING (
-    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.id = auth.uid() AND user_profiles.role IN ('gestor', 'admin'))
+    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.user_id = auth.uid() AND user_profiles.role::text IN ('manager', 'admin', 'super_admin'))
 );
 
 CREATE POLICY gestores_view_ml_trends ON ml_market_trends FOR SELECT TO authenticated USING (
-    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.id = auth.uid() AND user_profiles.role IN ('gestor', 'admin'))
+    EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.user_id = auth.uid() AND user_profiles.role::text IN ('manager', 'admin', 'super_admin'))
 );
 
 -- =====================================================================================

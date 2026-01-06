@@ -6,8 +6,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
+
+function isMissingTableError(message: string) {
+  const m = String(message || '').toLowerCase();
+  return (
+    m.includes('does not exist') ||
+    m.includes('relation') ||
+    m.includes('schema cache') ||
+    m.includes('could not find the table')
+  );
+}
 
 // GET - Listar alertas
 export async function GET(request: NextRequest) {
@@ -21,6 +32,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
+    const { data: isAdmin } = await supabase.rpc('is_admin');
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
+    }
+    const db: any = getSupabaseAdmin();
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const severity = searchParams.get('severity');
@@ -28,7 +45,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    let query = supabase
+    let query = db
       .from('sentiment_alerts')
       .select('*, sentiment_analyses(*)', { count: 'exact' })
       .order('created_at', { ascending: false })
@@ -44,9 +61,9 @@ export async function GET(request: NextRequest) {
 
     // Contar por status e severidade
     const [pendingCount, criticalCount, highCount] = await Promise.all([
-      supabase.from('sentiment_alerts').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('sentiment_alerts').select('id', { count: 'exact', head: true }).eq('severity', 'critical').eq('status', 'pending'),
-      supabase.from('sentiment_alerts').select('id', { count: 'exact', head: true }).eq('severity', 'high').eq('status', 'pending')
+      db.from('sentiment_alerts').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      db.from('sentiment_alerts').select('id', { count: 'exact', head: true }).eq('severity', 'critical').eq('status', 'pending'),
+      db.from('sentiment_alerts').select('id', { count: 'exact', head: true }).eq('severity', 'high').eq('status', 'pending')
     ]);
 
     return NextResponse.json({
@@ -67,6 +84,15 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Erro ao buscar alertas:', error);
+    if (isMissingTableError(error?.message || '')) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        stats: { pending: 0, critical: 0, high: 0 },
+        pagination: { total: 0, limit: 50, offset: 0, has_more: false },
+        note: 'Schema de sentimento ainda não foi aplicado no banco.',
+      });
+    }
     return NextResponse.json({ 
       error: 'Erro interno',
       details: error.message 
@@ -85,6 +111,12 @@ export async function PATCH(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
+
+    const { data: isAdmin } = await supabase.rpc('is_admin');
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
+    }
+    const db: any = getSupabaseAdmin();
 
     const body = await request.json();
     const { 
@@ -130,7 +162,7 @@ export async function PATCH(request: NextRequest) {
         }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('sentiment_alerts')
       .update(updateData)
       .eq('id', alert_id)
@@ -164,6 +196,12 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
+
+    const { data: isAdmin } = await supabase.rpc('is_admin');
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
+    }
+    const db: any = getSupabaseAdmin();
 
     const body = await request.json();
     const { 
@@ -207,7 +245,7 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
     }
 
-    let query = supabase
+    let query = db
       .from('sentiment_alerts')
       .update(updateData);
 

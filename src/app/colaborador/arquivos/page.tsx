@@ -40,8 +40,16 @@ export default function ArquivosPage() {
 
   const loadClients = async () => {
     try {
-      const { data } = await supabase.from('clients').select('id, company_name')
-      if (data) setClients(data)
+      const res = await fetch('/api/collaborator/clients', { cache: 'no-store' })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.success) throw new Error(json?.error || 'Falha ao carregar clientes')
+      const rows = Array.isArray(json?.clients) ? json.clients : []
+      setClients(
+        rows.map((c: any) => ({
+          id: String(c?.id || ''),
+          company_name: String(c?.company || c?.companyName || 'Cliente'),
+        }))
+      )
     } catch (error) {
       console.error('Erro ao carregar clientes:', error)
     }
@@ -353,8 +361,6 @@ export default function ArquivosPage() {
                     {clients.map(client => (
                       <option key={client.id} value={client.id}>{client.company_name}</option>
                     ))}
-                    <option value="mock1">Cliente Exemplo Ltda</option>
-                    <option value="mock2">Tech Startups SA</option>
                   </select>
                 </div>
 

@@ -4,7 +4,7 @@
  * ProtectedRoute - Componente de proteção de rotas
  * 
  * MODO TESTE ATIVO: Permite acesso sem verificação de roles
- * Para produção, mudar TEST_MODE para false
+ * Em produção, o modo teste é sempre desabilitado.
  */
 
 import { useEffect, useState } from 'react';
@@ -14,9 +14,11 @@ import { Button } from '@/components/ui/button';
 
 // =========================================
 // MODO TESTE: Permite acesso sem verificação
-// Mudar para false em produção
+// Controlado por env e sempre OFF em produção
 // =========================================
-const TEST_MODE = true;
+const TEST_MODE =
+  process.env.NODE_ENV !== 'production' &&
+  String(process.env.NEXT_PUBLIC_TEST_MODE || '').toLowerCase() === 'true';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -63,9 +65,8 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo = '/login' }
   };
 
   useEffect(() => {
-    if (!TEST_MODE) {
-      checkAuth();
-    }
+    checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowedRoles, redirectTo]);
 
   if (isLoading) {

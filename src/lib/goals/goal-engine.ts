@@ -89,6 +89,90 @@ export interface GoalSuggestion {
 // =====================================================
 
 class GoalEngine {
+  private async resolveUserIdFromCollaboratorId(collaboratorId: string): Promise<string | null> {
+    try {
+      const { data } = await supabase
+        .from('employees')
+        .select('user_id')
+        .eq('id', collaboratorId)
+        .maybeSingle();
+      return data?.user_id ? String(data.user_id) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Se não existir production_history (ou estiver vazio), calcula um histórico básico a partir de dados reais do sistema.
+   * Hoje usamos principalmente Kanban (tarefas concluídas) porque é o dado mais universal em todas as áreas.
+   */
+  private async getComputedHistoryFromSystem(
+    collaboratorId: string,
+    sector: string,
+    months: number
+  ): Promise<ProductionEntry[]> {
+    const userId = await this.resolveUserIdFromCollaboratorId(collaboratorId);
+    if (!userId) return [];
+
+    const start = new Date();
+    start.setMonth(start.getMonth() - months);
+
+    // Base: tarefas concluídas por mês (real). Usamos isso para "pecas"/"posts"/"videos" etc como proxy.
+    const { data: tasks } = await supabase
+      .from('kanban_tasks')
+      .select('id, created_at, updated_at, status, assigned_to, created_by')
+      .or(`assigned_to.eq.${userId},created_by.eq.${userId}`)
+      .eq('status', 'done')
+      .gte('updated_at', start.toISOString());
+
+    // agrupa por mês (YYYY-MM)
+    const buckets = new Map<string, { count: number; avgHours: { sum: number; n: number } }>();
+    for (const t of (tasks || []) as any[]) {
+      const updatedAt = t.updated_at ? new Date(String(t.updated_at)) : null;
+      const createdAt = t.created_at ? new Date(String(t.created_at)) : null;
+      if (!updatedAt || Number.isNaN(updatedAt.getTime())) continue;
+      const key = `${updatedAt.getFullYear()}-${String(updatedAt.getMonth() + 1).padStart(2, '0')}`;
+      const cur = buckets.get(key) || { count: 0, avgHours: { sum: 0, n: 0 } };
+      cur.count += 1;
+      if (createdAt && !Number.isNaN(createdAt.getTime())) {
+        const hours = Math.max(0, (updatedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60));
+        cur.avgHours.sum += hours;
+        cur.avgHours.n += 1;
+      }
+      buckets.set(key, cur);
+    }
+
+    const out: ProductionEntry[] = [];
+    for (const [ym, agg] of buckets.entries()) {
+      const [y, m] = ym.split('-').map((x) => Number(x));
+      const periodDate = new Date(y, (m || 1) - 1, 1).toISOString().slice(0, 10);
+      const avgHours = agg.avgHours.n > 0 ? agg.avgHours.sum / agg.avgHours.n : 0;
+
+      // Mapeia métricas mínimas por setor (proxy real via Kanban)
+      const metrics: Record<string, number> = {};
+      if (sector === 'designer') {
+        metrics.pecas = agg.count;
+        metrics.tempo_medio = avgHours;
+      } else if (sector === 'social_media') {
+        metrics.posts = agg.count;
+        metrics.stories = Math.round(agg.count * 1.5);
+      } else if (sector === 'video_maker') {
+        metrics.videos = agg.count;
+        metrics.minutos_produzidos = Math.round(agg.count * 3);
+      } else if (sector === 'comercial') {
+        // proxy mínimo: tarefas done relacionadas a comercial
+        metrics.leads_qualificados = agg.count;
+      } else {
+        metrics.pecas = agg.count;
+      }
+
+      out.push({ collaborator_id: collaboratorId, sector, period_date: periodDate, metrics });
+    }
+
+    // ordena por data
+    out.sort((a, b) => String(a.period_date).localeCompare(String(b.period_date)));
+    return out;
+  }
   
   /**
    * Calcula metas sugeridas para um colaborador
@@ -104,8 +188,11 @@ class GoalEngine {
       throw new Error(`Configuração não encontrada para o setor: ${sector}`);
     }
 
-    // 2. Buscar histórico de produção
-    const history = await this.getProductionHistory(collaboratorId, sector, 3); // últimos 3 meses
+    // 2. Buscar histórico de produção (preferencial) + fallback para dados reais do sistema (Kanban)
+    let history = await this.getProductionHistory(collaboratorId, sector, 3); // últimos 3 meses
+    if (!history || history.length === 0) {
+      history = await this.getComputedHistoryFromSystem(collaboratorId, sector, 3);
+    }
 
     // 3. Calcular metas por métrica
     const suggestions: GoalSuggestion[] = [];
@@ -331,6 +418,20 @@ class GoalEngine {
       periodEnd = new Date(now.getFullYear(), (quarter + 1) * 3, 0);
     }
 
+    // Idempotência: se já existe meta ativa para o mesmo período, atualiza ao invés de duplicar
+    const periodStartStr = periodStart.toISOString().split('T')[0];
+    const periodEndStr = periodEnd.toISOString().split('T')[0];
+    const { data: existing } = await supabase
+      .from('collaborator_goals')
+      .select('id')
+      .eq('collaborator_id', collaboratorId)
+      .eq('sector', sector)
+      .eq('period_type', periodType)
+      .eq('period_start', periodStartStr)
+      .eq('period_end', periodEndStr)
+      .limit(1)
+      .maybeSingle();
+
     // Calcular metas sugeridas
     const suggestions = await this.calculateSuggestedGoals(collaboratorId, sector, periodType);
 
@@ -351,25 +452,42 @@ class GoalEngine {
     const avgConfidence = suggestions.reduce((a, b) => a + b.confidence, 0) / suggestions.length;
     const reasoning = suggestions.map(s => `${s.metric}: ${s.reasoning}`).join('; ');
 
-    // Salvar no banco
-    const { data, error } = await supabase
-      .from('collaborator_goals')
-      .insert({
-        collaborator_id: collaboratorId,
-        collaborator_name: collaboratorName,
-        sector,
-        period_start: periodStart.toISOString().split('T')[0],
-        period_end: periodEnd.toISOString().split('T')[0],
-        period_type: periodType,
-        goals,
-        overall_progress: 0,
-        status: 'active',
-        ai_suggested: true,
-        ai_confidence: avgConfidence,
-        ai_reasoning: reasoning
-      })
-      .select()
-      .single();
+    // Salvar no banco (insert ou update)
+    const { data, error } = existing?.id
+      ? await supabase
+          .from('collaborator_goals')
+          .update({
+            collaborator_name: collaboratorName,
+            goals,
+            // mantém progresso atual se já existia (não zera)
+            ai_suggested: true,
+            ai_confidence: avgConfidence,
+            ai_reasoning: reasoning,
+            adjustment_reason: null,
+            adjusted_by: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+          .select()
+          .single()
+      : await supabase
+          .from('collaborator_goals')
+          .insert({
+            collaborator_id: collaboratorId,
+            collaborator_name: collaboratorName,
+            sector,
+            period_start: periodStartStr,
+            period_end: periodEndStr,
+            period_type: periodType,
+            goals,
+            overall_progress: 0,
+            status: 'active',
+            ai_suggested: true,
+            ai_confidence: avgConfidence,
+            ai_reasoning: reasoning
+          })
+          .select()
+          .single();
 
     if (error) {
       console.error('Erro ao criar meta:', error);

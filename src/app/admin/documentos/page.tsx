@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { Upload, FileText, Shield, Search, Download, Trash2, Check } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Client {
   id: string;
@@ -98,12 +99,12 @@ export default function AdminDocumentosPage() {
     if (!file || !selectedClient) return;
 
     if (file.type !== 'application/pdf') {
-      alert('Apenas arquivos PDF são permitidos');
+      toast.error('Apenas arquivos PDF são permitidos');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('O arquivo deve ter no máximo 10MB');
+      toast.error('O arquivo deve ter no máximo 10MB');
       return;
     }
 
@@ -157,7 +158,7 @@ export default function AdminDocumentosPage() {
         if (insertError) throw insertError;
       }
 
-      alert('Documento enviado com sucesso!');
+      toast.success('Documento enviado com sucesso!');
       loadDocuments(selectedClient);
       setContractData({
         contract_number: '',
@@ -169,7 +170,7 @@ export default function AdminDocumentosPage() {
       });
     } catch (error) {
       console.error('Error uploading document:', error);
-      alert('Erro ao enviar documento');
+      toast.error('Erro ao enviar documento');
     } finally {
       setUploading(false);
     }

@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { RefreshCw, Search, ClipboardList } from 'lucide-react';
+import { RefreshCw, Search, ClipboardList, CheckCircle2, XCircle } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { toast } from 'sonner';
 
 type RequestStatus = 'pending' | 'approved' | 'rejected';
 
@@ -16,6 +17,8 @@ type RequestRow = {
   reason?: string | null;
   amount?: string | null;
   status: RequestStatus;
+  employee_request_id?: string | null;
+  requester_name?: string | null;
   created_at?: string;
 };
 
@@ -25,6 +28,7 @@ export default function AdminSolicitacoesPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all' | RequestStatus>('all');
   const [error, setError] = useState<string | null>(null);
+  const [acting, setActing] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -62,6 +66,37 @@ export default function AdminSolicitacoesPage() {
     if (s === 'approved') return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
     if (s === 'rejected') return 'bg-red-500/10 text-red-600 border-red-500/20';
     return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+  };
+
+  const setRequestStatus = async (taskId: string, next: 'approved' | 'rejected') => {
+    const rejectionReason =
+      next === 'rejected'
+        ? window.prompt('Motivo da rejeição (mínimo 10 caracteres):') || ''
+        : '';
+    if (next === 'rejected' && rejectionReason.trim().length < 10) {
+      return toast.error('Motivo muito curto (mínimo 10 caracteres).');
+    }
+
+    setActing(taskId);
+    try {
+      const res = await fetch('/api/requests', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          task_id: taskId,
+          status: next,
+          rejection_reason: next === 'rejected' ? rejectionReason.trim() : null,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao atualizar');
+      toast.success(next === 'approved' ? 'Solicitação aprovada!' : 'Solicitação rejeitada!');
+      await load();
+    } catch (e: any) {
+      toast.error(String(e?.message || e));
+    } finally {
+      setActing(null);
+    }
   };
 
   return (
@@ -167,6 +202,11 @@ export default function AdminSolicitacoesPage() {
                   <div>
                     <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                       {r.title || `Solicitação (${r.type})`}
+                      {r.requester_name ? (
+                        <span className="ml-2 text-xs font-normal" style={{ color: 'var(--text-tertiary)' }}>
+                          • {r.requester_name}
+                        </span>
+                      ) : null}
                     </div>
                     <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                       {r.start_date ? `${r.start_date}${r.end_date ? ` → ${r.end_date}` : ''}` : ''}
@@ -181,6 +221,28 @@ export default function AdminSolicitacoesPage() {
 
                   <div className="flex items-center gap-2">
                     <span className={`text-xs px-2 py-1 rounded-full border ${badgeCls(r.status)}`}>{r.status}</span>
+                    {r.status === 'pending' ? (
+                      <>
+                        <button
+                          disabled={acting === r.id}
+                          onClick={() => setRequestStatus(r.id, 'approved')}
+                          className="px-3 py-1.5 rounded-xl text-xs border flex items-center gap-1"
+                          style={{ borderColor: 'var(--border-light)', color: 'var(--text-primary)' }}
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          Aprovar
+                        </button>
+                        <button
+                          disabled={acting === r.id}
+                          onClick={() => setRequestStatus(r.id, 'rejected')}
+                          className="px-3 py-1.5 rounded-xl text-xs border flex items-center gap-1"
+                          style={{ borderColor: 'var(--border-light)', color: 'var(--text-primary)' }}
+                        >
+                          <XCircle className="w-4 h-4" />
+                          Rejeitar
+                        </button>
+                      </>
+                    ) : null}
                     <Link
                       href="/admin/kanban-app"
                       className="text-xs underline"

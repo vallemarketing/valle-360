@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Brain, Target, TrendingUp, TrendingDown,
@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 interface Employee {
   id: string;
@@ -30,50 +32,21 @@ interface Employee {
   joinedAt: Date;
 }
 
-const SAMPLE_EMPLOYEES: Employee[] = [
-  {
-    id: '1',
-    name: 'João Silva',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=joao',
-    role: 'Web Designer',
-    department: 'Design',
-    retentionScore: 85,
-    engagementScore: 72,
-    performanceScore: 88,
-    fitCultural: 85,
-    discProfile: { D: 45, I: 70, S: 30, C: 55 },
-    riskLevel: 'medium',
-    joinedAt: new Date('2023-03-15')
-  },
-  {
-    id: '2',
-    name: 'Maria Santos',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=maria',
-    role: 'Social Media',
-    department: 'Marketing',
-    retentionScore: 92,
-    engagementScore: 95,
-    performanceScore: 91,
-    fitCultural: 93,
-    discProfile: { D: 35, I: 85, S: 45, C: 35 },
-    riskLevel: 'low',
-    joinedAt: new Date('2022-08-10')
-  },
-  {
-    id: '3',
-    name: 'Pedro Costa',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=pedro',
-    role: 'Gestor de Tráfego',
-    department: 'Performance',
-    retentionScore: 65,
-    engagementScore: 58,
-    performanceScore: 72,
-    fitCultural: 70,
-    discProfile: { D: 75, I: 55, S: 25, C: 45 },
-    riskLevel: 'high',
-    joinedAt: new Date('2023-01-20')
-  }
-];
+type RhDashboardPayload = {
+  success: boolean;
+  kpis?: {
+    employees_active: number;
+    engagement_avg: number;
+    high_risk: number;
+    requests_pending: number;
+    requests_approved_this_month: number;
+    open_jobs: number | null;
+  };
+  employees?: Array<any>;
+  pending_requests?: Array<{ task_id: string; name: string | null; type: string; date: string; status: string }>;
+  insight?: { title: string; message: string };
+  note?: string | null;
+};
 
 // Roteiro de Entrevista
 const INTERVIEW_SCRIPT = [
@@ -129,6 +102,64 @@ export default function RHPage() {
   const [checkedQuestions, setCheckedQuestions] = useState<Record<string, boolean>>({});
   const [questionNotes, setQuestionNotes] = useState<Record<string, string>>({});
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [kpis, setKpis] = useState<RhDashboardPayload['kpis'] | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<RhDashboardPayload['pending_requests']>([]);
+  const [insight, setInsight] = useState<RhDashboardPayload['insight'] | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  const loadRh = async () => {
+    setLoading(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/admin/rh/dashboard', { headers, cache: 'no-store' });
+      const data: RhDashboardPayload | null = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error((data as any)?.error || 'Falha ao carregar RH');
+
+      setKpis(data.kpis || null);
+      setPendingRequests(Array.isArray(data.pending_requests) ? data.pending_requests : []);
+      setInsight(data.insight || null);
+      setNote(data.note ? String(data.note) : null);
+
+      const mapped: Employee[] = (Array.isArray(data.employees) ? data.employees : []).map((e: any) => ({
+        id: String(e?.id || ''),
+        name: String(e?.name || 'Colaborador'),
+        avatar: String(e?.avatar || ''),
+        role: String(e?.role || 'Colaborador'),
+        department: String(e?.department || 'Geral'),
+        retentionScore: Number(e?.retentionScore || 0),
+        engagementScore: Number(e?.engagementScore || 0),
+        performanceScore: Number(e?.performanceScore || 0),
+        fitCultural: Number(e?.fitCultural || 0),
+        discProfile: (e?.discProfile || { D: 0, I: 0, S: 0, C: 0 }) as any,
+        riskLevel: (e?.riskLevel || 'medium') as any,
+        joinedAt: new Date(String(e?.joinedAt || new Date().toISOString())),
+      }));
+
+      setEmployees(mapped);
+    } catch {
+      setKpis(null);
+      setEmployees([]);
+      setPendingRequests([]);
+      setInsight(null);
+      setNote(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   // Formulário de nova vaga (baseado em campos do LinkedIn)
   const [jobForm, setJobForm] = useState({
@@ -195,13 +226,13 @@ export default function RHPage() {
 
   const handleGenerateDescription = async () => {
     if (!jobForm.title) {
-      alert('Preencha o título da vaga primeiro');
+      toast.error('Preencha o título da vaga primeiro');
       return;
     }
     
     setIsGeneratingDescription(true);
     
-    // Simular geração de descrição com IA
+    // Template (best-effort). Se quiser, podemos ligar em IA real num endpoint dedicado.
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     const generatedDescription = `**Sobre a Vaga:**
@@ -232,20 +263,55 @@ Venha fazer parte de uma equipe que transforma negócios através do marketing d
     setIsGeneratingDescription(false);
   };
 
-  const handleCreateJob = () => {
+  const handleCreateJob = async () => {
     if (!jobForm.title || !jobForm.description) {
-      alert('Preencha os campos obrigatórios');
+      toast.error('Preencha os campos obrigatórios');
       return;
     }
     
-    alert('✅ Vaga criada com sucesso! A vaga está pronta para publicação no LinkedIn.');
-    setShowNewJob(false);
-    setJobForm({
-      title: '', description: '', department: '', employment_type: 'full_time',
-      workplace_type: 'hybrid', location: '', experience_level: 'mid_senior',
-      skills: [], salary_min: '', salary_max: '', benefits: [],
-      application_deadline: '', number_of_positions: '1'
-    });
+    try {
+      toast.loading('Criando vaga...');
+      const res = await fetch('/api/admin/rh/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job: {
+            title: jobForm.title,
+            department: jobForm.department || null,
+            location: jobForm.location || null,
+            locationType: jobForm.workplace_type || 'hybrid',
+            contractType: jobForm.employment_type || null,
+            status: 'draft',
+            jobPost: {
+              description: jobForm.description,
+              experience_level: jobForm.experience_level,
+              skills: jobForm.skills,
+              benefits: jobForm.benefits,
+              salary_min: jobForm.salary_min,
+              salary_max: jobForm.salary_max,
+              application_deadline: jobForm.application_deadline,
+              number_of_positions: jobForm.number_of_positions,
+            },
+          },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao criar vaga');
+
+      toast.success('Vaga criada (rascunho).');
+      setShowNewJob(false);
+      setJobForm({
+        title: '', description: '', department: '', employment_type: 'full_time',
+        workplace_type: 'hybrid', location: '', experience_level: 'mid_senior',
+        skills: [], salary_min: '', salary_max: '', benefits: [],
+        application_deadline: '', number_of_positions: '1'
+      });
+
+      // Leva o admin para a central de vagas (fluxo real de publicar/pausar/deletar)
+      router.push('/admin/rh/vagas');
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao criar vaga');
+    }
   };
 
   const toggleSkill = (skill: string) => {
@@ -266,7 +332,7 @@ Venha fazer parte de uma equipe que transforma negócios através do marketing d
     }));
   };
 
-  const filteredEmployees = SAMPLE_EMPLOYEES.filter(emp => {
+  const filteredEmployees = employees.filter(emp => {
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           emp.role.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRisk = filterRisk === 'all' || emp.riskLevel === filterRisk;
@@ -345,7 +411,7 @@ Venha fazer parte de uma equipe que transforma negócios através do marketing d
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={handleNewJob}
+              onClick={() => router.push('/admin/rh/vagas')}
               className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-white"
               style={{ backgroundColor: 'var(--primary-500)' }}
             >
@@ -359,28 +425,25 @@ Venha fazer parte de uma equipe que transforma negócios através do marketing d
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KPICard 
             label="Total Colaboradores"
-            value="32"
+            value={loading ? '—' : String(kpis?.employees_active ?? employees.length)}
             icon={<Users className="w-6 h-6" />}
             color="var(--primary-500)"
-            trend={{ value: 2, isPositive: true }}
           />
           <KPICard 
             label="Engajamento Médio"
-            value="78%"
+            value={loading ? '—' : `${Number(kpis?.engagement_avg || 0)}%`}
             icon={<Target className="w-6 h-6" />}
             color="var(--success-500)"
-            trend={{ value: 5, isPositive: true }}
           />
           <KPICard 
             label="Risco de Saída"
-            value="3"
+            value={loading ? '—' : String(kpis?.high_risk ?? 0)}
             icon={<AlertTriangle className="w-6 h-6" />}
             color="var(--error-500)"
-            trend={{ value: 1, isPositive: false }}
           />
           <KPICard 
             label="Vagas Abertas"
-            value="5"
+            value={loading ? '—' : String(kpis?.open_jobs ?? '—')}
             icon={<FileText className="w-6 h-6" />}
             color="var(--warning-500)"
           />
@@ -730,7 +793,33 @@ Venha fazer parte de uma equipe que transforma negócios através do marketing d
                   </button>
                   <button
                     onClick={() => {
-                      alert('✅ Roteiro salvo! Notas exportadas para o perfil do candidato.');
+                      try {
+                        const blob = new Blob(
+                          [
+                            JSON.stringify(
+                              {
+                                checkedQuestions,
+                                questionNotes,
+                                exportedAt: new Date().toISOString(),
+                              },
+                              null,
+                              2
+                            ),
+                          ],
+                          { type: 'application/json' }
+                        );
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `avaliacao-entrevista-${new Date().toISOString().slice(0, 10)}.json`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        toast.success('Avaliação exportada.');
+                      } catch {
+                        toast.info('Avaliação pronta para exportação.');
+                      }
                       setShowInterviewScript(false);
                     }}
                     className="px-4 py-2 rounded-lg text-white"

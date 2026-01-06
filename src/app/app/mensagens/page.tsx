@@ -8,9 +8,9 @@ import { DirectConversationList } from '@/components/messaging/DirectConversatio
 import { DirectChatWindow } from '@/components/messaging/DirectChatWindow';
 import { NewDirectConversationModal } from '@/components/messaging/NewDirectConversationModal';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { MessageCircle, Users, User, MessageSquare } from 'lucide-react';
 import { usePresence } from '@/hooks/usePresence';
+import { fetchProfileByAuthId } from '@/lib/messaging/userProfiles';
 
 interface Group {
   id: string;
@@ -35,6 +35,7 @@ export default function MensagensPage() {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedConversation, setSelectedConversation] = useState<DirectConversation | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isNewConversationModalOpen, setIsNewConversationModalOpen] = useState(false);
 
   useEffect(() => {
@@ -45,6 +46,13 @@ export default function MensagensPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setCurrentUserId(user.id);
+      try {
+        const profile = await fetchProfileByAuthId(supabase as any, user.id);
+        const t = String(profile?.user_type || '').toLowerCase();
+        setIsSuperAdmin(t === 'super_admin');
+      } catch {
+        setIsSuperAdmin(false);
+      }
     }
   };
 
@@ -119,6 +127,7 @@ export default function MensagensPage() {
                   }}
                   selectedGroupId={selectedGroup?.id}
                   currentUserId={currentUserId}
+                  adminView={isSuperAdmin}
                 />
               )}
               {currentUserId && activeTab === 'team' && (
@@ -128,9 +137,10 @@ export default function MensagensPage() {
                     setSelectedGroup(null);
                   }}
                   selectedConversationId={selectedConversation?.id}
-                  onNewConversation={() => setIsNewConversationModalOpen(true)}
+                  onNewConversation={() => !isSuperAdmin && setIsNewConversationModalOpen(true)}
                   currentUserId={currentUserId}
                   filterType="team"
+                  adminView={isSuperAdmin}
                 />
               )}
               {currentUserId && activeTab === 'clients' && (
@@ -140,18 +150,19 @@ export default function MensagensPage() {
                     setSelectedGroup(null);
                   }}
                   selectedConversationId={selectedConversation?.id}
-                  onNewConversation={() => setIsNewConversationModalOpen(true)}
+                  onNewConversation={() => !isSuperAdmin && setIsNewConversationModalOpen(true)}
                   currentUserId={currentUserId}
                   filterType="clients"
+                  adminView={isSuperAdmin}
                 />
               )}
             </div>
 
             <div className="lg:col-span-2 overflow-hidden">
               {activeTab === 'groups' && selectedGroup && currentUserId ? (
-                <GroupChatWindow group={selectedGroup} currentUserId={currentUserId} />
+                <GroupChatWindow group={selectedGroup} currentUserId={currentUserId} readOnly={isSuperAdmin} />
               ) : activeTab !== 'groups' && selectedConversation && currentUserId ? (
-                <DirectChatWindow conversation={selectedConversation} currentUserId={currentUserId} />
+                <DirectChatWindow conversation={selectedConversation} currentUserId={currentUserId} readOnly={isSuperAdmin} />
               ) : (
                 <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
                   <div className="text-center">
@@ -174,7 +185,7 @@ export default function MensagensPage() {
         </Card>
       </div>
 
-      {currentUserId && (
+      {currentUserId && !isSuperAdmin && (
         <NewDirectConversationModal
           isOpen={isNewConversationModalOpen}
           onClose={() => setIsNewConversationModalOpen(false)}

@@ -6,8 +6,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
+
+function isMissingTableError(message: string) {
+  const m = String(message || '').toLowerCase();
+  return (
+    m.includes('does not exist') ||
+    m.includes('relation') ||
+    m.includes('schema cache') ||
+    m.includes('could not find the table')
+  );
+}
 
 // GET - Estatísticas de sentimento
 export async function GET(request: NextRequest) {
@@ -20,6 +31,12 @@ export async function GET(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
+
+    const { data: isAdmin } = await supabase.rpc('is_admin');
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
+    }
+    const db: any = getSupabaseAdmin();
 
     const { searchParams } = new URL(request.url);
     const client_id = searchParams.get('client_id');
@@ -46,7 +63,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar estatísticas diárias
-    let statsQuery = supabase
+    let statsQuery = db
       .from('sentiment_daily_stats')
       .select('*')
       .gte('date', startDate.toISOString().split('T')[0])
@@ -60,7 +77,7 @@ export async function GET(request: NextRequest) {
     if (statsError) throw statsError;
 
     // Buscar análises recentes para totais
-    let analysesQuery = supabase
+    let analysesQuery = db
       .from('sentiment_analyses')
       .select('overall_sentiment, source_type, score', { count: 'exact' })
       .gte('analyzed_at', startDate.toISOString());
@@ -96,7 +113,7 @@ export async function GET(request: NextRequest) {
     totals.average_score = totals.total > 0 ? totalScore / totals.total : 0;
 
     // Buscar alertas pendentes
-    let alertsQuery = supabase
+    let alertsQuery = db
       .from('sentiment_alerts')
       .select('severity', { count: 'exact' })
       .eq('status', 'pending');
@@ -119,7 +136,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Buscar top entidades (positivas e negativas)
-    const { data: recentAnalyses } = await supabase
+    const { data: recentAnalyses } = await db
       .from('sentiment_analyses')
       .select('entities')
       .gte('analyzed_at', startDate.toISOString())
@@ -192,6 +209,19 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Erro ao buscar estatísticas:', error);
+    if (isMissingTableError(error?.message || '')) {
+      // Sem schema ainda (ou migration não aplicada). Não retorna 500 para o dashboard não cair.
+      return NextResponse.json({
+        success: true,
+        period: new URL(request.url).searchParams.get('period') || '7d',
+        totals: { total: 0, positive: 0, neutral: 0, negative: 0, average_score: 0, by_source: {} },
+        alerts: { pending: 0, by_severity: { critical: 0, high: 0, medium: 0, low: 0 } },
+        trend: [],
+        entities: { top_positive: [], top_negative: [] },
+        percentages: { positive: '0.0', neutral: '0.0', negative: '0.0' },
+        note: 'Schema de sentimento ainda não foi aplicado no banco.',
+      });
+    }
     return NextResponse.json({ 
       error: 'Erro interno',
       details: error.message 

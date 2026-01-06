@@ -12,6 +12,10 @@ interface GamificationWidgetProps {
 
 export function GamificationWidget({ className }: GamificationWidgetProps) {
   const [points, setPoints] = useState(0)
+  const [quality, setQuality] = useState(0)
+  const [productivity, setProductivity] = useState(0)
+  const [badgesCount, setBadgesCount] = useState(0)
+  const [rank, setRank] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -20,13 +24,22 @@ export function GamificationWidget({ className }: GamificationWidgetProps) {
 
   const loadGamificationData = async () => {
     try {
-      // TODO: Fetch from API
-      // const response = await fetch('/api/gamification/me')
-      // const data = await response.json()
-      // setPoints(data.points)
-      
-      // Mock data for now
-      setPoints(2450)
+      const response = await fetch('/api/gamification/me', { cache: 'no-store' })
+      const data = await response.json()
+
+      if (response.ok) {
+        setPoints(Number(data?.points || 0))
+        setQuality(Number(data?.quality_score || 0))
+        setProductivity(Number(data?.productivity_score || 0))
+        setBadgesCount(Array.isArray(data?.badges) ? data.badges.length : 0)
+        setRank(typeof data?.rank === 'number' ? data.rank : null)
+      } else {
+        setPoints(0)
+        setQuality(0)
+        setProductivity(0)
+        setBadgesCount(0)
+        setRank(null)
+      }
     } catch (error) {
       console.error('Error loading gamification:', error)
     } finally {
@@ -125,25 +138,25 @@ export function GamificationWidget({ className }: GamificationWidgetProps) {
       <div className="grid grid-cols-4 gap-3 relative z-10">
         <StatCard
           icon={<Star className="w-4 h-4" />}
-          value="85"
+          value={String(Math.round(quality))}
           label="Qualidade"
           color="var(--warning-500)"
         />
         <StatCard
           icon={<TrendingUp className="w-4 h-4" />}
-          value="92"
+          value={String(Math.round(productivity))}
           label="Produtividade"
           color="var(--success-500)"
         />
         <StatCard
           icon={<Award className="w-4 h-4" />}
-          value="7"
+          value={String(badgesCount)}
           label="Badges"
           color="var(--info-500)"
         />
         <StatCard
           icon={<Trophy className="w-4 h-4" />}
-          value="#12"
+          value={rank ? `#${rank}` : '—'}
           label="Ranking"
           color="var(--primary-500)"
         />

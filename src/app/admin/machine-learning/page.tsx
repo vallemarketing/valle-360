@@ -15,6 +15,7 @@ export default function MachineLearningPage() {
   const [behaviorPatterns, setBehaviorPatterns] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [runningJobs, setRunningJobs] = useState(false)
+  const [markingPredictionId, setMarkingPredictionId] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -52,7 +53,25 @@ export default function MachineLearningPage() {
         .limit(10)
 
       setPatterns(patternsData || [])
-      setPredictions(predictionsData || [])
+      const mappedPredictions = (predictionsData || []).map((p: any) => {
+        const pv = p?.predicted_value;
+        const value = pv && typeof pv === 'object' ? (pv.value ?? pv) : pv;
+        return {
+          id: p.id,
+          prediction_type: p.prediction_type,
+          target_entity: (pv && typeof pv === 'object' ? pv.entity_name : null) || p.prediction_target || '—',
+          confidence_score: Number(p.predicted_probability || 0),
+          predicted_value:
+            typeof value === 'number'
+              ? value
+              : typeof value === 'string'
+                ? value
+                : JSON.stringify(value ?? '—'),
+          created_at: p.predicted_at || p.created_at,
+        };
+      });
+
+      setPredictions(mappedPredictions || [])
       setInsights(insightsData || [])
       setBehaviorPatterns(behaviorData || [])
     } catch (error) {
@@ -74,6 +93,25 @@ export default function MachineLearningPage() {
       toast.error(e?.message || 'Erro ao executar jobs')
     } finally {
       setRunningJobs(false)
+    }
+  }
+
+  const markPrediction = async (predictionId: string, wasCorrect: boolean) => {
+    setMarkingPredictionId(predictionId)
+    try {
+      const res = await fetch('/api/admin/ml/predictions/outcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ predictionId, wasCorrect }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.success) throw new Error(json?.error || 'Falha ao registrar feedback')
+      toast.success('Feedback registrado.')
+      await loadData()
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao registrar feedback')
+    } finally {
+      setMarkingPredictionId(null)
     }
   }
 
@@ -382,6 +420,27 @@ export default function MachineLearningPage() {
                   <p className="text-sm text-gray-600">
                     Criado em: {new Date(prediction.created_at).toLocaleDateString('pt-BR')}
                   </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      className="px-3 py-1.5 rounded-lg text-sm bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                      onClick={() => markPrediction(String(prediction.id), true)}
+                      disabled={markingPredictionId === String(prediction.id)}
+                      title="Marcar como correta"
+                    >
+                      Correta
+                    </button>
+                    <button
+                      className="px-3 py-1.5 rounded-lg text-sm bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60"
+                      onClick={() => markPrediction(String(prediction.id), false)}
+                      disabled={markingPredictionId === String(prediction.id)}
+                      title="Marcar como incorreta"
+                    >
+                      Incorreta
+                    </button>
+                    {markingPredictionId === String(prediction.id) && (
+                      <span className="text-sm text-gray-500">Salvando…</span>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ))}

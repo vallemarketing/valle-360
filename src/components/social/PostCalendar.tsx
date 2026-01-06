@@ -3,9 +3,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronLeft, ChevronRight, Plus, Clock, Instagram,
+  ChevronLeft, ChevronRight, Plus, Instagram,
   Facebook, Linkedin, Twitter, Eye, Edit3, Trash2,
-  Calendar as CalendarIcon, Image, Video, FileText
+  Image, Video, FileText
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -16,7 +16,7 @@ interface ScheduledPost {
   content: string;
   type: 'image' | 'video' | 'carousel' | 'story' | 'reel';
   platforms: ('instagram' | 'facebook' | 'linkedin' | 'twitter')[];
-  scheduledAt: Date;
+  scheduledAt: Date | string;
   status: 'draft' | 'scheduled' | 'published' | 'failed';
   clientId: string;
   clientName: string;
@@ -62,7 +62,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export function PostCalendar({
-  posts = SAMPLE_POSTS,
+  posts = [],
   onAddPost,
   onEditPost,
   onDeletePost,
@@ -381,49 +381,6 @@ export function PostCalendar({
     </div>
   );
 }
-
-// Sample Data
-const SAMPLE_POSTS: ScheduledPost[] = [
-  {
-    id: '1',
-    title: 'Black Friday - Promoção',
-    content: 'Aproveite nossas ofertas especiais!',
-    type: 'image',
-    platforms: ['instagram', 'facebook'],
-    scheduledAt: new Date(),
-    status: 'scheduled',
-    clientId: '1',
-    clientName: 'Tech Corp',
-    thumbnail: 'https://picsum.photos/200/200?random=1',
-    createdBy: '1'
-  },
-  {
-    id: '2',
-    title: 'Dicas de Marketing',
-    content: 'Carrossel com dicas',
-    type: 'carousel',
-    platforms: ['instagram', 'linkedin'],
-    scheduledAt: new Date(Date.now() + 86400000),
-    status: 'draft',
-    clientId: '2',
-    clientName: 'Startup XYZ',
-    thumbnail: 'https://picsum.photos/200/200?random=2',
-    createdBy: '1'
-  },
-  {
-    id: '3',
-    title: 'Vídeo Institucional',
-    content: 'Conheça nossa história',
-    type: 'video',
-    platforms: ['instagram', 'facebook', 'linkedin'],
-    scheduledAt: new Date(Date.now() + 172800000),
-    status: 'scheduled',
-    clientId: '1',
-    clientName: 'Tech Corp',
-    thumbnail: 'https://picsum.photos/200/200?random=3',
-    createdBy: '2'
-  }
-];
 
 export default PostCalendar;
 

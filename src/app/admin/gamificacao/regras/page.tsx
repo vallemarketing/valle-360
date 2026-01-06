@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 import {
   Settings,
@@ -124,10 +125,10 @@ export default function RegrasGamificacaoPage() {
       )
 
       await Promise.all(updates)
-      alert('✅ Regras atualizadas com sucesso!')
+      toast.success('Regras atualizadas com sucesso!')
     } catch (error: any) {
       console.error('Erro ao salvar regras:', error)
-      alert('❌ ' + error.message)
+      toast.error(error?.message || 'Erro ao salvar regras')
     } finally {
       setSaving(false)
     }
@@ -139,10 +140,10 @@ export default function RegrasGamificacaoPage() {
     try {
       await supabase.from('gamification_rules').delete().neq('id', '')
       await createDefaultRules()
-      alert('✅ Regras restauradas para o padrão!')
+      toast.success('Regras restauradas para o padrão!')
     } catch (error: any) {
       console.error('Erro ao resetar regras:', error)
-      alert('❌ ' + error.message)
+      toast.error(error?.message || 'Erro ao restaurar regras')
     }
   }
 

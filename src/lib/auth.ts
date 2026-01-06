@@ -42,89 +42,67 @@ export async function signOut() {
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  console.log('🔍 getCurrentUser: Iniciando busca de usuário...');
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:46',message:'Getting current user',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'login-loop'})}).catch(()=>{});
-  // #endregion
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    console.log('❌ getCurrentUser: Nenhum usuário autenticado');
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/e7496d7c-c166-4b65-854d-05abdab472d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:50',message:'No authenticated user',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'login-loop'})}).catch(()=>{});
-    // #endregion
     return null;
   }
 
-  console.log('✅ getCurrentUser: Usuário autenticado:', user.email, 'ID:', user.id);
-
   // Tentar buscar role do user_profiles primeiro
-  console.log('📋 getCurrentUser: Buscando em user_profiles...');
   const { data: profileData, error: profileError } = await supabase
     .from('user_profiles')
     .select('full_name, role, user_type')
     .eq('user_id', user.id)
     .single();
 
-  console.log('📋 getCurrentUser: Resultado user_profiles:', profileData, 'Erro:', profileError);
-
   if (profileData) {
     // Normalizar 'employee' para 'colaborador' para compatibilidade
     let role = (profileData.user_type || profileData.role) as UserRole;
-    console.log('🔄 getCurrentUser: Role original do profile:', role);
     if (role === 'employee') {
-      console.log('🔄 getCurrentUser: Normalizando employee → colaborador');
       role = 'colaborador';
     }
+    // Segurança: nunca “promover” para super_admin por ausência de role.
+    // Se não houver role definido, caímos no mais restrito.
+    if (!role) role = 'cliente';
     const userData = {
       id: user.id,
       email: user.email!,
       name: profileData.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '',
-      role: role || 'super_admin' // Default para super_admin se não encontrar
+      role
     };
-    console.log('✅ getCurrentUser: Retornando dados do user_profiles:', userData);
     return userData;
   }
 
   // Fallback: tentar buscar da tabela users
-  console.log('📋 getCurrentUser: Buscando em users...');
   const { data: userData, error: userError } = await supabase
     .from('users')
     .select('full_name, role, user_type')
     .eq('id', user.id)
     .single();
 
-  console.log('📋 getCurrentUser: Resultado users:', userData, 'Erro:', userError);
-
   if (userData) {
     // Normalizar 'employee' para 'colaborador' para compatibilidade
     let role = (userData.user_type || userData.role) as UserRole;
-    console.log('🔄 getCurrentUser: Role original do users:', role);
     if (role === 'employee') {
-      console.log('🔄 getCurrentUser: Normalizando employee → colaborador');
       role = 'colaborador';
     }
+    if (!role) role = 'cliente';
     const finalUserData = {
       id: user.id,
       email: user.email!,
       name: userData.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '',
-      role: role || 'colaborador'
+      role
     };
-    console.log('✅ getCurrentUser: Retornando dados do users:', finalUserData);
     return finalUserData;
   }
 
-  // Último fallback: usar metadata ou definir como super_admin se for email Valle
-  const isValleEmail = user.email?.includes('@vallegroup.com.br') || user.email?.includes('@valle360.com.br');
-  console.log('📧 getCurrentUser: Email Valle?', isValleEmail);
-  
+  // Último fallback: usar metadata (nunca “promover” por e-mail)
   const fallbackData = {
     id: user.id,
     email: user.email!,
     name: user.user_metadata?.name || user.email?.split('@')[0] || '',
-    role: isValleEmail ? 'super_admin' : (user.user_metadata?.role as UserRole || 'cliente')
+    role: (user.user_metadata?.role as UserRole) || 'cliente'
   };
-  console.log('⚠️ getCurrentUser: Usando fallback:', fallbackData);
   return fallbackData;
 }
 

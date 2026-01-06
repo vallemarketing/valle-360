@@ -402,7 +402,7 @@ function AdminKanbanContent() {
       setShowNewTaskForm(false)
     } catch (error) {
       console.error('Erro ao criar tarefa:', error)
-      alert('Erro ao criar tarefa')
+      toast.error('Erro ao criar tarefa')
     }
   }
 

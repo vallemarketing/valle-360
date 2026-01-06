@@ -22,12 +22,14 @@ interface GroupListProps {
   onSelectGroup: (group: Group) => void;
   selectedGroupId?: string;
   currentUserId: string;
+  adminView?: boolean;
 }
 
 export function GroupList({
   onSelectGroup,
   selectedGroupId,
   currentUserId,
+  adminView = false,
 }: GroupListProps) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,28 +84,39 @@ export function GroupList({
     try {
       setIsLoading(true);
 
-      const { data: participations, error: participError } = await supabase
-        .from('group_participants')
-        .select(`
-          unread_count,
-          message_groups!inner (
-            id,
-            name,
-            type,
-            description,
-            last_message_at,
-            last_message_preview
-          )
-        `)
-        .eq('user_id', currentUserId)
-        .eq('is_active', true);
+      let groupData: any[] = [];
 
-      if (participError) throw participError;
+      if (adminView) {
+        const { data, error } = await supabase
+          .from('message_groups')
+          .select('id, name, type, description, last_message_at, last_message_preview')
+          .order('last_message_at', { ascending: false, nullsFirst: false });
+        if (error) throw error;
+        groupData = (data || []).map((g: any) => ({ ...g, unread_count: 0 }));
+      } else {
+        const { data: participations, error: participError } = await supabase
+          .from('group_participants')
+          .select(`
+            unread_count,
+            message_groups!inner (
+              id,
+              name,
+              type,
+              description,
+              last_message_at,
+              last_message_preview
+            )
+          `)
+          .eq('user_id', currentUserId)
+          .eq('is_active', true);
 
-      const groupData = (participations || []).map((p: any) => ({
-        ...p.message_groups,
-        unread_count: p.unread_count,
-      }));
+        if (participError) throw participError;
+
+        groupData = (participations || []).map((p: any) => ({
+          ...p.message_groups,
+          unread_count: p.unread_count,
+        }));
+      }
 
       groupData.sort((a, b) => {
         const dateA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;

@@ -57,9 +57,10 @@ interface Group {
 interface GroupChatWindowProps {
   group: Group;
   currentUserId: string;
+  readOnly?: boolean;
 }
 
-export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) {
+export function GroupChatWindow({ group, currentUserId, readOnly = false }: GroupChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -91,7 +92,7 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
       loadMessages();
       checkIfAdmin();
       loadParticipants();
-      markAsRead();
+      if (!readOnly) markAsRead();
 
       const channel = supabase
         .channel(`messages-${group.id}`)
@@ -117,7 +118,7 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
               }, 500);
             }
             loadMessages();
-            markAsRead();
+            if (!readOnly) markAsRead();
           }
         )
         .subscribe();
@@ -261,6 +262,7 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     if ((!newMessage.trim() && attachments.length === 0) || isSending) return;
 
     setIsSending(true);
@@ -595,14 +597,16 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
             onResultClick={scrollToMessage}
             participants={groupParticipants}
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsManagementOpen(true)}
-            title="Gerenciar grupo"
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
+          {!readOnly && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsManagementOpen(true)}
+              title="Gerenciar grupo"
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -630,60 +634,68 @@ export function GroupChatWindow({ group, currentUserId }: GroupChatWindowProps) 
         <div ref={messagesEndRef} />
       </div>
 
-      <TypingIndicator groupId={group.id} currentUserId={currentUserId} />
+      {!readOnly && <TypingIndicator groupId={group.id} currentUserId={currentUserId} />}
 
-      <div className="p-4 border-t space-y-3">
-        <AttachmentUpload
-          onAttachmentsChange={setAttachments}
-          maxFiles={5}
-          maxSizeInMB={50}
-        />
-        <form onSubmit={handleSendMessage} className="flex items-start gap-2">
-          <EmojiPicker onEmojiSelect={handleEmojiSelect} />
-          <div className="relative flex-1">
-            <Input
-              ref={messageInputRef as any}
-              value={newMessage}
-              onChange={handleInputChange}
-              onBlur={() => {
-                stopTyping();
-                setTimeout(() => setMentionOpen(false), 150);
-              }}
-              onKeyUp={() => refreshMentionStateFromInput()}
-              onClick={() => refreshMentionStateFromInput()}
-              placeholder="Digite uma mensagem... (use @ para mencionar)"
-              disabled={isSending}
-              className="flex-1"
-            />
+      {readOnly ? (
+        <div className="px-4 py-3 border-t bg-gray-50 dark:bg-gray-900">
+          <p className="text-xs text-gray-600 dark:text-gray-300">
+            Visualização do Super Admin: somente leitura (envio e “lido” desativados).
+          </p>
+        </div>
+      ) : (
+        <div className="p-4 border-t space-y-3">
+          <AttachmentUpload
+            onAttachmentsChange={setAttachments}
+            maxFiles={5}
+            maxSizeInMB={50}
+          />
+          <form onSubmit={handleSendMessage} className="flex items-start gap-2">
+            <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+            <div className="relative flex-1">
+              <Input
+                ref={messageInputRef as any}
+                value={newMessage}
+                onChange={handleInputChange}
+                onBlur={() => {
+                  stopTyping();
+                  setTimeout(() => setMentionOpen(false), 150);
+                }}
+                onKeyUp={() => refreshMentionStateFromInput()}
+                onClick={() => refreshMentionStateFromInput()}
+                placeholder="Digite uma mensagem... (use @ para mencionar)"
+                disabled={isSending}
+                className="flex-1"
+              />
 
-            {mentionOpen && filteredMentionCandidates.length > 0 && (
-              <div className="absolute left-0 right-0 bottom-full mb-2 z-50 rounded-lg border bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
-                <div className="max-h-56 overflow-y-auto">
-                  {filteredMentionCandidates.map((c) => (
-                    <button
-                      key={c.userId}
-                      type="button"
-                      onMouseDown={(ev) => ev.preventDefault()}
-                      onClick={() => applyMention(c)}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{c.label}</div>
-                      {c.email && <div className="text-xs text-gray-500">{c.email}</div>}
-                    </button>
-                  ))}
+              {mentionOpen && filteredMentionCandidates.length > 0 && (
+                <div className="absolute left-0 right-0 bottom-full mb-2 z-50 rounded-lg border bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
+                  <div className="max-h-56 overflow-y-auto">
+                    {filteredMentionCandidates.map((c) => (
+                      <button
+                        key={c.userId}
+                        type="button"
+                        onMouseDown={(ev) => ev.preventDefault()}
+                        onClick={() => applyMention(c)}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+                      >
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{c.label}</div>
+                        {c.email && <div className="text-xs text-gray-500">{c.email}</div>}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-          <Button
-            type="submit"
-            disabled={(!newMessage.trim() && attachments.length === 0) || isSending}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Send className="w-5 h-5" />
-          </Button>
-        </form>
-      </div>
+              )}
+            </div>
+            <Button
+              type="submit"
+              disabled={(!newMessage.trim() && attachments.length === 0) || isSending}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Send className="w-5 h-5" />
+            </Button>
+          </form>
+        </div>
+      )}
 
       {isManagementOpen && (
         <GroupManagementModal

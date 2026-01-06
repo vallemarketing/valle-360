@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AREA_BOARDS } from '@/lib/kanban/areaBoards'
+import { toast } from 'sonner'
 
 // ============================================
 // APROVAÇÕES - LAYOUT VERTICAL COMPACTO
@@ -75,7 +76,7 @@ export default function ClientApprovals() {
       setComment('')
     } catch (e) {
       console.error(e)
-      alert(e instanceof Error ? e.message : 'Falha ao enviar')
+      toast.error(e instanceof Error ? e.message : 'Falha ao enviar')
     } finally {
       setSubmitting(false)
     }

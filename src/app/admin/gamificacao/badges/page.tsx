@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Award,
@@ -143,10 +144,10 @@ export default function BadgesAdminPage() {
 
       setIsModalOpen(false)
       loadBadges()
-      alert(editingBadge ? '✅ Badge atualizada!' : '✅ Badge criada!')
+      toast.success(editingBadge ? 'Badge atualizada!' : 'Badge criada!')
     } catch (error: any) {
       console.error('Erro ao salvar badge:', error)
-      alert('❌ ' + error.message)
+      toast.error(error?.message || 'Erro ao salvar badge')
     }
   }
 
@@ -161,10 +162,10 @@ export default function BadgesAdminPage() {
 
       if (error) throw error
       loadBadges()
-      alert('✅ Badge excluída!')
+      toast.success('Badge excluída!')
     } catch (error: any) {
       console.error('Erro ao excluir badge:', error)
-      alert('❌ ' + error.message)
+      toast.error(error?.message || 'Erro ao excluir badge')
     }
   }
 

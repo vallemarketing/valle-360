@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
 import { fetchProfilesMapByAuthIds } from '@/lib/messaging/userProfiles';
+import { toast } from 'sonner';
 
 interface MaterialRequest {
   id: string;
@@ -236,14 +237,14 @@ export default function SolicitacoesMaterialPage() {
   const handleCreateRequest = async () => {
     try {
       if (!newForm.title.trim()) {
-        alert('Título é obrigatório');
+        toast.error('Título é obrigatório');
         return;
       }
 
       const areaKey = mapTypeToAreaKey(newForm.type);
       const board = boards.find((b) => String(b.area_key) === areaKey) || null;
       if (!board?.id) {
-        alert('Board da área não encontrado');
+        toast.error('Board da área não encontrado');
         return;
       }
 
@@ -254,7 +255,7 @@ export default function SolicitacoesMaterialPage() {
         .eq('stage_key', 'demanda')
         .maybeSingle();
       if (colErr || !demandCol?.id) {
-        alert('Coluna "Demanda" não encontrada no board de destino');
+        toast.error('Coluna "Demanda" não encontrada no board de destino');
         return;
       }
 
@@ -274,10 +275,10 @@ export default function SolicitacoesMaterialPage() {
       setShowNewModal(false);
       setNewForm({ title: '', description: '', type: 'arte', priority: 'medium', deadline: '', clientId: '' });
       await loadRequests();
-      alert('✅ Solicitação criada com sucesso!');
+      toast.success('Solicitação criada com sucesso!');
     } catch (e: any) {
       console.error(e);
-      alert(e?.message || 'Erro ao criar solicitação');
+      toast.error(e?.message || 'Erro ao criar solicitação');
     }
   };
 
@@ -467,7 +468,7 @@ export default function SolicitacoesMaterialPage() {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          alert('📎 Para baixar anexos, abra o card no Kanban (os arquivos ficam nos anexos do card).');
+                          toast.message('Para baixar anexos, abra o card no Kanban (os arquivos ficam nos anexos do card).');
                         }}
                       >
                         <Download className="w-4 h-4" />
@@ -646,7 +647,11 @@ export default function SolicitacoesMaterialPage() {
       <div>
                     <label className="block text-sm font-medium text-gray-500 mb-2">Arquivos Anexados ({selectedRequest.attachments})</label>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => alert('📥 Baixando todos os arquivos...')}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toast.message('Para baixar anexos, abra o card no Kanban (os arquivos ficam nos anexos do card).')}
+                      >
                         <Download className="w-4 h-4 mr-1" />
                         Baixar Todos
                       </Button>
@@ -654,15 +659,57 @@ export default function SolicitacoesMaterialPage() {
                   </div>
                 </div>
                 <div className="p-6 border-t flex justify-between">
-                  <Button variant="outline" onClick={() => alert('✅ Status atualizado!')}>
+                  <Button
+                    variant="outline"
+                    onClick={() => toast.message('Atualize o status pelo Kanban (mover coluna/etapa).')}
+                  >
                     Atualizar Status
                   </Button>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => alert('💬 Abrindo chat...')}>
+                    <Button
+                      variant="outline"
+                      onClick={() => toast.message('Comentários ficam no card do Kanban (campo de comentários).')}
+                    >
                       <MessageSquare className="w-4 h-4 mr-1" />
                       Comentar
                     </Button>
-                    <Button className="bg-green-600 hover:bg-green-700" onClick={() => { alert('✅ Material aprovado e enviado ao cliente!'); setSelectedRequest(null); }}>
+                    <Button
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={async () => {
+                        try {
+                          // Best-effort: marcar tarefa como concluída (done) e mover para coluna finalizado se existir.
+                          const { data: task } = await supabase
+                            .from('kanban_tasks')
+                            .select('id, board_id')
+                            .eq('id', selectedRequest.id)
+                            .maybeSingle();
+
+                          const boardId = task?.board_id ? String((task as any).board_id) : null;
+                          let finalColId: string | null = null;
+                          if (boardId) {
+                            const { data: finalCol } = await supabase
+                              .from('kanban_columns')
+                              .select('id')
+                              .eq('board_id', boardId)
+                              .eq('stage_key', 'finalizado')
+                              .maybeSingle();
+                            if (finalCol?.id) finalColId = String((finalCol as any).id);
+                          }
+
+                          const payload: any = { status: 'done', updated_at: new Date().toISOString() };
+                          if (finalColId) payload.column_id = finalColId;
+
+                          const { error: upErr } = await supabase.from('kanban_tasks').update(payload).eq('id', selectedRequest.id);
+                          if (upErr) throw upErr;
+
+                          toast.success('Solicitação marcada como concluída.');
+                          setSelectedRequest(null);
+                          await loadRequests();
+                        } catch (e: any) {
+                          toast.error(e?.message || 'Falha ao atualizar solicitação');
+                        }
+                      }}
+                    >
                       <CheckCircle className="w-4 h-4 mr-1" />
                       Aprovar
                     </Button>

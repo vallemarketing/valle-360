@@ -2,6 +2,7 @@
 // Middleware de segurança para API routes
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { withRateLimit, RateLimitType } from './rateLimit';
 import { audit } from './auditLog';
 import { validate, validationErrorResponse } from './validation';
@@ -190,30 +191,53 @@ async function checkAuth(request: NextRequest): Promise<{
   authenticated: boolean;
   user?: { id: string; email: string; role: string };
 }> {
-  // Verificar token no header ou cookie
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  
-  if (!token) {
-    // Tentar pegar do cookie
-    const cookieToken = request.cookies.get('sb-access-token')?.value;
-    if (!cookieToken) {
-      return { authenticated: false };
-    }
+  const authHeader = request.headers.get('authorization') || '';
+  const bearer = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : null;
+  const cookieToken = request.cookies.get('sb-access-token')?.value || null;
+  const token = bearer || cookieToken;
+
+  if (!token) return { authenticated: false };
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) {
+    // Sem config, não “libera” por default.
+    return { authenticated: false };
   }
 
-  // TODO: Validar token com Supabase
-  // Por enquanto, retornar como autenticado para não quebrar
-  // Em produção, implementar validação real
-  
-  return {
-    authenticated: true,
-    user: {
-      id: 'user-id',
-      email: 'user@example.com',
-      role: 'colaborador'
-    }
-  };
+  const supabase = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+
+  const { data: auth } = await supabase.auth.getUser();
+  const user = auth.user;
+  if (!user?.id || !user.email) return { authenticated: false };
+
+  // Descobrir role via tabelas (sem promoção por fallback)
+  let role: string | null = null;
+
+  const { data: profileData } = await supabase
+    .from('user_profiles')
+    .select('role, user_type')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  role = (profileData?.user_type || profileData?.role || null) as string | null;
+
+  if (!role) {
+    const { data: usersData } = await supabase
+      .from('users')
+      .select('role, user_type')
+      .eq('id', user.id)
+      .maybeSingle();
+    role = (usersData?.user_type || usersData?.role || null) as string | null;
+  }
+
+  if (role === 'employee') role = 'colaborador';
+  if (!role) role = (user.user_metadata?.role as string | undefined) || 'cliente';
+
+  return { authenticated: true, user: { id: user.id, email: user.email, role } };
 }
 
 /**

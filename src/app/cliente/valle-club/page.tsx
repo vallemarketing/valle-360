@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
@@ -48,23 +48,14 @@ const LEVELS = [
 
 // Badges/Conquistas
 const BADGES = [
-  { id: "early_adopter", name: "Early Adopter", description: "Primeiro mês ativo", icon: Rocket, unlocked: true, date: "Nov 2024" },
-  { id: "fast_approver", name: "Aprovador Rápido", description: "10 aprovações em menos de 24h", icon: Zap, unlocked: true, date: "Nov 2024" },
-  { id: "communicator", name: "Comunicativo", description: "50 mensagens enviadas", icon: MessageSquare, unlocked: true, date: "Out 2024" },
-  { id: "growth", name: "Crescimento", description: "ROI acima de 200%", icon: TrendingUp, unlocked: true, date: "Dez 2024" },
-  { id: "goal_crusher", name: "Meta Batida", description: "Atingiu meta do mês", icon: Target, unlocked: false },
-  { id: "ambassador", name: "Embaixador", description: "Indicou 3 clientes", icon: Users, unlocked: false },
-  { id: "punctual_payer", name: "Pagador Exemplar", description: "12 faturas pagas em dia", icon: CreditCard, unlocked: false },
-  { id: "client_of_month", name: "Cliente do Mês", description: "Maior engajamento", icon: Award, unlocked: false },
-];
-
-// Histórico de pontos
-const POINTS_HISTORY = [
-  { id: 1, action: "Aprovação no prazo", points: 50, date: "2025-12-03", icon: FileCheck },
-  { id: 2, action: "Pagamento em dia", points: 100, date: "2025-12-01", icon: CreditCard },
-  { id: 3, action: "Resposta NPS", points: 30, date: "2025-11-28", icon: Star },
-  { id: 4, action: "Aprovação no prazo", points: 50, date: "2025-11-25", icon: FileCheck },
-  { id: 5, action: "Reunião mensal", points: 40, date: "2025-11-20", icon: Calendar },
+  { id: "early_adopter", name: "Early Adopter", description: "Primeiro mês ativo", icon: Rocket },
+  { id: "fast_approver", name: "Aprovador Rápido", description: "10 aprovações em menos de 24h", icon: Zap },
+  { id: "communicator", name: "Comunicativo", description: "50 mensagens enviadas", icon: MessageSquare },
+  { id: "growth", name: "Crescimento", description: "ROI acima de 200%", icon: TrendingUp },
+  { id: "goal_crusher", name: "Meta Batida", description: "Atingiu meta do mês", icon: Target },
+  { id: "ambassador", name: "Embaixador", description: "Indicou 3 clientes", icon: Users },
+  { id: "punctual_payer", name: "Pagador Exemplar", description: "12 faturas pagas em dia", icon: CreditCard },
+  { id: "client_of_month", name: "Cliente do Mês", description: "Maior engajamento", icon: Award },
 ];
 
 // Recompensas gerais
@@ -126,27 +117,119 @@ const SEGMENT_BENEFITS: SegmentBenefit[] = [
 
 // Metas para desbloquear benefícios
 const BENEFIT_GOALS = [
-  { id: 1, name: "Aprovador Ágil", description: "Aprovar conteúdos em até 24h por 3 meses", progress: 2, total: 3, icon: Zap },
-  { id: 2, name: "NPS Exemplar", description: "NPS acima de 9 por 6 meses", progress: 4, total: 6, icon: Star },
-  { id: 3, name: "Embaixador Valle", description: "Indicar 2 novos clientes", progress: 1, total: 2, icon: Users },
-  { id: 4, name: "Pagador Pontual", description: "Pagar em dia por 12 meses", progress: 8, total: 12, icon: CreditCard },
-  { id: 5, name: "Parceiro Presente", description: "Participar de todas as reuniões mensais", progress: 5, total: 6, icon: Calendar },
+  { id: 1, name: "Aprovador Ágil", description: "Aprovar conteúdos em até 24h por 3 meses", progress: 0, total: 3, icon: Zap },
+  { id: 2, name: "NPS Exemplar", description: "NPS acima de 9 por 6 meses", progress: 0, total: 6, icon: Star },
+  { id: 3, name: "Embaixador Valle", description: "Indicar 2 novos clientes", progress: 0, total: 2, icon: Users },
+  { id: 4, name: "Pagador Pontual", description: "Pagar em dia por 12 meses", progress: 0, total: 12, icon: CreditCard },
+  { id: 5, name: "Parceiro Presente", description: "Participar de todas as reuniões mensais", progress: 0, total: 6, icon: Calendar },
 ];
 
 export default function ValleClubPage() {
   const [activeTab, setActiveTab] = useState("visao-geral");
+  const [loading, setLoading] = useState(true);
+  const [userPoints, setUserPoints] = useState(0);
+  const [segment, setSegment] = useState<string | null>(null);
+  const [unlockedBadgeIds, setUnlockedBadgeIds] = useState<string[]>([]);
+  const [badgeDates, setBadgeDates] = useState<Record<string, string | null>>({});
+  const [pointsHistory, setPointsHistory] = useState<Array<{ id: string; action: string; points: number; date: string; kind: string }>>([]);
+  const [rankingTop, setRankingTop] = useState<Array<{ position: number; name: string; points: number; isYou: boolean }>>([]);
+  const [myRank, setMyRank] = useState<number | null>(null);
+  const [clubWarnings, setClubWarnings] = useState<string[]>([]);
   
-  // Dados do usuário (mock)
-  const userPoints = 2450;
   const currentLevel = LEVELS.find(l => userPoints >= l.minPoints && userPoints <= l.maxPoints) || LEVELS[0];
   const nextLevel = LEVELS[LEVELS.indexOf(currentLevel) + 1];
-  const progressToNextLevel = nextLevel 
+  const progressToNextLevel = nextLevel
     ? ((userPoints - currentLevel.minPoints) / (nextLevel.minPoints - currentLevel.minPoints)) * 100
     : 100;
-  const pointsToNextLevel = nextLevel ? nextLevel.minPoints - userPoints : 0;
-  const unlockedBadges = BADGES.filter(b => b.unlocked).length;
+  const pointsToNextLevel = nextLevel ? Math.max(0, nextLevel.minPoints - userPoints) : 0;
+  const unlockedBadges = unlockedBadgeIds.length;
 
   const LevelIcon = currentLevel.icon;
+
+  const rewardsAvailable = useMemo(() => {
+    return REWARDS.filter((r) => r.available && userPoints >= r.points).length;
+  }, [userPoints]);
+
+  const visibleBenefits = useMemo(() => {
+    if (!segment) return SEGMENT_BENEFITS;
+    const s = segment.toLowerCase();
+    const matched = SEGMENT_BENEFITS.filter((b) => String(b.segment).toLowerCase().includes(s) || s.includes(String(b.segment).toLowerCase()));
+    return matched.length ? matched : SEGMENT_BENEFITS;
+  }, [segment]);
+
+  const pointsIconFor = (kind: string) => {
+    const k = String(kind || '').toLowerCase();
+    if (k.includes('invoice') || k.includes('payment')) return CreditCard;
+    if (k.includes('approval')) return FileCheck;
+    if (k.includes('nps')) return Star;
+    if (k.includes('meeting')) return Calendar;
+    if (k.includes('message')) return MessageSquare;
+    return Star;
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/client/valle-club', { cache: 'no-store' });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success) throw new Error(json?.error || 'Falha ao carregar Valle Club');
+
+        setClubWarnings(Array.isArray(json?.warnings) ? json.warnings : []);
+        setUserPoints(Number(json?.score?.total_points || 0));
+        setSegment(json?.client?.segment ? String(json.client.segment) : null);
+
+        const badges = Array.isArray(json?.score?.badges) ? json.score.badges : [];
+        const ids = badges.map((b: any) => String(b?.id || '').trim()).filter(Boolean);
+        const dates: Record<string, string | null> = {};
+        for (const b of badges) {
+          const id = String(b?.id || '').trim();
+          if (!id) continue;
+          dates[id] = b?.date ? String(b.date) : null;
+        }
+        setUnlockedBadgeIds(ids);
+        setBadgeDates(dates);
+
+        const hist = Array.isArray(json?.points_history) ? json.points_history : [];
+        setPointsHistory(
+          hist
+            .map((h: any) => ({
+              id: String(h?.id || ''),
+              kind: String(h?.kind || 'activity'),
+              action: String(h?.action || 'Atividade registrada'),
+              points: Number(h?.points || 0),
+              date: String(h?.date || new Date().toISOString()),
+            }))
+            .filter((x: any) => !!x.id)
+        );
+
+        const top10 = Array.isArray(json?.ranking?.top10) ? json.ranking.top10 : [];
+        setRankingTop(
+          top10.map((t: any) => ({
+            position: Number(t?.position || 0),
+            name: String(t?.name || 'Cliente'),
+            points: Number(t?.points || 0),
+            isYou: !!t?.isYou,
+          }))
+        );
+        setMyRank(json?.ranking?.my_position != null ? Number(json.ranking.my_position) : null);
+      } catch (e) {
+        console.error('Valle Club load failed:', e);
+        setUserPoints(0);
+        setSegment(null);
+        setUnlockedBadgeIds([]);
+        setBadgeDates({});
+        setPointsHistory([]);
+        setRankingTop([]);
+        setMyRank(null);
+        setClubWarnings([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, []);
 
   return (
     <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
@@ -249,7 +332,7 @@ export default function ValleClubPage() {
                 <TrendingUp className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-[#001533] dark:text-white">#12</p>
+                <p className="text-2xl font-bold text-[#001533] dark:text-white">{myRank ? `#${myRank}` : '—'}</p>
                 <p className="text-sm text-[#001533]/60 dark:text-white/60">No ranking</p>
               </div>
             </div>
@@ -263,7 +346,7 @@ export default function ValleClubPage() {
                 <Gift className="w-5 h-5 text-orange-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-[#001533] dark:text-white">3</p>
+                <p className="text-2xl font-bold text-[#001533] dark:text-white">{rewardsAvailable}</p>
                 <p className="text-sm text-[#001533]/60 dark:text-white/60">Recompensas disponíveis</p>
               </div>
             </div>
@@ -324,8 +407,21 @@ export default function ValleClubPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {POINTS_HISTORY.map((item) => {
-                    const Icon = item.icon;
+                  {pointsHistory.length === 0 && !loading && (
+                    <div className="p-3 rounded-lg bg-[#001533]/5 dark:bg-white/5">
+                      <p className="text-sm text-[#001533]/60 dark:text-white/60">
+                        Sem atividades recentes de pontuação registradas.
+                      </p>
+                      {clubWarnings.length > 0 && (
+                        <p className="text-xs mt-1 text-[#001533]/50 dark:text-white/50">
+                          Observações: {clubWarnings.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {pointsHistory.map((item) => {
+                    const Icon = pointsIconFor(item.kind);
                     return (
                       <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-[#001533]/5 dark:bg-white/5">
                         <div className="flex items-center gap-3">
@@ -353,13 +449,15 @@ export default function ValleClubPage() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {BADGES.map((badge) => {
                 const Icon = badge.icon;
+                const isUnlocked = unlockedBadgeIds.includes(badge.id);
+                const dateStr = badgeDates[badge.id] || null;
                 return (
                   <motion.div
                     key={badge.id}
-                    whileHover={{ scale: badge.unlocked ? 1.02 : 1 }}
+                    whileHover={{ scale: isUnlocked ? 1.02 : 1 }}
                     className={cn(
                       "p-4 rounded-xl border-2 transition-all",
-                      badge.unlocked 
+                      isUnlocked
                         ? "border-[#1672d6]/30 bg-[#1672d6]/5" 
                         : "border-[#001533]/10 dark:border-white/10 bg-[#001533]/5 dark:bg-white/5 opacity-60"
                     )}
@@ -367,15 +465,15 @@ export default function ValleClubPage() {
                     <div className="flex items-start justify-between mb-3">
                       <div className={cn(
                         "p-3 rounded-xl",
-                        badge.unlocked ? "bg-[#1672d6]/10" : "bg-[#001533]/10 dark:bg-white/10"
+                        isUnlocked ? "bg-[#1672d6]/10" : "bg-[#001533]/10 dark:bg-white/10"
                       )}>
-                        {badge.unlocked ? (
+                        {isUnlocked ? (
                           <Icon className="w-6 h-6 text-[#1672d6]" />
                         ) : (
                           <Lock className="w-6 h-6 text-[#001533]/40 dark:text-white/40" />
                         )}
                       </div>
-                      {badge.unlocked && (
+                      {isUnlocked && (
                         <CheckCircle className="w-5 h-5 text-emerald-500" />
                       )}
                     </div>
@@ -385,9 +483,9 @@ export default function ValleClubPage() {
                     <p className="text-sm text-[#001533]/60 dark:text-white/60 mb-2">
                       {badge.description}
                     </p>
-                    {badge.unlocked && badge.date && (
+                    {isUnlocked && dateStr && (
                       <p className="text-xs text-[#1672d6]">
-                        Conquistado em {badge.date}
+                        Conquistado em {dateStr}
                       </p>
                     )}
                   </motion.div>
@@ -407,13 +505,18 @@ export default function ValleClubPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {[
-                    { pos: 1, name: "Empresa ABC Ltda", points: 4850, level: "Diamante" },
-                    { pos: 2, name: "Tech Solutions", points: 4200, level: "Diamante" },
-                    { pos: 3, name: "Marketing Pro", points: 3900, level: "Ouro" },
-                    { pos: 4, name: "Você", points: userPoints, level: currentLevel.name, isYou: true },
-                    { pos: 5, name: "Digital Agency", points: 2100, level: "Ouro" },
-                  ].map((item, index) => (
+                  {rankingTop.length === 0 && !loading && (
+                    <div className="p-4 rounded-xl bg-[#001533]/5 dark:bg-white/5">
+                      <p className="text-sm text-[#001533]/60 dark:text-white/60">
+                        Ranking indisponível no momento (sem dados de pontuação suficientes).
+                      </p>
+                    </div>
+                  )}
+
+                  {rankingTop.map((item, index) => {
+                    const levelName =
+                      LEVELS.find((l) => item.points >= l.minPoints && item.points <= l.maxPoints)?.name || LEVELS[0].name;
+                    return (
                     <div
                       key={index}
                       className={cn(
@@ -426,12 +529,12 @@ export default function ValleClubPage() {
                       <div className="flex items-center gap-4">
                         <div className={cn(
                           "w-10 h-10 rounded-full flex items-center justify-center font-bold",
-                          item.pos === 1 ? "bg-yellow-500 text-white" :
-                          item.pos === 2 ? "bg-gray-400 text-white" :
-                          item.pos === 3 ? "bg-amber-700 text-white" :
+                          item.position === 1 ? "bg-yellow-500 text-white" :
+                          item.position === 2 ? "bg-gray-400 text-white" :
+                          item.position === 3 ? "bg-amber-700 text-white" :
                           "bg-[#001533]/10 dark:bg-white/10 text-[#001533] dark:text-white"
                         )}>
-                          {item.pos}
+                          {item.position}
                         </div>
                         <div>
                           <p className={cn(
@@ -441,7 +544,7 @@ export default function ValleClubPage() {
                             {item.name}
                           </p>
                           <Badge variant="outline" className="text-xs">
-                            {item.level}
+                            {levelName}
                           </Badge>
                         </div>
                       </div>
@@ -452,7 +555,7 @@ export default function ValleClubPage() {
                         <p className="text-sm text-[#001533]/50 dark:text-white/50">pontos</p>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               </CardContent>
             </Card>
@@ -533,7 +636,7 @@ export default function ValleClubPage() {
               </p>
 
               <div className="grid sm:grid-cols-2 gap-4">
-                {SEGMENT_BENEFITS.map((benefit, idx) => (
+                {visibleBenefits.map((benefit, idx) => (
                   <motion.div
                     key={benefit.segment}
                     initial={{ opacity: 0, y: 20 }}

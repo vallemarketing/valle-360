@@ -1,28 +1,45 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, Filter, Search, Bell } from 'lucide-react';
+import { CheckCircle, Search } from 'lucide-react';
 import { ApprovalFlow } from '@/components/approvals/ApprovalFlow';
 
 export default function AprovacoesPage() {
   const [viewMode, setViewMode] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleApprove = async (itemId: string, comment?: string) => {
-    console.log('Aprovar:', itemId, comment);
-    // TODO: Call API to approve
-  };
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch('/api/collaborator/approvals', { cache: 'no-store' });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success) throw new Error(json?.error || 'Falha ao carregar aprovações');
+        setItems(Array.isArray(json?.items) ? json.items : []);
+      } catch (e: any) {
+        console.error('Falha ao carregar aprovações (colaborador):', e);
+        setItems([]);
+        setError(String(e?.message || 'Falha ao carregar aprovações'));
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
-  const handleReject = async (itemId: string, comment: string) => {
-    console.log('Rejeitar:', itemId, comment);
-    // TODO: Call API to reject
-  };
-
-  const handleRequestRevision = async (itemId: string, comment: string) => {
-    console.log('Solicitar revisão:', itemId, comment);
-    // TODO: Call API to request revision
-  };
+  const filteredItems = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((it: any) => {
+      const hay = `${it?.title || ''} ${it?.clientName || ''} ${it?.description || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [items, searchTerm]);
 
   return (
     <div className="min-h-screen p-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -92,11 +109,17 @@ export default function AprovacoesPage() {
         </div>
 
         {/* Approval Flow */}
+        {error && (
+          <div className="p-4 rounded-xl border" style={{ borderColor: 'var(--error-300)', backgroundColor: 'var(--bg-primary)' }}>
+            <p style={{ color: 'var(--error-700)' }}>{error}</p>
+          </div>
+        )}
+
         <ApprovalFlow
           viewMode={viewMode}
-          onApprove={handleApprove}
-          onReject={handleReject}
-          onRequestRevision={handleRequestRevision}
+          items={filteredItems}
+          readOnly={true}
+          isClientView={false}
         />
       </div>
     </div>

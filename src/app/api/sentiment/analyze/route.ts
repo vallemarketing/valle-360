@@ -10,6 +10,25 @@ import { analyzeAndStore, queueForAnalysis, SentimentSourceType } from '@/lib/ai
 
 export const dynamic = 'force-dynamic';
 
+function isUuid(v: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v || ''));
+}
+
+function safeUuid(input?: unknown) {
+  const s = String(input || '').trim();
+  if (s && isUuid(s)) return s;
+  try {
+    return crypto.randomUUID();
+  } catch {
+    // fallback simples
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+}
+
 // POST - Analisar texto (imediato ou fila)
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +39,12 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    // Admin-only: este endpoint grava no banco via service role
+    const { data: isAdmin } = await supabase.rpc('is_admin');
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -47,7 +72,7 @@ export async function POST(request: NextRequest) {
       
       for (const item of texts) {
         const itemText = typeof item === 'string' ? item : item.text;
-        const itemId = typeof item === 'string' ? `batch_${Date.now()}_${Math.random()}` : item.id;
+        const itemId = typeof item === 'string' ? safeUuid() : safeUuid(item.id);
         
         if (queue) {
           const queueId = await queueForAnalysis(
@@ -77,7 +102,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Análise única
-    const id = source_id || `manual_${Date.now()}`;
+    const id = safeUuid(source_id);
 
     if (queue) {
       const queueId = await queueForAnalysis(
@@ -132,6 +157,11 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const { data: isAdmin } = await supabase.rpc('is_admin');
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

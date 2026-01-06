@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Settings } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { DirectorChatModal } from '@/components/diretoria/DirectorChatModal';
 
 export default function CTOPage() {
   return (
@@ -18,6 +19,17 @@ export default function CTOPage() {
               Sem mocks: métricas de capacidade/eficiência só com dados reais do Kanban + auditoria.
             </p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <DirectorChatModal
+            director="cto"
+            title="Conversar com CTO"
+            subtitle="Chat executivo focado em operação (SLA, WIP, gargalos)."
+          />
+          <Link href="/admin/diretoria" className="text-sm underline" style={{ color: 'var(--primary-500)' }}>
+            Voltar
+          </Link>
         </div>
 
         <div

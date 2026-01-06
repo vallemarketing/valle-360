@@ -5,6 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { processNextInQueue, processAllPending } from '@/lib/ai/sentiment-automation';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,14 +26,28 @@ function verifyCronKey(request: NextRequest): boolean {
   return cronKey === validKey;
 }
 
+async function isAdminSession(request: NextRequest): Promise<boolean> {
+  try {
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const { data } = await supabase.auth.getUser();
+    if (!data?.user?.id) return false;
+    const { data: isAdmin } = await supabase.rpc('is_admin');
+    return !!isAdmin;
+  } catch {
+    return false;
+  }
+}
+
 // POST - Processar fila (chamado por cron ou manualmente)
 export async function POST(request: NextRequest) {
   try {
-    // Verificar autenticação
-    if (!verifyCronKey(request)) {
+    // Verificar autenticação: cron secret OU sessão admin
+    const ok = verifyCronKey(request) || (await isAdminSession(request));
+    if (!ok) {
       return NextResponse.json({ 
         error: 'Unauthorized',
-        message: 'Cron key inválida'
+        message: 'Cron key inválida (ou sessão admin ausente)'
       }, { status: 401 });
     }
 
@@ -79,27 +96,33 @@ export async function POST(request: NextRequest) {
 // GET - Status da fila
 export async function GET(request: NextRequest) {
   try {
-    // Buscar estatísticas da fila
-    const { createRouteHandlerClient } = await import('@supabase/auth-helpers-nextjs');
-    const { cookies } = await import('next/headers');
-    
+    // Buscar estatísticas da fila (admin usa service role para evitar drift de RLS)
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const { data } = await supabase.auth.getUser();
+    if (!data?.user?.id) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+    const { data: isAdmin } = await supabase.rpc('is_admin');
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 });
+    }
+    const db: any = getSupabaseAdmin();
 
     const [pendingResult, processingResult, failedResult, completedTodayResult] = await Promise.all([
-      supabase
+      db
         .from('sentiment_processing_queue')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'pending'),
-      supabase
+      db
         .from('sentiment_processing_queue')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'processing'),
-      supabase
+      db
         .from('sentiment_processing_queue')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'failed'),
-      supabase
+      db
         .from('sentiment_processing_queue')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'completed')

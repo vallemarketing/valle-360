@@ -58,9 +58,10 @@ interface DirectConversation {
 interface DirectChatWindowProps {
   conversation: DirectConversation;
   currentUserId: string;
+  readOnly?: boolean;
 }
 
-export function DirectChatWindow({ conversation, currentUserId }: DirectChatWindowProps) {
+export function DirectChatWindow({ conversation, currentUserId, readOnly = false }: DirectChatWindowProps) {
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -86,7 +87,7 @@ export function DirectChatWindow({ conversation, currentUserId }: DirectChatWind
   useEffect(() => {
     if (conversation?.id) {
       loadMessages();
-      markAsRead();
+      if (!readOnly) markAsRead();
 
       const channel = supabase
         .channel(`direct-messages-${conversation.id}`)
@@ -112,7 +113,7 @@ export function DirectChatWindow({ conversation, currentUserId }: DirectChatWind
               }, 500);
             }
             loadMessages();
-            markAsRead();
+            if (!readOnly) markAsRead();
           }
         )
         .on(
@@ -174,40 +175,47 @@ export function DirectChatWindow({ conversation, currentUserId }: DirectChatWind
       );
       const profilesMap = await fetchProfilesMapByAuthIds(supabase as any, senderIds);
 
-      const messagesWithReadStatus = await Promise.all(
-        messagesWithAttachments.map(async (msg: any) => {
-          let isRead = false;
-
-          if (msg.from_user_id !== currentUserId) {
-            const { data: receipt } = await supabase
-              .from('message_read_receipts')
-              .select('id')
-              .eq('message_id', msg.id)
-              .eq('message_type', 'direct')
-              .eq('user_id', currentUserId)
-              .maybeSingle();
-
-            isRead = !!receipt;
-          } else {
-            const { data: receipt } = await supabase
-              .from('message_read_receipts')
-              .select('id')
-              .eq('message_id', msg.id)
-              .eq('message_type', 'direct')
-              .eq('user_id', conversation.other_user_id)
-              .maybeSingle();
-
-            isRead = !!receipt;
-          }
-
-          return {
+      const messagesWithReadStatus = readOnly
+        ? messagesWithAttachments.map((msg: any) => ({
             ...msg,
-            is_read: isRead,
+            is_read: false,
             sender_name: profilesMap.get(String(msg.from_user_id))?.full_name,
             sender_avatar: profilesMap.get(String(msg.from_user_id))?.avatar_url,
-          };
-        })
-      );
+          }))
+        : await Promise.all(
+            messagesWithAttachments.map(async (msg: any) => {
+              let isRead = false;
+
+              if (msg.from_user_id !== currentUserId) {
+                const { data: receipt } = await supabase
+                  .from('message_read_receipts')
+                  .select('id')
+                  .eq('message_id', msg.id)
+                  .eq('message_type', 'direct')
+                  .eq('user_id', currentUserId)
+                  .maybeSingle();
+
+                isRead = !!receipt;
+              } else {
+                const { data: receipt } = await supabase
+                  .from('message_read_receipts')
+                  .select('id')
+                  .eq('message_id', msg.id)
+                  .eq('message_type', 'direct')
+                  .eq('user_id', conversation.other_user_id)
+                  .maybeSingle();
+
+                isRead = !!receipt;
+              }
+
+              return {
+                ...msg,
+                is_read: isRead,
+                sender_name: profilesMap.get(String(msg.from_user_id))?.full_name,
+                sender_avatar: profilesMap.get(String(msg.from_user_id))?.avatar_url,
+              };
+            })
+          );
 
       setMessages(messagesWithReadStatus);
 
@@ -245,6 +253,7 @@ export function DirectChatWindow({ conversation, currentUserId }: DirectChatWind
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     if ((!newMessage.trim() && attachments.length === 0) || isSending) return;
 
     setIsSending(true);
@@ -633,58 +642,66 @@ export function DirectChatWindow({ conversation, currentUserId }: DirectChatWind
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-t space-y-3">
-        <AttachmentUpload
-          onAttachmentsChange={setAttachments}
-          maxFiles={5}
-          maxSizeInMB={50}
-        />
-        <form onSubmit={handleSendMessage} className="flex items-start gap-2">
-          <EmojiPicker onEmojiSelect={handleEmojiSelect} />
-          <div className="relative flex-1">
-            <Input
-              ref={messageInputRef as any}
-              value={newMessage}
-              onChange={handleInputChange}
-              onBlur={() => {
-                stopTyping();
-                setTimeout(() => setMentionOpen(false), 150);
-              }}
-              onKeyUp={() => refreshMentionStateFromInput()}
-              onClick={() => refreshMentionStateFromInput()}
-              placeholder="Digite uma mensagem... (use @ para mencionar)"
-              disabled={isSending}
-              className="flex-1"
-            />
+      {readOnly ? (
+        <div className="px-4 py-3 border-t bg-gray-50 dark:bg-gray-900">
+          <p className="text-xs text-gray-600 dark:text-gray-300">
+            Visualização do Super Admin: somente leitura (envio e “lido” desativados).
+          </p>
+        </div>
+      ) : (
+        <div className="p-4 border-t space-y-3">
+          <AttachmentUpload
+            onAttachmentsChange={setAttachments}
+            maxFiles={5}
+            maxSizeInMB={50}
+          />
+          <form onSubmit={handleSendMessage} className="flex items-start gap-2">
+            <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+            <div className="relative flex-1">
+              <Input
+                ref={messageInputRef as any}
+                value={newMessage}
+                onChange={handleInputChange}
+                onBlur={() => {
+                  stopTyping();
+                  setTimeout(() => setMentionOpen(false), 150);
+                }}
+                onKeyUp={() => refreshMentionStateFromInput()}
+                onClick={() => refreshMentionStateFromInput()}
+                placeholder="Digite uma mensagem... (use @ para mencionar)"
+                disabled={isSending}
+                className="flex-1"
+              />
 
-            {mentionOpen && filteredMentionCandidates.length > 0 && (
-              <div className="absolute left-0 right-0 bottom-full mb-2 z-50 rounded-lg border bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
-                <div className="max-h-56 overflow-y-auto">
-                  {filteredMentionCandidates.map((c) => (
-                    <button
-                      key={c.userId}
-                      type="button"
-                      onMouseDown={(ev) => ev.preventDefault()}
-                      onClick={() => applyMention(c)}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{c.label}</div>
-                      {c.email && <div className="text-xs text-gray-500">{c.email}</div>}
-                    </button>
-                  ))}
+              {mentionOpen && filteredMentionCandidates.length > 0 && (
+                <div className="absolute left-0 right-0 bottom-full mb-2 z-50 rounded-lg border bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
+                  <div className="max-h-56 overflow-y-auto">
+                    {filteredMentionCandidates.map((c) => (
+                      <button
+                        key={c.userId}
+                        type="button"
+                        onMouseDown={(ev) => ev.preventDefault()}
+                        onClick={() => applyMention(c)}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+                      >
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{c.label}</div>
+                        {c.email && <div className="text-xs text-gray-500">{c.email}</div>}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-          <Button
-            type="submit"
-            disabled={(!newMessage.trim() && attachments.length === 0) || isSending}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Send className="w-5 h-5" />
-          </Button>
-        </form>
-      </div>
+              )}
+            </div>
+            <Button
+              type="submit"
+              disabled={(!newMessage.trim() && attachments.length === 0) || isSending}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Send className="w-5 h-5" />
+            </Button>
+          </form>
+        </div>
+      )}
 
       {conversation.is_client_conversation && (
         <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-t flex items-center gap-2">

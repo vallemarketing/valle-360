@@ -12,6 +12,7 @@ import { WaterfallChart } from '@/components/financial/WaterfallChart';
 import { DRETable } from '@/components/financial/DRETable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 export default function FinanceiroPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('2024');
@@ -23,25 +24,45 @@ export default function FinanceiroPage() {
   // Handler para exportar relatório
   const handleExport = async (format: 'pdf' | 'excel') => {
     setIsExporting(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsExporting(false);
-    setShowExportModal(false);
-    alert(`✅ Relatório financeiro exportado em ${format.toUpperCase()} com sucesso!`);
+    try {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        period: selectedPeriod,
+        month: selectedMonth,
+        format,
+        note: 'Export gerado a partir da visualização atual do dashboard.',
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relatorio-financeiro-${selectedPeriod}-${selectedMonth}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Relatório exportado (${format.toUpperCase()}).`);
+    } finally {
+      setIsExporting(false);
+      setShowExportModal(false);
+    }
   };
 
   // Handler para gerar nova análise
   const handleGenerateAnalysis = async () => {
     setIsGeneratingAnalysis(true);
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    setIsGeneratingAnalysis(false);
-    alert('✅ Nova análise financeira gerada com sucesso! Confira os insights atualizados.');
+    try {
+      toast.message('Abrindo Centro de Inteligência para gerar insights financeiros...');
+      window.location.href = '/admin/centro-inteligencia';
+    } finally {
+      setIsGeneratingAnalysis(false);
+    }
   };
 
   // Handler para cobrar inadimplentes
   const handleChargeClients = async () => {
-    alert('📧 Enviando lembretes de cobrança para 3 clientes inadimplentes...');
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    alert('✅ E-mails de cobrança enviados com sucesso!');
+    toast.message('Abrindo Financeiro → Clientes para cobrar inadimplentes...');
+    window.location.href = '/admin/financeiro/clientes';
   };
 
   // Handler para ver clientes

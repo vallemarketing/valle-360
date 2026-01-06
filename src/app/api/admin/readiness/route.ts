@@ -9,6 +9,17 @@ export const dynamic = 'force-dynamic';
 
 type ReadinessStatus = 'pass' | 'warn' | 'fail';
 
+function isUuid(v: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+}
+
+function splitCsv(v: string | undefined | null) {
+  return String(v || '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
 function statusFromBool(ok: boolean): ReadinessStatus {
   return ok ? 'pass' : 'fail';
 }
@@ -57,6 +68,11 @@ function isMissingTableError(message: string) {
     m.includes('schema cache') ||
     m.includes('could not find the table')
   );
+}
+
+function isMissingColumnError(message: string) {
+  const m = normalizeErrorMessage(message);
+  return m.includes('column') && (m.includes('does not exist') || m.includes('could not find'));
 }
 
 async function checkTableExists(
@@ -128,7 +144,7 @@ export async function GET(request: NextRequest) {
 
     // Integrações obrigatórias (impactam prontidão) vs opcionais (N/A se não configuradas)
     const requiredIntegrations = ['openrouter', 'openai', 'stripe', 'sendgrid'] as const;
-    const optionalIntegrations = ['whatsapp', 'instagramback'] as const;
+    const optionalIntegrations = ['whatsapp', 'instagramback', 'n8n'] as const;
 
     const requiredStatus: Record<string, ReadinessStatus> = {};
     const optionalStatus: Record<string, { status: ReadinessStatus; applicable: boolean }> = {};
@@ -151,7 +167,7 @@ export async function GET(request: NextRequest) {
       const connectedInDb =
         id === 'whatsapp'
           ? row?.status === 'connected' && Boolean(row?.access_token) && Boolean(row?.config?.phoneNumberId)
-          : row?.status === 'connected' && Boolean(row?.access_token) && Boolean(row?.config?.baseUrl);
+          : row?.status === 'connected' && (Boolean(row?.api_key || row?.access_token) || Boolean(row?.config?.baseUrl || row?.config?.webhookUrl));
 
       const connectedInEnv =
         (id === 'whatsapp' && !!process.env.WHATSAPP_ACCESS_TOKEN && !!process.env.WHATSAPP_PHONE_NUMBER_ID) ||
@@ -208,11 +224,35 @@ export async function GET(request: NextRequest) {
       'clients',
       'employees',
       'user_profiles',
+      // Mensagens (intranet)
+      'direct_conversations',
+      'direct_conversation_participants',
+      'direct_messages',
       'instagram_posts',
       'social_connected_accounts',
       // Social metrics (cliente)
       'social_account_metrics_daily',
       'social_post_metrics',
+      // IA/Insights
+      'client_ai_insights',
+      // Prospecção
+      'prospecting_leads',
+      // Metas
+      'goal_configs',
+      'collaborator_goals',
+      'production_history',
+      // ML/Preditivo
+      'ml_predictions_log',
+      'client_health_scores',
+      'super_admin_insights',
+      // Sentimento
+      'sentiment_analyses',
+      'sentiment_processing_queue',
+      'sentiment_alerts',
+      'sentiment_daily_stats',
+      'sentiment_automation_config',
+      // RH
+      'job_openings',
     ];
 
     const schemaChecks = await Promise.all(
@@ -229,7 +269,7 @@ export async function GET(request: NextRequest) {
         : 'pass';
 
     // Cron (execução real) — em Vercel, crons normalmente rodam apenas em produção.
-    const cronJobs = ['collection', 'overdue', 'ml', 'social-publish', 'social-metrics'] as const;
+    const cronJobs = ['collection', 'overdue', 'ml', 'alerts', 'social-publish', 'social-metrics'] as const;
     const cronApplicable = vercelEnv === 'production' || process.env.ENABLE_CRON_IN_PREVIEW === 'true';
 
     const cronChecks = cronApplicable
@@ -325,6 +365,166 @@ export async function GET(request: NextRequest) {
     // SQL/RPC essenciais
     const rpcOk = !isAdminError;
 
+    // Segurança (anti-bypass)
+    const testModeEnabled = String(process.env.NEXT_PUBLIC_TEST_MODE || '').toLowerCase() === 'true';
+    const security = {
+      applicable: true,
+      testModeEnabled,
+      status:
+        vercelEnv === 'production' && testModeEnabled
+          ? ('fail' as ReadinessStatus)
+          : testModeEnabled
+            ? ('warn' as ReadinessStatus)
+            : ('pass' as ReadinessStatus),
+      notes:
+        vercelEnv === 'production' && testModeEnabled
+          ? 'NEXT_PUBLIC_TEST_MODE=true em produção é crítico (bypass de autenticação).'
+          : testModeEnabled
+            ? 'NEXT_PUBLIC_TEST_MODE=true: permitido apenas para QA local/preview.'
+            : 'OK',
+    };
+
+    // Alertas (threshold / cron.alerts)
+    const alertsActorUserId = String(process.env.ALERTS_ACTOR_USER_ID || '').trim();
+    const sendgridFromConfigured = Boolean(process.env.SENDGRID_FROM_EMAIL);
+
+    // fallback para destinatários: admins/super_admins do banco
+    let fallbackAdminEmails = 0;
+    let fallbackAdminUserIds = 0;
+    try {
+      const { data } = await supabaseAdmin
+        .from('user_profiles')
+        .select('user_id,email,role,user_type,is_active')
+        .eq('is_active', true)
+        .limit(200);
+
+      const rows = (data || []) as any[];
+      const isAdminLike = (r: any) => {
+        const role = String(r?.role || '').toLowerCase();
+        const type = String(r?.user_type || '').toLowerCase();
+        return role === 'admin' || role === 'super_admin' || type === 'super_admin';
+      };
+      fallbackAdminEmails = rows.filter(isAdminLike).map((r) => String(r.email || '')).filter(Boolean).length;
+      fallbackAdminUserIds = rows.filter(isAdminLike).map((r) => String(r.user_id || '')).filter(isUuid).length;
+    } catch {
+      // ignore
+    }
+
+    const emailRecipientsEnv = splitCsv(process.env.ALERTS_NOTIFY_EMAILS);
+    const waRecipientsEnv = splitCsv(process.env.ALERTS_NOTIFY_WHATSAPP_PHONES);
+    const intranetRecipientsEnv = splitCsv(process.env.ALERTS_NOTIFY_INTRANET_USER_IDS).filter((x) => isUuid(x));
+
+    const alerts = {
+      applicable: true,
+      actorUserIdConfigured: Boolean(alertsActorUserId),
+      actorUserIdValid: isUuid(alertsActorUserId),
+      sendgridFromConfigured,
+      hasEmailRecipientsEnv: emailRecipientsEnv.length > 0,
+      hasWhatsAppRecipientsEnv: waRecipientsEnv.length > 0,
+      hasIntranetRecipientsEnv: intranetRecipientsEnv.length > 0,
+      fallbackAdminEmails,
+      fallbackAdminUserIds,
+      status:
+        // se ao menos 1 canal estiver configurado, consideramos "pass" para não bloquear prod
+        (requiredStatus.sendgrid === 'pass' &&
+          sendgridFromConfigured &&
+          (emailRecipientsEnv.length > 0 || fallbackAdminEmails > 0)) ||
+        (optionalStatus.whatsapp?.status === 'pass' && waRecipientsEnv.length > 0) ||
+        (isUuid(alertsActorUserId) && (intranetRecipientsEnv.length > 0 || fallbackAdminUserIds > 0))
+          ? ('pass' as ReadinessStatus)
+          : ('warn' as ReadinessStatus),
+    };
+
+    // QA (smoke checks de dados críticos por perfil)
+    const tavilyConfigured = Boolean(process.env.TAVILY_API_KEY);
+    let missingAreaBoards: string[] = [];
+    let hasRhDemandColumn = false;
+    let hasOperacaoDemandColumn = false;
+    let assignmentsOk: { ok: boolean; status: ReadinessStatus; reason?: string } | null = null;
+    let clientProfileColumnsOk = true;
+    let clientProfileColumnsReason: string | null = null;
+
+    try {
+      // Kanban boards coverage
+      const { data: boards } = await supabaseAdmin.from('kanban_boards').select('id,area_key').limit(200);
+      const rows = (boards || []) as any[];
+      const expectedKeys = AREA_BOARDS.map((b) => String(b.areaKey));
+      missingAreaBoards = expectedKeys.filter((k) => !rows.some((b) => String(b?.area_key || '') === k));
+
+      const findBoardId = (k: string) => rows.find((b) => String(b?.area_key || '') === k)?.id || null;
+      const rhBoardId = findBoardId('rh');
+      const opBoardId = findBoardId('operacao');
+
+      if (rhBoardId) {
+        const { data } = await supabaseAdmin
+          .from('kanban_columns')
+          .select('id')
+          .eq('board_id', rhBoardId)
+          .eq('stage_key', 'demanda')
+          .maybeSingle();
+        hasRhDemandColumn = Boolean((data as any)?.id);
+      }
+
+      if (opBoardId) {
+        const { data } = await supabaseAdmin
+          .from('kanban_columns')
+          .select('id')
+          .eq('board_id', opBoardId)
+          .eq('stage_key', 'demanda')
+          .maybeSingle();
+        hasOperacaoDemandColumn = Boolean((data as any)?.id);
+      }
+    } catch {
+      // ignore (degrade)
+    }
+
+    // Tabela de assignments (colaborador -> clientes/aprovações)
+    assignmentsOk = await checkTableExists(supabaseAdmin, 'employee_client_assignments');
+
+    // Colunas de perfil do cliente (segment/competitors) — detecta migrações faltando
+    try {
+      const { error } = await supabaseAdmin.from('clients').select('id,segment,competitors', { head: true }).limit(1);
+      if (error && isMissingColumnError(error.message)) {
+        clientProfileColumnsOk = false;
+        clientProfileColumnsReason = error.message;
+      }
+    } catch (e: any) {
+      clientProfileColumnsOk = false;
+      clientProfileColumnsReason = e?.message || 'Falha ao validar colunas do perfil do cliente';
+    }
+
+    const qaStatus: ReadinessStatus =
+      !clientProfileColumnsOk || (!hasRhDemandColumn && !hasOperacaoDemandColumn)
+        ? 'fail'
+        : missingAreaBoards.length > 0 || (assignmentsOk?.status !== 'pass') || !tavilyConfigured
+          ? 'warn'
+          : 'pass';
+
+    const qa = {
+      applicable: true,
+      status: qaStatus,
+      collaborator: {
+        employeeClientAssignments: assignmentsOk,
+      },
+      kanban: {
+        missingAreaBoards,
+        requestsDemandColumn: {
+          rh: hasRhDemandColumn,
+          operacao: hasOperacaoDemandColumn,
+          ok: hasRhDemandColumn || hasOperacaoDemandColumn,
+        },
+      },
+      client: {
+        profileColumns: {
+          ok: clientProfileColumnsOk,
+          reason: clientProfileColumnsReason,
+        },
+      },
+      prospecting: {
+        tavilyConfigured,
+      },
+    };
+
     const checks = {
       hub: {
         applicable: true,
@@ -333,6 +533,7 @@ export async function GET(request: NextRequest) {
         pendingTransitions: pendingTransitions || 0,
         errorTransitions: errorTransitions || 0,
       },
+      security,
       areas: {
         applicable: true,
         status: areaCoverage.some((a) => a.status !== 'pass') ? ('warn' as ReadinessStatus) : ('pass' as ReadinessStatus),
@@ -376,6 +577,8 @@ export async function GET(request: NextRequest) {
         reason: cronApplicable ? null : 'Crons do Vercel rodam apenas em produção (preview: não aplicável).',
         jobs: cronChecks,
       },
+      alerts,
+      qa,
       cpanel: { ...cpanel, applicable: true },
     };
 
@@ -392,6 +595,7 @@ export async function GET(request: NextRequest) {
     // status geral (apenas checks aplicáveis)
     const allStatuses: ReadinessStatus[] = [
       checks.hub.applicable ? checks.hub.status : null,
+      checks.security?.applicable ? (checks.security.status as ReadinessStatus) : null,
       checks.areas.applicable ? checks.areas.status : null,
       checks.integrations.applicable ? checks.integrations.status : null,
       checks.ai.applicable ? checks.ai.status : null,
@@ -399,6 +603,8 @@ export async function GET(request: NextRequest) {
       checks.sql.applicable ? checks.sql.status : null,
       checks.schema.applicable ? checks.schema.status : null,
       checks.cron.applicable ? checks.cron.status : null,
+      checks.alerts?.applicable ? (checks.alerts.status as ReadinessStatus) : null,
+      checks.qa?.applicable ? (checks.qa.status as ReadinessStatus) : null,
       checks.cpanel.applicable ? checks.cpanel.status : null,
       firebase.applicable ? firebase.status : null,
     ].filter(Boolean) as ReadinessStatus[];

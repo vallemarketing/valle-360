@@ -180,6 +180,16 @@ function activityPresentation(e: any): { title: string; description: string; ico
   return { title, description, icon, link };
 }
 
+function extractPredValue(pv: any) {
+  if (pv && typeof pv === 'object') {
+    const v = (pv as any).value;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : v ?? null;
+  }
+  const n = Number(pv);
+  return Number.isFinite(n) ? n : pv ?? null;
+}
+
 /**
  * GET /api/admin/dashboard
  * Retorna KPIs reais do Admin (modo teste: com fallback).
@@ -272,6 +282,62 @@ export async function GET(request: NextRequest) {
         };
       })
       .slice(0, 6);
+
+    // ===== Preditivo/ML (complemento no dashboard executivo; sem mudar layout) =====
+    try {
+      const { data: preds } = await adminSupabase
+        .from('ml_predictions_log')
+        .select('id,prediction_type,predicted_probability,predicted_at,predicted_value')
+        .order('predicted_at', { ascending: false })
+        .limit(50);
+
+      const rows = (preds || []) as any[];
+      const bestOf = (type: string) =>
+        rows
+          .filter((p) => String(p?.prediction_type || '') === type)
+          .map((p) => ({ p, v: extractPredValue(p.predicted_value) }))
+          .filter((x) => typeof x.v === 'number' && Number.isFinite(x.v as any))
+          .sort((a, b) => Number(b.v) - Number(a.v))[0]?.p || null;
+
+      const churn = bestOf('churn');
+      const pay = bestOf('payment_risk');
+      const cap = bestOf('demand_capacity');
+      const bud = bestOf('budget_overrun');
+
+      const mlActivities: any[] = [];
+      const mk = (p: any, title: string, desc: string) => ({
+        id: `ml_${String(p.id)}`,
+        type: `ml.${String(p.prediction_type || 'prediction')}`,
+        title,
+        description: desc,
+        time: timeAgoPtBR(p.predicted_at || p.created_at || new Date().toISOString()),
+        icon: 'alert' as const,
+        link: '/admin/analytics/preditivo',
+      });
+
+      if (pay) {
+        const v = Number(extractPredValue(pay.predicted_value) || 0);
+        if (v >= 70) mlActivities.push(mk(pay, 'Risco de pagamento elevado (ML)', `Risco: ${Math.round(v)}% • Ação: cobrar no Financeiro`));
+      }
+      if (cap) {
+        const v = Number(extractPredValue(cap.predicted_value) || 0);
+        if (v >= 85) mlActivities.push(mk(cap, 'Capacidade crítica (ML)', `Utilização: ${Math.round(v)}% • Revisar prioridades/RH`));
+      }
+      if (bud) {
+        const v = Number(extractPredValue(bud.predicted_value) || 0);
+        if (v >= 80) mlActivities.push(mk(bud, 'Risco de orçamento (campanha) (ML)', `Risco: ${Math.round(v)}% • Revisar budget`));
+      }
+      if (churn) {
+        const v = Number(extractPredValue(churn.predicted_value) || 0);
+        if (v >= 70) mlActivities.push(mk(churn, 'Risco de churn (ML)', `Probabilidade: ${Math.round(v)}% • Priorizar retenção`));
+      }
+
+      if (mlActivities.length > 0) {
+        recentActivity = [...mlActivities.slice(0, 2), ...recentActivity].slice(0, 6);
+      }
+    } catch {
+      // ignore
+    }
 
     // Fallback: se não há eventos ainda, usar audit_logs (ai.request / api.* / system.*)
     if (!recentActivity || recentActivity.length === 0) {

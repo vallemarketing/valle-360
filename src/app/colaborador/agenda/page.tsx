@@ -55,6 +55,7 @@ export default function EmployeeAgendaPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [note, setNote] = useState<string | null>(null);
   
   // Form state
   const [newEvent, setNewEvent] = useState({
@@ -73,51 +74,65 @@ export default function EmployeeAgendaPage() {
     loadEvents();
   }, [selectedDate]);
 
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const loadEvents = async () => {
     try {
-      // Mock events - em produção, buscar do banco
-      const mockEvents: Event[] = [
-        {
-          id: '1',
-          title: 'Reunião com Cliente A',
-          description: 'Apresentação de resultados Q4',
-          time: '10:00',
-          endTime: '11:00',
-          type: 'meeting',
-          color: 'bg-blue-500',
-          location: 'Google Meet',
-          meetLink: 'https://meet.google.com/abc-defg-hij',
-          attendees: [
-            { name: 'Maria Silva', email: 'maria@cliente.com' },
-            { name: 'João Santos', email: 'joao@empresa.com' }
-          ],
-          date: new Date(),
-          notificationSent: true
-        },
-        {
-          id: '2',
-          title: 'Revisão de Campanha',
-          description: 'Revisar métricas da campanha de Black Friday',
-          time: '14:00',
-          endTime: '15:00',
-          type: 'internal',
-          color: 'bg-purple-500',
-          date: new Date()
-        },
-        {
-          id: '3',
-          title: 'Análise de Métricas',
-          time: '16:00',
-          endTime: '17:00',
-          type: 'task',
-          color: 'bg-emerald-500',
-          date: new Date()
-        },
-      ];
-      
-      setEvents(mockEvents);
+      setLoading(true);
+      setNote(null);
+
+      const start = new Date(selectedDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(selectedDate);
+      end.setHours(23, 59, 59, 999);
+
+      const headers = await getAuthHeaders();
+      const qs = new URLSearchParams({ start: start.toISOString(), end: end.toISOString() });
+      const res = await fetch(`/api/calendar/events?${qs.toString()}`, { headers, cache: 'no-store' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Falha ao carregar agenda');
+
+      const mapped: Event[] = (Array.isArray(data?.events) ? data.events : []).map((ev: any) => {
+        const startIso = ev?.start_datetime || ev?.start_date;
+        const endIso = ev?.end_datetime || ev?.end_date;
+        const startDt = startIso ? new Date(String(startIso)) : new Date();
+        const endDt = endIso ? new Date(String(endIso)) : new Date(startDt.getTime() + 60 * 60 * 1000);
+
+        const et = String(ev?.event_type || '').toLowerCase();
+        const type: Event['type'] =
+          et === 'client_meeting' ? 'meeting' : et === 'internal_meeting' ? 'internal' : et === 'deadline' ? 'task' : 'reminder';
+        const color = EVENT_COLORS[type].bg;
+
+        const time = startDt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const endTime = endDt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+        const meta = ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {};
+        return {
+          id: String(ev.id),
+          title: String(ev.title || 'Evento'),
+          description: ev.description ? String(ev.description) : undefined,
+          time,
+          endTime,
+          type,
+          color,
+          location: ev.location ? String(ev.location) : undefined,
+          meetLink: ev.meeting_link ? String(ev.meeting_link) : meta?.meetLink ? String(meta.meetLink) : undefined,
+          attendees: Array.isArray(meta?.attendees) ? meta.attendees : undefined,
+          date: startDt,
+          notificationSent: !!meta?.notificationSent,
+        };
+      });
+
+      setEvents(mapped);
+      setNote(data?.note ? String(data.note) : null);
     } catch (error) {
       console.error('Erro ao carregar eventos:', error);
+      setEvents([]);
+      setNote(error instanceof Error ? error.message : 'Falha ao carregar');
     } finally {
       setLoading(false);
     }

@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -111,125 +112,8 @@ const SEVERITY_COLORS = {
 };
 
 // =====================================================
-// DADOS SIMULADOS
+// SEM MOCKS: dados vêm 100% de /api/sentiment/*
 // =====================================================
-
-const mockStats: SentimentStats = {
-  totals: {
-    total: 1284,
-    positive: 768,
-    neutral: 385,
-    negative: 131,
-    average_score: 0.72,
-    by_source: {
-      message: 542,
-      nps_response: 312,
-      task_comment: 256,
-      feedback: 174
-    }
-  },
-  alerts: {
-    pending: 5,
-    by_severity: {
-      critical: 1,
-      high: 2,
-      medium: 1,
-      low: 1
-    }
-  },
-  trend: [
-    { date: '01/12', total: 45, positive: 28, neutral: 12, negative: 5, average_score: 0.68 },
-    { date: '02/12', total: 52, positive: 32, neutral: 15, negative: 5, average_score: 0.71 },
-    { date: '03/12', total: 48, positive: 30, neutral: 13, negative: 5, average_score: 0.72 },
-    { date: '04/12', total: 61, positive: 38, neutral: 17, negative: 6, average_score: 0.73 },
-    { date: '05/12', total: 55, positive: 35, neutral: 14, negative: 6, average_score: 0.74 },
-    { date: '06/12', total: 67, positive: 42, neutral: 18, negative: 7, average_score: 0.72 },
-    { date: '07/12', total: 58, positive: 36, neutral: 16, negative: 6, average_score: 0.73 }
-  ],
-  entities: {
-    top_positive: [
-      { name: 'Maria Santos', count: 45, avgSentiment: 0.89 },
-      { name: 'João Silva', count: 38, avgSentiment: 0.85 },
-      { name: 'Atendimento', count: 32, avgSentiment: 0.82 },
-      { name: 'Qualidade', count: 28, avgSentiment: 0.80 },
-      { name: 'Prazo', count: 24, avgSentiment: 0.78 }
-    ],
-    top_negative: [
-      { name: 'Demora', count: 18, avgSentiment: -0.72 },
-      { name: 'Preço', count: 15, avgSentiment: -0.68 },
-      { name: 'Comunicação', count: 12, avgSentiment: -0.65 },
-      { name: 'Revisão', count: 8, avgSentiment: -0.58 },
-      { name: 'Suporte', count: 6, avgSentiment: -0.55 }
-    ]
-  },
-  percentages: {
-    positive: '59.8',
-    neutral: '30.0',
-    negative: '10.2'
-  }
-};
-
-const mockAlerts: Alert[] = [
-  {
-    id: 'a1',
-    alert_type: 'negative_sentiment',
-    severity: 'critical',
-    title: 'Cliente insatisfeito com atrasos',
-    description: 'O cliente Tech Solutions expressou forte insatisfação com os atrasos nas entregas do último mês. Sentimento muito negativo detectado em múltiplas mensagens.',
-    client_name: 'Tech Solutions',
-    source_type: 'message',
-    suggested_action: 'Agendar reunião de alinhamento urgente com o cliente para entender as demandas e propor plano de ação para regularizar entregas.',
-    status: 'pending',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'a2',
-    alert_type: 'nps_drop',
-    severity: 'high',
-    title: 'Queda no NPS - Fashion Store',
-    description: 'Cliente deu nota 5 no último NPS, queda de 4 pontos em relação à avaliação anterior.',
-    client_name: 'Fashion Store',
-    source_type: 'nps_response',
-    suggested_action: 'Realizar pesquisa qualitativa para entender os motivos da queda e propor melhorias específicas.',
-    status: 'pending',
-    created_at: new Date(Date.now() - 3600000).toISOString()
-  },
-  {
-    id: 'a3',
-    alert_type: 'recurring_complaint',
-    severity: 'high',
-    title: 'Reclamações sobre tempo de resposta',
-    description: 'Múltiplos clientes mencionaram insatisfação com o tempo de resposta do suporte nos últimos 7 dias.',
-    source_type: 'message',
-    suggested_action: 'Revisar SLA de atendimento e considerar implementar chatbot para respostas iniciais.',
-    status: 'pending',
-    created_at: new Date(Date.now() - 7200000).toISOString()
-  },
-  {
-    id: 'a4',
-    alert_type: 'negative_sentiment',
-    severity: 'medium',
-    title: 'Feedback negativo em comentário de tarefa',
-    description: 'Colaborador expressou frustração com a clareza do briefing recebido.',
-    client_name: 'Clínica Bem Estar',
-    source_type: 'task_comment',
-    suggested_action: 'Melhorar template de briefing e alinhar expectativas na próxima reunião.',
-    status: 'pending',
-    created_at: new Date(Date.now() - 14400000).toISOString()
-  },
-  {
-    id: 'a5',
-    alert_type: 'positive_highlight',
-    severity: 'low',
-    title: 'Elogio excepcional detectado',
-    description: 'Cliente expressou alta satisfação com o trabalho da equipe de Social Media.',
-    client_name: 'Restaurante Sabor & Arte',
-    source_type: 'message',
-    suggested_action: 'Compartilhar feedback positivo com a equipe e considerar case de sucesso.',
-    status: 'pending',
-    created_at: new Date(Date.now() - 28800000).toISOString()
-  }
-];
 
 // =====================================================
 // COMPONENTE PRINCIPAL
@@ -267,13 +151,11 @@ export default function SentimentMonitoringPage() {
       if (data.success && data.totals) {
         setStats(data);
       } else {
-        // Usar dados simulados quando API não retorna dados
-        setStats(mockStats);
+        setStats(null);
       }
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error);
-      // Usar dados simulados em caso de erro
-      setStats(mockStats);
+      setStats(null);
     } finally {
       setIsLoading(false);
     }
@@ -286,13 +168,11 @@ export default function SentimentMonitoringPage() {
       if (data.success && data.data && data.data.length > 0) {
         setAlerts(data.data);
       } else {
-        // Usar alertas simulados quando API não retorna dados
-        setAlerts(mockAlerts);
+        setAlerts([]);
       }
     } catch (error) {
       console.error('Erro ao carregar alertas:', error);
-      // Usar alertas simulados em caso de erro
-      setAlerts(mockAlerts);
+      setAlerts([]);
     }
   };
 
@@ -303,11 +183,11 @@ export default function SentimentMonitoringPage() {
       if (data.queue_status) {
         setQueueStatus(data.queue_status);
       } else {
-        setQueueStatus({ pending: 12, processing: 3 });
+        setQueueStatus({ pending: 0, processing: 0 });
       }
     } catch (error) {
       console.error('Erro ao carregar status da fila:', error);
-      setQueueStatus({ pending: 12, processing: 3 });
+      setQueueStatus({ pending: 0, processing: 0 });
     }
   };
 
@@ -373,6 +253,31 @@ export default function SentimentMonitoringPage() {
     { name: 'Neutro', value: stats.totals.neutral, color: SENTIMENT_COLORS.neutral },
     { name: 'Negativo', value: stats.totals.negative, color: SENTIMENT_COLORS.negative }
   ] : [];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-6 flex items-center justify-center">
+        <div className="text-sm text-gray-600 dark:text-gray-300">Carregando monitoramento…</div>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-6">
+        <div className="max-w-3xl mx-auto">
+          <EmptyState
+            type="default"
+            title="Sem dados de sentimento ainda"
+            description="Nenhuma análise encontrada no período selecionado. Envie itens para a fila de sentimento e processe a fila para gerar estatísticas e alertas (sem mocks)."
+            animated={false}
+            action={{ label: isProcessingQueue ? 'Processando…' : 'Processar fila agora', onClick: processQueue }}
+            secondaryAction={{ label: 'Atualizar', onClick: loadData }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-6">
