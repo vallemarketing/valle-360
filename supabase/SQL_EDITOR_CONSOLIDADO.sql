@@ -683,6 +683,21 @@ CREATE TABLE IF NOT EXISTS clients (
 DO $$
 BEGIN
   IF to_regclass('public.clients') IS NOT NULL THEN
+    -- Campos base e sociais (muitos bancos antigos tinham só id/email/phone)
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS company_name VARCHAR(255);
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS instagram VARCHAR(255);
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS facebook VARCHAR(255);
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS linkedin VARCHAR(255);
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS tiktok VARCHAR(255);
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS youtube VARCHAR(255);
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS website VARCHAR(255);
+
+    -- Programa de indicação
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS referred_by UUID;
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0;
+
+    -- Status/gestão/metadados
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
     ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS account_manager UUID;
     ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS created_by UUID;
     ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
