@@ -470,6 +470,8 @@ END $$;
 -- Quando existir, garantimos que TODAS as opções usadas pelo app estejam presentes.
 -- =====================================================
 DO $do$
+DECLARE
+  v text;
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_type t WHERE t.typname = 'user_type' AND t.typtype = 'e') THEN
     -- Lista oficial do app (mantida alinhada com CHECK/uso nas policies)
