@@ -1009,7 +1009,7 @@ class PredictiveEngineService {
    * Fonte principal: `kanban_tasks.reference_links.stage_forms` (valores preenchidos no PhaseTransitionModal)
    * Campos comuns: `budget`, `total_budget`.
    */
-  async predictBudgetOverrun(taskId: string): Promise<Prediction | null> {
+  async predictTaskBudgetOverrun(taskId: string): Promise<Prediction | null> {
     try {
       const { data: task } = await this.db()
         .from('kanban_tasks')

@@ -453,6 +453,267 @@ END $$;
 
 
 -- ========================================================
+-- BEGIN: supabase/migrations/20251112000001_create_user_system.sql
+-- ========================================================
+-- NOTA: este bloco é pré-requisito para clients/client_contracts e para RPCs/policies.
+-- Se você já tem user_profiles, este bloco é idempotente (IF NOT EXISTS).
+
+-- =====================================================
+-- MIGRATION: Sistema de Usuários e Autenticação
+-- Descrição: Tabelas principais de usuários, perfis, preferências e sessões
+-- Dependências: Nenhuma (primeira migration)
+-- =====================================================
+
+-- =====================================================
+-- 1. TABELA: user_profiles
+-- Perfis de usuários do sistema (colaboradores e clientes)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS user_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE NOT NULL,
+  
+  -- Informações básicas
+  full_name VARCHAR(255) NOT NULL,
+  display_name VARCHAR(100),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  phone VARCHAR(20),
+  avatar_url TEXT,
+  
+  -- Tipo de usuário e permissões
+  user_type VARCHAR(50) NOT NULL CHECK (user_type IN (
+    'super_admin', 'client', 'video_maker', 'web_designer', 
+    'graphic_designer', 'social_media', 'traffic_manager', 
+    'marketing_head', 'financial', 'hr', 'commercial'
+  )),
+  is_active BOOLEAN DEFAULT true NOT NULL,
+  
+  -- Relacionamentos (serão preenchidos depois)
+  client_id UUID,
+  employee_id UUID,
+  
+  -- Dados profissionais (para colaboradores)
+  hire_date DATE,
+  department VARCHAR(100),
+  position VARCHAR(100),
+  salary DECIMAL(10, 2),
+  
+  -- Gamificação
+  current_streak INTEGER DEFAULT 0,
+  total_goals_hit INTEGER DEFAULT 0,
+  total_goals_missed INTEGER DEFAULT 0,
+  warning_count INTEGER DEFAULT 0,
+  last_warning_date TIMESTAMP WITH TIME ZONE,
+  
+  -- Preferências
+  theme VARCHAR(20) DEFAULT 'light' CHECK (theme IN ('light', 'dark', 'system')),
+  language VARCHAR(10) DEFAULT 'pt' CHECK (language IN ('pt', 'en', 'es')),
+  timezone VARCHAR(50) DEFAULT 'America/Sao_Paulo',
+  
+  -- Notificações
+  email_notifications BOOLEAN DEFAULT true,
+  whatsapp_notifications BOOLEAN DEFAULT true,
+  push_notifications BOOLEAN DEFAULT true,
+  
+  -- Metadados
+  metadata JSONB DEFAULT '{}'::jsonb,
+  
+  -- Timestamps
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  last_login_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Índices para performance
+CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON user_profiles(email);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_user_type ON user_profiles(user_type);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_client_id ON user_profiles(client_id);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_employee_id ON user_profiles(employee_id);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_is_active ON user_profiles(is_active) WHERE is_active = true;
+
+-- =====================================================
+-- 2. TABELA: user_preferences
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS user_preferences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE UNIQUE NOT NULL,
+  theme_mode VARCHAR(20) DEFAULT 'light' CHECK (theme_mode IN ('light', 'dark', 'auto')),
+  language VARCHAR(10) DEFAULT 'pt' CHECK (language IN ('pt', 'en', 'es')),
+  font_size VARCHAR(20) DEFAULT 'medium' CHECK (font_size IN ('small', 'medium', 'large')),
+  notifications_new_content BOOLEAN DEFAULT true,
+  notifications_messages BOOLEAN DEFAULT true,
+  notifications_reports BOOLEAN DEFAULT true,
+  notifications_credits BOOLEAN DEFAULT true,
+  notifications_system BOOLEAN DEFAULT true,
+  email_frequency VARCHAR(20) DEFAULT 'daily' CHECK (email_frequency IN ('daily', 'weekly', 'monthly', 'never')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
+
+-- =====================================================
+-- 3. TABELA: user_sessions
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
+  session_token TEXT UNIQUE NOT NULL,
+  ip_address INET,
+  user_agent TEXT,
+  device_type VARCHAR(50),
+  browser VARCHAR(50),
+  os VARCHAR(50),
+  country VARCHAR(100),
+  city VARCHAR(100),
+  is_active BOOLEAN DEFAULT true,
+  started_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  ended_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_active ON user_sessions(is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_user_sessions_started_at ON user_sessions(started_at DESC);
+
+-- Trigger function update_updated_at_column já existe no bloco init; criar triggers (idempotentes)
+DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON user_profiles;
+CREATE TRIGGER update_user_profiles_updated_at
+  BEFORE UPDATE ON user_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_user_preferences_updated_at ON user_preferences;
+CREATE TRIGGER update_user_preferences_updated_at
+  BEFORE UPDATE ON user_preferences
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- RLS (idempotente)
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+
+-- Policies mínimas (best-effort: criar apenas se não existir)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='user_profiles' AND policyname='Usuários veem seu próprio perfil'
+  ) THEN
+    EXECUTE $p$
+      CREATE POLICY "Usuários veem seu próprio perfil"
+        ON user_profiles FOR SELECT
+        USING (auth.uid() = user_id)
+    $p$;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='user_profiles' AND policyname='Usuários atualizam seu próprio perfil'
+  ) THEN
+    EXECUTE $p$
+      CREATE POLICY "Usuários atualizam seu próprio perfil"
+        ON user_profiles FOR UPDATE
+        USING (auth.uid() = user_id)
+    $p$;
+  END IF;
+END $$;
+
+-- ========================================================
+-- END: supabase/migrations/20251112000001_create_user_system.sql
+-- ========================================================
+
+
+-- ========================================================
+-- BEGIN: supabase/migrations/20251112000002_create_clients_system.sql
+-- ========================================================
+-- NOTA: este bloco cria clients + client_contracts (pré-requisito do preditivo).
+
+-- =====================================================
+-- 1. TABELA: clients
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS clients (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  company_name VARCHAR(255),
+  instagram VARCHAR(255),
+  facebook VARCHAR(255),
+  linkedin VARCHAR(255),
+  tiktok VARCHAR(255),
+  youtube VARCHAR(255),
+  website VARCHAR(255),
+  referred_by UUID REFERENCES clients(id) ON DELETE SET NULL,
+  referral_count INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true NOT NULL,
+  account_manager UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+  created_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email);
+CREATE INDEX IF NOT EXISTS idx_clients_is_active ON clients(is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_clients_account_manager ON clients(account_manager);
+CREATE INDEX IF NOT EXISTS idx_clients_referred_by ON clients(referred_by);
+CREATE INDEX IF NOT EXISTS idx_clients_created_at ON clients(created_at DESC);
+
+-- =====================================================
+-- 3. TABELA: client_contracts
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS client_contracts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE NOT NULL,
+  contract_number VARCHAR(50) UNIQUE NOT NULL,
+  contract_type VARCHAR(50) NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE,
+  renewal_date DATE,
+  monthly_value DECIMAL(10, 2),
+  total_value DECIMAL(10, 2),
+  currency VARCHAR(10) DEFAULT 'BRL' NOT NULL,
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'pending', 'suspended', 'cancelled', 'expired')),
+  services_included JSONB DEFAULT '[]'::jsonb,
+  departments JSONB DEFAULT '[]'::jsonb,
+  pdf_url TEXT,
+  signed_pdf_url TEXT,
+  terms JSONB DEFAULT '{}'::jsonb,
+  version INTEGER DEFAULT 1,
+  is_current BOOLEAN DEFAULT true,
+  uploaded_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_client_contracts_client_id ON client_contracts(client_id);
+CREATE INDEX IF NOT EXISTS idx_client_contracts_number ON client_contracts(contract_number);
+CREATE INDEX IF NOT EXISTS idx_client_contracts_status ON client_contracts(status);
+CREATE INDEX IF NOT EXISTS idx_client_contracts_current ON client_contracts(is_current) WHERE is_current = true;
+CREATE INDEX IF NOT EXISTS idx_client_contracts_dates ON client_contracts(start_date, end_date);
+
+DROP TRIGGER IF EXISTS update_client_contracts_updated_at ON client_contracts;
+CREATE TRIGGER update_client_contracts_updated_at
+  BEFORE UPDATE ON client_contracts
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- RLS básico (policies completas existem nas migrations; aqui garantimos enable e não quebrar)
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE client_contracts ENABLE ROW LEVEL SECURITY;
+
+-- ========================================================
+-- END: supabase/migrations/20251112000002_create_clients_system.sql
+-- ========================================================
+
+
+-- ========================================================
 -- BEGIN: supabase/migrations/20251112000019_create_predictive_intelligence_system.sql
 -- ========================================================
 

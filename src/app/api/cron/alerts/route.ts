@@ -187,7 +187,7 @@ async function runThresholdAlerts() {
   const cap = latestByType('demand_capacity');
   const chu = latestByType('churn');
 
-  const triggered: Array<{ type: string; value: number; predictionId: string }> = [];
+  const triggered: Array<{ type: string; value: number; predictionId: string; entityName?: string | null }> = [];
 
   const resolveEntityName = async (p: any): Promise<string | null> => {
     const pv = p?.predicted_value;

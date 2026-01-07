@@ -433,8 +433,8 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Falha ao executar ação');
 
-      setActionExecuted(prev => [...prev, selectedAction.id]);
-      setShowExecuteModal(false);
+    setActionExecuted(prev => [...prev, selectedAction.id]);
+    setShowExecuteModal(false);
 
       setResultContent({
         title: `✅ ${selectedAction.title}`,
@@ -504,15 +504,15 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
         description: loadingPredictivePanel
           ? 'Buscando health score e previsões recentes…'
           : 'Rode o pipeline ML para gerar previsões reais (churn, pagamento, LTV, demanda/capacidade).',
-        actionable: true,
+      actionable: true,
         link: '/admin/analytics/preditivo',
       },
     ];
 
     if (!predictivePanel) return fallback;
 
-    const riskyClients = Array.isArray(predictivePanel?.riskyClients) ? predictivePanel.riskyClients : [];
-    const predictions = Array.isArray(predictivePanel?.predictions) ? predictivePanel.predictions : [];
+    const riskyClients: any[] = Array.isArray(predictivePanel?.riskyClients) ? (predictivePanel as any).riskyClients : [];
+    const predictions: any[] = Array.isArray(predictivePanel?.predictions) ? (predictivePanel as any).predictions : [];
 
     const getVal = (p: any) => {
       if (p?.value != null) return Number(p.value);
@@ -525,6 +525,10 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
 
     const out: Alert[] = [];
 
+    // Tipagem auxiliar para evitar implicit-any em chains (.filter/.sort)
+    type ScoredPred = { p: any; v: number };
+    const isFiniteScore = (x: ScoredPred) => Number.isFinite(x.v);
+
     // 1) Churn (Health Score)
     if (riskyClients[0]) {
       const c = riskyClients[0];
@@ -533,15 +537,15 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
         type: 'critical',
         title: `Risco de Churn: ${String(c.client_name || c.client_id)}`,
         description: `churn ${Math.round(Number(c.churn_probability || 0))}% • score ${Math.round(Number(c.overall_score || 0))} • ${String(c.risk_level || '-')}`,
-        actionable: true,
+      actionable: true,
         link: '/admin/analytics/preditivo',
       });
     }
 
     // 2) Risco de pagamento (predição)
     const pay = byType('payment_risk')
-      .map((p: any) => ({ p, v: getVal(p) }))
-      .filter((x) => Number.isFinite(x.v))
+      .map((p: any): ScoredPred => ({ p, v: getVal(p) }))
+      .filter(isFiniteScore)
       .sort((a, b) => b.v - a.v);
     if (pay[0] && pay[0].v >= 55) {
       const p = pay[0].p;
@@ -558,8 +562,8 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
 
     // 3) Capacidade (predição)
     const cap = byType('demand_capacity')
-      .map((p: any) => ({ p, v: getVal(p) }))
-      .filter((x) => Number.isFinite(x.v))
+      .map((p: any): ScoredPred => ({ p, v: getVal(p) }))
+      .filter(isFiniteScore)
       .sort((a, b) => b.v - a.v);
     if (cap[0]) {
       const v = cap[0].v;
@@ -575,8 +579,8 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
 
     // 3.1) Budget overrun (campanhas)
     const bud = byType('budget_overrun')
-      .map((p: any) => ({ p, v: getVal(p) }))
-      .filter((x) => Number.isFinite(x.v))
+      .map((p: any): ScoredPred => ({ p, v: getVal(p) }))
+      .filter(isFiniteScore)
       .sort((a, b) => b.v - a.v);
     if (bud[0] && bud[0].v >= 70) {
       const p = bud[0].p;
@@ -593,24 +597,24 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
 
     // 4) Receita (forecast)
     const rev = byType('revenue')
-      .map((p: any) => ({ p, v: getVal(p) }))
-      .filter((x) => Number.isFinite(x.v))
+      .map((p: any): ScoredPred => ({ p, v: getVal(p) }))
+      .filter(isFiniteScore)
       .sort((a, b) => b.v - a.v);
     if (rev[0]) {
       out.push({
         id: `rev_${String(rev[0].p?.id || 'latest')}`,
-        type: 'info',
+      type: 'info',
         title: 'Forecast de Receita (ML/heurística)',
         description: `estimativa: R$ ${Math.round(rev[0].v).toLocaleString('pt-BR')} • veja detalhes em Analytics Preditivo`,
-        actionable: true,
+      actionable: true,
         link: '/admin/analytics/preditivo',
       });
     }
 
     // 5) Conversão (leads)
     const conv = byType('conversion')
-      .map((p: any) => ({ p, v: getVal(p) }))
-      .filter((x) => Number.isFinite(x.v))
+      .map((p: any): ScoredPred => ({ p, v: getVal(p) }))
+      .filter(isFiniteScore)
       .sort((a, b) => b.v - a.v);
     if (conv[0] && conv[0].v >= 70) {
       const p = conv[0].p;
@@ -620,7 +624,7 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
         type: 'info',
         title: `Alta conversão provável: ${String(name)}`,
         description: `probabilidade ${Math.round(conv[0].v)}% • priorizar contato/proposta`,
-        actionable: true,
+      actionable: true,
         link: '/admin/prospeccao',
       });
     }

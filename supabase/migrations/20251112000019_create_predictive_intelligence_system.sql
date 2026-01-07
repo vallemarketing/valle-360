@@ -5,6 +5,24 @@
 -- =====================================================
 
 -- =====================================================
+-- PRE-FLIGHT (robustez em ambientes novos)
+-- Este sistema depende de `clients` e `client_contracts`.
+-- Se você estiver rodando esta migration “solta” no SQL Editor, rode antes:
+-- - 20251112000001_create_user_system.sql
+-- - 20251112000002_create_clients_system.sql
+-- =====================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.clients') IS NULL THEN
+    RAISE EXCEPTION 'Tabela public.clients não existe. Rode primeiro: 20251112000002_create_clients_system.sql' USING ERRCODE = '42P01';
+  END IF;
+  IF to_regclass('public.client_contracts') IS NULL THEN
+    RAISE EXCEPTION 'Tabela public.client_contracts não existe. Rode primeiro: 20251112000002_create_clients_system.sql' USING ERRCODE = '42P01';
+  END IF;
+END $$;
+
+-- =====================================================
 -- 1. TABELA: client_health_scores
 -- Score de saúde do cliente (0-100)
 -- =====================================================
