@@ -2629,16 +2629,16 @@ FROM (
 ('streak_30', 'Mês Impecável', 'Bateu a meta diária por 30 dias seguidos', 'fire', 'red', 500, '{"type": "streak", "value": 30}'),
 ('goals_3', 'Triplo', 'Completou 3 metas mensais consecutivas', 'trophy', 'gold', 300, '{"type": "goals_completed_consecutive", "value": 3}'),
 ('exceed_20', 'Superação', 'Excedeu a meta em mais de 20%', 'rocket', 'purple', 200, '{"type": "exceed_percentage", "value": 20}'),
-('exceed_50', 'Extraordinário', 'Excedeu a meta em mais de 50%', 'star', 'yellow', 500, '{"type": "exceed_percentage", "value": 50}')
-) AS v(code, name, description, icon, color, points, criteria)
-WHERE NOT EXISTS (
-  SELECT 1 FROM goal_achievements ga WHERE ga.code = v.code
-);
+('exceed_50', 'Extraordinário', 'Excedeu a meta em mais de 50%', 'star', 'yellow', 500, '{"type": "exceed_percentage", "value": 50}'),
 ('first_goal', 'Primeira Meta', 'Completou sua primeira meta', 'flag', 'green', 50, '{"type": "first_goal"}'),
 ('top_performer', 'Top Performer', 'Ficou em 1º lugar no ranking do mês', 'crown', 'gold', 400, '{"type": "ranking", "position": 1}'),
 ('improvement', 'Evolução', 'Melhorou 25% em relação ao mês anterior', 'trending-up', 'blue', 150, '{"type": "improvement", "value": 25}'),
 ('team_player', 'Jogador de Equipe', 'Ajudou 3 colegas a baterem suas metas', 'users', 'indigo', 200, '{"type": "helped_colleagues", "value": 3}'),
-('early_bird', 'Madrugador', 'Bateu a meta antes do dia 20', 'sunrise', 'amber', 100, '{"type": "early_completion", "day": 20}');
+('early_bird', 'Madrugador', 'Bateu a meta antes do dia 20', 'sunrise', 'amber', 100, '{"type": "early_completion", "day": 20}')
+) AS v(code, name, description, icon, color, points, criteria)
+WHERE NOT EXISTS (
+  SELECT 1 FROM goal_achievements ga WHERE ga.code = v.code
+);
 
 -- Templates de prospecção
 INSERT INTO prospecting_templates (name, channel, purpose, subject, content, variables) VALUES
