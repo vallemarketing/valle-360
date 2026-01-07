@@ -3144,6 +3144,10 @@ END $$;
 -- 3) RPCs (Queue)
 -- =========================
 
+-- Compat: Postgres não permite "remover defaults" via CREATE OR REPLACE quando a função já existe com defaults.
+-- Em ambientes antigos, `add_to_sentiment_queue` pode ter assinatura/defaults diferentes.
+DROP FUNCTION IF EXISTS public.add_to_sentiment_queue(character varying,uuid,character varying,text,uuid,uuid,integer,jsonb);
+
 CREATE OR REPLACE FUNCTION public.add_to_sentiment_queue(
   p_source_type character varying,
   p_source_id uuid,
