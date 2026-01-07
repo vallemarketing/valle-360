@@ -2607,7 +2607,7 @@ FROM (
   {"name": "tempo_vaga", "label": "Tempo Médio de Vaga", "unit": "dias", "weight": 0.3, "inverse": true},
   {"name": "retention_rate", "label": "Taxa de Retenção", "unit": "%", "weight": 0.2},
   {"name": "satisfacao_onboarding", "label": "Satisfação Onboarding", "unit": "%", "weight": 0.1}
-]', 'fixed', 5.00, false, '{}');
+]', 'fixed', 5.00, false, '{}')
 ) AS v(sector, metrics, calculation_method, growth_rate, always_increase, seasonal_adjustments)
 WHERE NOT EXISTS (
   SELECT 1 FROM goal_configs gc WHERE gc.sector = v.sector
