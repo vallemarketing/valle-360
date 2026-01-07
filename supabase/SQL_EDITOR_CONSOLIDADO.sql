@@ -467,24 +467,44 @@ END $$;
 -- =====================================================
 -- COMPAT: enum user_type (ambientes antigos)
 -- Alguns ambientes antigos criaram um ENUM `user_type` sem todas as opções.
--- Quando existir, garantimos que 'marketing_head' (e outros) estejam presentes.
+-- Quando existir, garantimos que TODAS as opções usadas pelo app estejam presentes.
 -- =====================================================
 DO $do$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_type t WHERE t.typname = 'user_type' AND t.typtype = 'e') THEN
-    IF NOT EXISTS (
-      SELECT 1
-      FROM pg_enum e
-      JOIN pg_type t ON t.oid = e.enumtypid
-      WHERE t.typname = 'user_type' AND e.enumlabel = 'marketing_head'
-    ) THEN
-      -- usar schema-qualified quando existir em public
-      BEGIN
-        EXECUTE 'ALTER TYPE public.user_type ADD VALUE ''marketing_head''';
-      EXCEPTION WHEN undefined_object THEN
-        EXECUTE 'ALTER TYPE user_type ADD VALUE ''marketing_head''';
-      END;
-    END IF;
+    -- Lista oficial do app (mantida alinhada com CHECK/uso nas policies)
+    FOR v IN
+      SELECT unnest(ARRAY[
+        'super_admin',
+        'client',
+        'video_maker',
+        'web_designer',
+        'graphic_designer',
+        'social_media',
+        'traffic_manager',
+        'marketing_head',
+        'financial',
+        'hr',
+        'commercial'
+      ]::text[])
+    LOOP
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_enum e
+        JOIN pg_type t ON t.oid = e.enumtypid
+        WHERE t.typname = 'user_type' AND e.enumlabel = v
+      ) THEN
+        BEGIN
+          EXECUTE format('ALTER TYPE public.user_type ADD VALUE %L', v);
+        EXCEPTION
+          WHEN undefined_object THEN
+            EXECUTE format('ALTER TYPE user_type ADD VALUE %L', v);
+          WHEN duplicate_object THEN
+            -- ignore (race/execução parcial)
+            NULL;
+        END;
+      END IF;
+    END LOOP;
   END IF;
 END $do$;
 
