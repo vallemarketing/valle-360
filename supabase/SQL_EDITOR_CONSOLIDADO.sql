@@ -587,6 +587,16 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   ended_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Compat: se user_sessions já existia (schema antigo), garantir colunas usadas em índices/queries.
+DO $$
+BEGIN
+  IF to_regclass('public.user_sessions') IS NOT NULL THEN
+    ALTER TABLE public.user_sessions ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE DEFAULT now();
+    ALTER TABLE public.user_sessions ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT now();
+    ALTER TABLE public.user_sessions ADD COLUMN IF NOT EXISTS ended_at TIMESTAMP WITH TIME ZONE;
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_active ON user_sessions(is_active) WHERE is_active = true;
