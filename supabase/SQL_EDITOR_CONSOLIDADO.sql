@@ -2552,6 +2552,16 @@ CREATE TABLE IF NOT EXISTS goal_alerts (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Compat: se goal_alerts já existia (schema antigo), garantir colunas usadas por índices/queries.
+DO $$
+BEGIN
+  IF to_regclass('public.goal_alerts') IS NOT NULL THEN
+    ALTER TABLE public.goal_alerts ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT false;
+    ALTER TABLE public.goal_alerts ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+    ALTER TABLE public.goal_alerts ADD COLUMN IF NOT EXISTS dismissed BOOLEAN DEFAULT false;
+  END IF;
+END $$;
+
 -- =====================================================
 -- DADOS INICIAIS
 -- =====================================================
