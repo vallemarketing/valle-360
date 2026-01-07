@@ -684,6 +684,9 @@ DO $$
 BEGIN
   IF to_regclass('public.clients') IS NOT NULL THEN
     -- Campos base e sociais (muitos bancos antigos tinham só id/email/phone)
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
     ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS company_name VARCHAR(255);
     ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS instagram VARCHAR(255);
     ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS facebook VARCHAR(255);
