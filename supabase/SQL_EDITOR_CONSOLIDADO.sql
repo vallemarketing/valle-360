@@ -469,7 +469,7 @@ END $$;
 -- Alguns ambientes antigos criaram um ENUM `user_type` sem todas as opções.
 -- Quando existir, garantimos que 'marketing_head' (e outros) estejam presentes.
 -- =====================================================
-DO $$
+DO $do$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_type t WHERE t.typname = 'user_type' AND t.typtype = 'e') THEN
     IF NOT EXISTS (
@@ -480,13 +480,13 @@ BEGIN
     ) THEN
       -- usar schema-qualified quando existir em public
       BEGIN
-        EXECUTE $$ALTER TYPE public.user_type ADD VALUE 'marketing_head'$$;
+        EXECUTE 'ALTER TYPE public.user_type ADD VALUE ''marketing_head''';
       EXCEPTION WHEN undefined_object THEN
-        EXECUTE $$ALTER TYPE user_type ADD VALUE 'marketing_head'$$;
+        EXECUTE 'ALTER TYPE user_type ADD VALUE ''marketing_head''';
       END;
     END IF;
   END IF;
-END $$;
+END $do$;
 
 -- =====================================================
 -- 1. TABELA: user_profiles
