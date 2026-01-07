@@ -2557,7 +2557,16 @@ CREATE TABLE IF NOT EXISTS goal_alerts (
 -- =====================================================
 
 -- Configurações de metas por setor
-INSERT INTO goal_configs (sector, metrics, calculation_method, growth_rate, always_increase, seasonal_adjustments) VALUES
+INSERT INTO goal_configs (sector, metrics, calculation_method, growth_rate, always_increase, seasonal_adjustments)
+SELECT
+  v.sector,
+  v.metrics::jsonb,
+  v.calculation_method,
+  v.growth_rate,
+  v.always_increase,
+  v.seasonal_adjustments::jsonb
+FROM (
+  VALUES
 ('social_media', '[
   {"name": "posts", "label": "Posts Publicados", "unit": "posts", "weight": 0.3},
   {"name": "stories", "label": "Stories", "unit": "stories", "weight": 0.2},
@@ -2599,14 +2608,32 @@ INSERT INTO goal_configs (sector, metrics, calculation_method, growth_rate, alwa
   {"name": "retention_rate", "label": "Taxa de Retenção", "unit": "%", "weight": 0.2},
   {"name": "satisfacao_onboarding", "label": "Satisfação Onboarding", "unit": "%", "weight": 0.1}
 ]', 'fixed', 5.00, false, '{}');
+) AS v(sector, metrics, calculation_method, growth_rate, always_increase, seasonal_adjustments)
+WHERE NOT EXISTS (
+  SELECT 1 FROM goal_configs gc WHERE gc.sector = v.sector
+);
 
 -- Conquistas
-INSERT INTO goal_achievements (code, name, description, icon, color, points, criteria) VALUES
+INSERT INTO goal_achievements (code, name, description, icon, color, points, criteria)
+SELECT
+  v.code,
+  v.name,
+  v.description,
+  v.icon,
+  v.color,
+  v.points,
+  v.criteria::jsonb
+FROM (
+  VALUES
 ('streak_7', 'Semana Perfeita', 'Bateu a meta diária por 7 dias seguidos', 'flame', 'orange', 100, '{"type": "streak", "value": 7}'),
 ('streak_30', 'Mês Impecável', 'Bateu a meta diária por 30 dias seguidos', 'fire', 'red', 500, '{"type": "streak", "value": 30}'),
 ('goals_3', 'Triplo', 'Completou 3 metas mensais consecutivas', 'trophy', 'gold', 300, '{"type": "goals_completed_consecutive", "value": 3}'),
 ('exceed_20', 'Superação', 'Excedeu a meta em mais de 20%', 'rocket', 'purple', 200, '{"type": "exceed_percentage", "value": 20}'),
-('exceed_50', 'Extraordinário', 'Excedeu a meta em mais de 50%', 'star', 'yellow', 500, '{"type": "exceed_percentage", "value": 50}'),
+('exceed_50', 'Extraordinário', 'Excedeu a meta em mais de 50%', 'star', 'yellow', 500, '{"type": "exceed_percentage", "value": 50}')
+) AS v(code, name, description, icon, color, points, criteria)
+WHERE NOT EXISTS (
+  SELECT 1 FROM goal_achievements ga WHERE ga.code = v.code
+);
 ('first_goal', 'Primeira Meta', 'Completou sua primeira meta', 'flag', 'green', 50, '{"type": "first_goal"}'),
 ('top_performer', 'Top Performer', 'Ficou em 1º lugar no ranking do mês', 'crown', 'gold', 400, '{"type": "ranking", "position": 1}'),
 ('improvement', 'Evolução', 'Melhorou 25% em relação ao mês anterior', 'trending-up', 'blue', 150, '{"type": "improvement", "value": 25}'),
