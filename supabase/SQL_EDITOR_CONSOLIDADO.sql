@@ -524,6 +524,18 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   last_login_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Compat: se user_profiles já existia em ambientes antigos, garantir colunas mínimas usadas por funções/políticas/RLS.
+DO $$
+BEGIN
+  IF to_regclass('public.user_profiles') IS NOT NULL THEN
+    ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS client_id UUID;
+    ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS employee_id UUID;
+    ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS user_type VARCHAR(50);
+    ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS role TEXT;
+    ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS is_active BOOLEAN;
+  END IF;
+END $$;
+
 -- Índices para performance
 CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON user_profiles(email);
