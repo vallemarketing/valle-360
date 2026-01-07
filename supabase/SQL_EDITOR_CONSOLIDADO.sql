@@ -679,6 +679,18 @@ CREATE TABLE IF NOT EXISTS clients (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
 );
 
+-- Compat: se clients já existia (schema antigo), garantir colunas usadas em índices/policies.
+DO $$
+BEGIN
+  IF to_regclass('public.clients') IS NOT NULL THEN
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS account_manager UUID;
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS created_by UUID;
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();
+    ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now();
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email);
 CREATE INDEX IF NOT EXISTS idx_clients_is_active ON clients(is_active) WHERE is_active = true;
 CREATE INDEX IF NOT EXISTS idx_clients_account_manager ON clients(account_manager);
