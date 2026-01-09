@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Required for Docker builds that use `.next/standalone` in the runner stage
+  output: 'standalone',
+
   // Image optimization
   images: {
     domains: [
