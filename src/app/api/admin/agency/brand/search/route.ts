@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
-import { callCrewService } from '@/lib/agency/crewBridge';
+import { searchBrandMemory } from '@/lib/agency/brandMemory';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,8 +15,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Body inválido (JSON)' }, { status: 400 });
   }
 
-  const result = await callCrewService('/v1/brand/search', { method: 'POST', body });
-  if (!result.ok) return NextResponse.json({ success: false, error: result.error, data: result.data }, { status: result.status || 500 });
-  return NextResponse.json(result.data);
-}
+  const clientId = String(body?.client_id || '').trim();
+  const query = String(body?.query || '').trim();
 
+  if (!clientId) return NextResponse.json({ success: false, error: 'client_id é obrigatório' }, { status: 400 });
+  if (!query) return NextResponse.json({ success: false, error: 'query é obrigatório' }, { status: 400 });
+
+  try {
+    const result = await searchBrandMemory({
+      clientId,
+      query,
+      matchCount: body.match_count ?? 8,
+      similarityThreshold: body.similarity_threshold ?? 0.7,
+    });
+
+    return NextResponse.json({
+      success: true,
+      matches: result.matches,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ success: false, error: String(e?.message || 'Falha na busca') }, { status: 500 });
+  }
+}
