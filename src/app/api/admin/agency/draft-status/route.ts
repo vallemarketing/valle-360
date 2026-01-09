@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
-import { createServerClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = await createServerClient();
+    const supabase = getSupabaseAdmin();
 
     const { data, error } = await supabase
       .from('ai_executive_action_drafts')

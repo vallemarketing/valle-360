@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
-import { createServerClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   if (!title) return NextResponse.json({ success: false, error: 'title é obrigatório' }, { status: 400 });
 
   try {
-    const supabase = await createServerClient();
+    const supabase = getSupabaseAdmin();
 
     // Resolve executive_id by role (default: coo)
     const role = String(body?.executive_role || 'coo').toLowerCase();
