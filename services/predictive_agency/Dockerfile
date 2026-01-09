@@ -1,5 +1,6 @@
 # Predictive Agency - CrewAI/FastAPI Service
 # Root Directory: services/predictive_agency
+# Cache-bust: 2026-01-09-v2
 
 FROM python:3.11-slim
 
