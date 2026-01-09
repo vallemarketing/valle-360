@@ -47,9 +47,7 @@ CHANGELOG.md
 *.md
 
 # Docker
-Dockerfile
 docker-compose.yml
-.dockerignore
 
 # Logs
 logs
