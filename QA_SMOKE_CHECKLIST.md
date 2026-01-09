@@ -41,6 +41,54 @@ Este checklist é a evidência prática para declarar o ambiente **“pronto”*
   - **Evidência**:
     - print do gráfico/tabela
 
+### Social (Admin/App/Colaborador): Gestão de Posts (V1)
+- **Super Admin (Admin)**: ir em `/admin/social-media/gestao`
+  - **Esperado**:
+    - Página abre sem erro
+    - Tabs (Lista/Calendário/Monitoramento/Métricas) alternam sem travar
+    - Lista carrega posts via `/api/social/posts-mirror`
+    - Calendário renderiza via `PostCalendar`
+    - Métricas exigem selecionar um cliente (usa `/api/social/metrics?client_id=...`)
+- **App**: ir em `/app/social-media/gestao`
+- **Colaborador**: ir em `/colaborador/social-media/gestao`
+  - **Esperado**: mesmos comportamentos (respeitando permissões do Social/Head)
+
+### Social (Upload / Agendar Postagem): anti-trava (sem confirm nativo)
+- Ir em:
+  - `/admin/social-media/upload`
+  - `/app/social-media/upload`
+  - `/colaborador/social-media/upload`
+- **Ação**: deletar um post na lista (quando existir)
+  - **Esperado**:
+    - Abre `ConfirmModal` interno (sem `window.confirm`)
+    - Ao confirmar, deleta e mostra toast/hint (sem travar o browser)
+
+### C‑Suite: Histórico + execuções consultivas
+- Ir em `/admin/diretoria/historico`
+  - **Esperado**:
+    - Lista reuniões/decisões/drafts sem erro
+    - Drafts `failed` exibem erro + CTA de tentar novamente
+    - Drafts executados de Kanban exibem link “Abrir no Kanban”
+    - Ações usam modal interno (sem `confirm/alert` nativo)
+
+### Kanban: alvo padrão (board/coluna) via hints
+- No Histórico C‑Suite (ou via API), criar um draft `create_kanban_task` com:
+  - `action_payload.metadata.area_key` e/ou `stage_key`
+  - **Esperado**: task criada no board correto (por `area_key`) e coluna correta (por `stage_key`), com fallback seguro quando faltar contexto
+
+### CrewAI (Railway) + Bridge (Vercel)
+- **Railway** (serviço Predictive Agency):
+  - `GET /health` → `{ ok: true }`
+  - `GET /health/supabase` (protegido por `BRIDGE_SECRET` se configurado) → `{ ok: true, checked_table: 'clients', ... }`
+- **Vercel** (ponte server-side):
+  - `POST /api/admin/agency/brand/ingest-text`
+  - `POST /api/admin/agency/brand/search`
+  - `POST /api/admin/agency/kanban-task-draft`
+  - `GET /api/admin/agency/draft-status?draft_id=...`
+  - **Esperado**:
+    - Todas respondem (admin-only), sem expor `SUPABASE_SERVICE_ROLE_KEY`
+    - Draft criado aparece no Histórico e pode ser aprovado/executado
+
 ### Menções (@mentions): Kanban + Chats
 - Em Kanban: abrir um card, comentar com `@nome`
   - **Esperado**:

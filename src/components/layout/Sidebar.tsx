@@ -107,6 +107,7 @@ export function Sidebar() {
     const base = [...appNavItems];
     const insertAt = Math.max(0, base.findIndex((x) => x.href === '/app/solicitacoes') + 1);
     base.splice(insertAt, 0, { href, label: 'Agendar Postagem', icon: Upload });
+    base.splice(insertAt + 1, 0, { href: '/app/social-media/gestao', label: 'Gestão de Posts', icon: Calendar });
     return base;
   })();
 

@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { CreditCard } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DirectorChatModal } from '@/components/diretoria/DirectorChatModal';
+import { ExecutiveChatModal } from '@/components/csuite/ExecutiveChatModal';
+import { InsightsPanel } from '@/components/csuite/InsightsPanel';
+import { GenerateInsightsButton } from '@/components/csuite/GenerateInsightsButton';
 
 export default function CFOPage() {
   return (
@@ -27,10 +30,20 @@ export default function CFOPage() {
             title="Conversar com CFO"
             subtitle="Chat executivo com base em dados reais do sistema (best-effort)."
           />
+          <ExecutiveChatModal
+            role="cfo"
+            execName="Eduardo"
+            title="Chat C‑Suite (Eduardo)"
+            subtitle="Novo chat consultivo + insights + CTAs (rascunho/confirmar)."
+            buttonClassName="bg-white text-[#001533] border hover:bg-gray-50"
+          />
+          <GenerateInsightsButton role="cfo" label="Gerar insights do CFO" />
           <Link href="/admin/diretoria" className="text-sm underline" style={{ color: 'var(--primary-500)' }}>
             Voltar
           </Link>
         </div>
+
+        <InsightsPanel role="cfo" />
 
         <div
           className="rounded-2xl border p-8"

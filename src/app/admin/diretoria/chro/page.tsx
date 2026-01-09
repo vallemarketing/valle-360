@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { Users } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DirectorChatModal } from '@/components/diretoria/DirectorChatModal';
+import { ExecutiveChatModal } from '@/components/csuite/ExecutiveChatModal';
+import { InsightsPanel } from '@/components/csuite/InsightsPanel';
+import { GenerateInsightsButton } from '@/components/csuite/GenerateInsightsButton';
 
 export default function CHROPage() {
   return (
@@ -28,10 +31,20 @@ export default function CHROPage() {
             subtitle="Chat executivo focado em RH (solicitações, carga, riscos)."
             buttonClassName="bg-orange-600 hover:bg-orange-700"
           />
+          <ExecutiveChatModal
+            role="chro"
+            execName="Paulo"
+            title="Chat C‑Suite (CHRO)"
+            subtitle="Novo chat consultivo + insights + CTAs (rascunho/confirmar)."
+            buttonClassName="bg-white text-[#001533] border hover:bg-gray-50"
+          />
+          <GenerateInsightsButton role="chro" label="Gerar insights do CHRO" />
           <Link href="/admin/diretoria" className="text-sm underline" style={{ color: 'var(--primary-500)' }}>
             Voltar
           </Link>
         </div>
+
+        <InsightsPanel role="chro" />
 
         <div
           className="rounded-2xl border p-8"

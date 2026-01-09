@@ -20,6 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { ConfirmModal } from '@/components/ui';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,6 +100,10 @@ export default function UploadPostsCenter(props: { title: string; backHref?: str
   const [actionLoading, setActionLoading] = useState<null | string>(null);
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTargetPost, setDeleteTargetPost] = useState<any | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const openExternal = (url: string) => {
     try {
@@ -413,27 +419,43 @@ export default function UploadPostsCenter(props: { title: string; backHref?: str
   }
 
   async function handleDelete(post: any) {
+    setDeleteTargetPost(post || null);
+    setDeleteConfirmOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTargetPost) return;
+    const post = deleteTargetPost;
     const externalId = post?.external_id ? String(post.external_id) : null;
     const localId = post?.id ? String(post.id) : null;
 
-    if (!confirm('Deseja deletar este post?')) return;
+    setDeleteLoading(true);
     setError(null);
     setHint(null);
     try {
       if (externalId && String(post?.backend || 'instagramback') === 'instagramback') {
         const r = await fetch(`/api/social/instagramback/posts/${encodeURIComponent(externalId)}`, { method: 'DELETE' });
-        const j = await r.json();
+        const j = await r.json().catch(() => null);
         if (!r.ok) throw new Error(j?.error || 'Falha ao deletar no InstagramBack');
       } else if (localId) {
         const r = await fetch(`/api/social/posts-mirror?id=${encodeURIComponent(localId)}`, { method: 'DELETE' });
-        const j = await r.json();
+        const j = await r.json().catch(() => null);
         if (!r.ok) throw new Error(j?.error || 'Falha ao deletar');
       } else {
         throw new Error('Não foi possível identificar o post para deletar.');
       }
+
+      toast.success('Post deletado.');
+      setHint('Post deletado.');
+      setDeleteConfirmOpen(false);
+      setDeleteTargetPost(null);
       await loadPostsMirror(selectedClientId);
     } catch (e: any) {
-      setError(e?.message || 'Erro ao deletar');
+      const msg = String(e?.message || 'Erro ao deletar');
+      toast.error(msg);
+      setError(msg);
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -973,6 +995,22 @@ export default function UploadPostsCenter(props: { title: string; backHref?: str
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => {
+          if (deleteLoading) return;
+          setDeleteConfirmOpen(false);
+          setDeleteTargetPost(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Deletar post"
+        message="Tem certeza que deseja deletar este post? Essa ação não pode ser desfeita."
+        confirmText="Deletar"
+        cancelText="Cancelar"
+        variant="danger"
+        loading={deleteLoading}
+      />
     </div>
   );
 }

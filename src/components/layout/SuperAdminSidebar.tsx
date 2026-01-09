@@ -15,6 +15,9 @@ import {
   CreditCard,
   FileText,
   Settings,
+  Crown,
+  ClipboardCheck,
+  Handshake,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -37,7 +40,9 @@ import {
   Building2,
   Workflow,
   CheckCircle2,
+  Calendar,
   Instagram,
+  Bell,
   LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -117,10 +122,15 @@ const navGroups: NavGroup[] = [
     icon: Building,
     items: [
       { id: "csuite", label: "C-Suite IA", href: "/admin/diretoria", icon: Building },
+      { id: "csuite-history", label: "Histórico & Decisões", href: "/admin/diretoria/historico", icon: FileText },
+      { id: "csuite-memory", label: "Memória & Conhecimento", href: "/admin/diretoria/memoria", icon: Brain },
+      { id: "ceo", label: "CEO (Estratégia)", href: "/admin/diretoria/ceo", icon: Crown },
       { id: "cfo", label: "CFO (Financeiro)", href: "/admin/diretoria/cfo", icon: CreditCard },
       { id: "cto", label: "CTO (Operações)", href: "/admin/diretoria/cto", icon: Settings },
       { id: "cmo", label: "CMO (Clientes)", href: "/admin/diretoria/cmo", icon: TrendingUp },
       { id: "chro", label: "CHRO (Pessoas)", href: "/admin/diretoria/chro", icon: Users },
+      { id: "coo", label: "COO (Entrega)", href: "/admin/diretoria/coo", icon: ClipboardCheck },
+      { id: "cco", label: "CCO (Clientes & Retenção)", href: "/admin/diretoria/cco", icon: Handshake },
       { id: "solicitacoes", label: "Solicitações", href: "/admin/solicitacoes", icon: Calendar, badge: 3 },
     ],
   },
@@ -144,6 +154,7 @@ const navGroups: NavGroup[] = [
     icon: Instagram,
     items: [
       { id: "social-upload", label: "Agendar Postagem", href: "/admin/social-media/upload", icon: Instagram },
+      { id: "social-gestao", label: "Gestão de Posts", href: "/admin/social-media/gestao", icon: Calendar },
     ],
   },
   {
@@ -178,6 +189,7 @@ const navGroups: NavGroup[] = [
       { id: "n8n", label: "N8N Workflows", href: "/admin/integracoes/n8n", icon: Activity },
       { id: "api", label: "Central de APIs", href: "/admin/integracoes/api", icon: Shield },
       { id: "audit", label: "Auditoria", href: "/admin/auditoria", icon: Shield },
+      { id: "alert-recipients", label: "Destinatários de Alertas", href: "/admin/configuracoes/alertas", icon: Bell },
       { id: "settings", label: "Configurações", href: "/admin/configuracoes", icon: Settings },
     ],
   },

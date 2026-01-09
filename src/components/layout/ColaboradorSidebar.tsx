@@ -131,7 +131,10 @@ export function ColaboradorSidebar(props?: { variant?: 'fixed' | 'sheet' }) {
       groups.push({
         id: 'social',
         label: 'Social',
-        items: [{ id: 'agendar', name: 'Agendar Postagem', icon: Upload, href: uploadHref }],
+        items: [
+          { id: 'agendar', name: 'Agendar Postagem', icon: Upload, href: uploadHref },
+          { id: 'gestao-posts', name: 'Gestão de Posts', icon: Calendar, href: '/colaborador/social-media/gestao' },
+        ],
       });
     }
 

@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { TrendingUp } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DirectorChatModal } from '@/components/diretoria/DirectorChatModal';
+import { ExecutiveChatModal } from '@/components/csuite/ExecutiveChatModal';
+import { InsightsPanel } from '@/components/csuite/InsightsPanel';
+import { GenerateInsightsButton } from '@/components/csuite/GenerateInsightsButton';
 
 export default function CMOPage() {
   return (
@@ -27,10 +30,20 @@ export default function CMOPage() {
             title="Conversar com CMO"
             subtitle="Chat executivo focado em performance e retenção."
           />
+          <ExecutiveChatModal
+            role="cmo"
+            execName="Marina"
+            title="Chat C‑Suite (CMO)"
+            subtitle="Novo chat consultivo + mercado (Sonar) + insights + CTAs."
+            buttonClassName="bg-white text-[#001533] border hover:bg-gray-50"
+          />
+          <GenerateInsightsButton role="cmo" label="Gerar insights da CMO" />
           <Link href="/admin/diretoria" className="text-sm underline" style={{ color: 'var(--primary-500)' }}>
             Voltar
           </Link>
         </div>
+
+        <InsightsPanel role="cmo" />
 
         <div
           className="rounded-2xl border p-8"

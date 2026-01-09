@@ -15,7 +15,7 @@ export default function DiretoriaVirtualPage() {
           <div>
             <h1 className="text-2xl font-bold text-[#001533] dark:text-white">Diretoria Virtual</h1>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Sem mocks: KPIs só com dados reais. O chat executivo (CFO/CTO/CMO/CHRO) já está disponível.
+              Sem mocks: KPIs só com dados reais. A Diretoria Virtual agora suporta 7 executivos (incluindo CEO/COO/CCO) em modo consultivo.
             </p>
           </div>
         </div>
@@ -35,10 +35,15 @@ export default function DiretoriaVirtualPage() {
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
             {[
+              { href: '/admin/diretoria/ceo', label: 'CEO' },
               { href: '/admin/diretoria/cfo', label: 'CFO' },
               { href: '/admin/diretoria/cto', label: 'CTO' },
               { href: '/admin/diretoria/cmo', label: 'CMO' },
               { href: '/admin/diretoria/chro', label: 'CHRO' },
+              { href: '/admin/diretoria/coo', label: 'COO' },
+              { href: '/admin/diretoria/cco', label: 'CCO' },
+              { href: '/admin/diretoria/historico', label: 'Histórico & Decisões' },
+              { href: '/admin/diretoria/memoria', label: 'Memória & Conhecimento' },
             ].map((x) => (
               <Link
                 key={x.href}

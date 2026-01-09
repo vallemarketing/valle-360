@@ -142,6 +142,68 @@ async function resolveAdminRecipients(supabase: any): Promise<{ emails: string[]
   }
 }
 
+async function resolveRecipientsByAlertType(
+  supabase: any,
+  alertType: string
+): Promise<{ emails: string[]; userIds: string[]; source: 'env' | 'db' | 'fallback' }> {
+  const envEmails = splitCsv(process.env.ALERTS_NOTIFY_EMAILS);
+  const envUserIds = splitCsv(process.env.ALERTS_NOTIFY_INTRANET_USER_IDS).filter(isUuid);
+  if (envEmails.length || envUserIds.length) return { emails: envEmails, userIds: envUserIds, source: 'env' };
+
+  // 1) Banco/UI
+  try {
+    const { data: rules } = await supabase
+      .from('alert_recipient_rules')
+      .select('channel,recipient_user_id,recipient_email,is_enabled')
+      .eq('alert_type', alertType)
+      .eq('is_enabled', true)
+      .limit(500);
+
+    const rows = (rules || []) as any[];
+    if (rows.length) {
+      const intranetUserIds = rows
+        .filter((r) => String(r.channel || '') === 'intranet')
+        .map((r) => String(r.recipient_user_id || ''))
+        .filter(isUuid);
+
+      const emailUserIds = rows
+        .filter((r) => String(r.channel || '') === 'email')
+        .map((r) => String(r.recipient_user_id || ''))
+        .filter(isUuid);
+
+      const externalEmails = rows
+        .filter((r) => String(r.channel || '') === 'email')
+        .map((r) => String(r.recipient_email || ''))
+        .map((e) => e.trim())
+        .filter((e) => e && e.includes('@'));
+
+      let userEmails: string[] = [];
+      if (emailUserIds.length) {
+        try {
+          const { data: up } = await supabase
+            .from('user_profiles')
+            .select('user_id,email,is_active')
+            .in('user_id', Array.from(new Set(emailUserIds)))
+            .eq('is_active', true);
+          userEmails = (up || []).map((r: any) => String(r.email || '')).filter(Boolean);
+        } catch {
+          userEmails = [];
+        }
+      }
+
+      const emails = Array.from(new Set([...externalEmails, ...userEmails]));
+      const userIds = Array.from(new Set(intranetUserIds));
+
+      if (emails.length || userIds.length) return { emails, userIds, source: 'db' };
+    }
+  } catch {
+    // ignore
+  }
+
+  const fallback = await resolveAdminRecipients(supabase);
+  return { emails: fallback.emails, userIds: fallback.userIds, source: 'fallback' };
+}
+
 async function runThresholdAlerts() {
   const supabase = getSupabaseAdmin();
   const startedAt = Date.now();
@@ -290,7 +352,17 @@ async function runThresholdAlerts() {
   );
 
   // Notificações (best-effort)
-  const recipients = await resolveAdminRecipients(supabase);
+  const recipientsByType = {
+    payment_risk: await resolveRecipientsByAlertType(supabase, 'payment_risk'),
+    budget_overrun: await resolveRecipientsByAlertType(supabase, 'budget_overrun'),
+    demand_capacity: await resolveRecipientsByAlertType(supabase, 'demand_capacity'),
+    churn: await resolveRecipientsByAlertType(supabase, 'churn'),
+  };
+
+  const recipients = {
+    emails: Array.from(new Set(Object.values(recipientsByType).flatMap((r) => r.emails))),
+    userIds: Array.from(new Set(Object.values(recipientsByType).flatMap((r) => r.userIds))),
+  };
   const sent: any = { email: 0, whatsapp: 0, intranet: 0, skipped: [] as string[] };
 
   if (triggered.length > 0) {

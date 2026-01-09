@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { Settings } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DirectorChatModal } from '@/components/diretoria/DirectorChatModal';
+import { ExecutiveChatModal } from '@/components/csuite/ExecutiveChatModal';
+import { InsightsPanel } from '@/components/csuite/InsightsPanel';
+import { GenerateInsightsButton } from '@/components/csuite/GenerateInsightsButton';
 
 export default function CTOPage() {
   return (
@@ -27,10 +30,20 @@ export default function CTOPage() {
             title="Conversar com CTO"
             subtitle="Chat executivo focado em operação (SLA, WIP, gargalos)."
           />
+          <ExecutiveChatModal
+            role="cto"
+            execName="André"
+            title="Chat C‑Suite (CTO)"
+            subtitle="Novo chat consultivo + insights + CTAs (rascunho/confirmar)."
+            buttonClassName="bg-white text-[#001533] border hover:bg-gray-50"
+          />
+          <GenerateInsightsButton role="cto" label="Gerar insights do CTO" />
           <Link href="/admin/diretoria" className="text-sm underline" style={{ color: 'var(--primary-500)' }}>
             Voltar
           </Link>
         </div>
+
+        <InsightsPanel role="cto" />
 
         <div
           className="rounded-2xl border p-8"

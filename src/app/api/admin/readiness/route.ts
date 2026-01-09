@@ -144,7 +144,8 @@ export async function GET(request: NextRequest) {
 
     // Integrações obrigatórias (impactam prontidão) vs opcionais (N/A se não configuradas)
     const requiredIntegrations = ['openrouter', 'openai', 'stripe', 'sendgrid'] as const;
-    const optionalIntegrations = ['whatsapp', 'instagramback', 'n8n'] as const;
+    // Opcionais (não bloqueiam prontidão), mas melhoram recursos: ex. Mercado (Perplexity)
+    const optionalIntegrations = ['whatsapp', 'instagramback', 'n8n', 'perplexity'] as const;
 
     const requiredStatus: Record<string, ReadinessStatus> = {};
     const optionalStatus: Record<string, { status: ReadinessStatus; applicable: boolean }> = {};
@@ -171,6 +172,7 @@ export async function GET(request: NextRequest) {
 
       const connectedInEnv =
         (id === 'whatsapp' && !!process.env.WHATSAPP_ACCESS_TOKEN && !!process.env.WHATSAPP_PHONE_NUMBER_ID) ||
+        (id === 'perplexity' && !!process.env.PERPLEXITY_API_KEY) ||
         // InstagramBack é configurado via DB (não env)
         false;
 
@@ -228,6 +230,8 @@ export async function GET(request: NextRequest) {
       'direct_conversations',
       'direct_conversation_participants',
       'direct_messages',
+      // Alert recipients (UI)
+      'alert_recipient_rules',
       'instagram_posts',
       'social_connected_accounts',
       // Social metrics (cliente)
@@ -245,6 +249,20 @@ export async function GET(request: NextRequest) {
       'ml_predictions_log',
       'client_health_scores',
       'super_admin_insights',
+      // C‑Suite Virtual (novo, canônico)
+      'ai_executives',
+      'ai_executive_conversations',
+      'ai_executive_messages',
+      'ai_executive_meetings',
+      'ai_executive_meeting_messages',
+      'ai_executive_insights',
+      'ai_executive_decisions',
+      'ai_executive_knowledge',
+      'ai_executive_web_searches',
+      'ai_executive_data_access_log',
+      'ai_executive_alerts',
+      'ai_executive_triggers',
+      'ai_executive_action_drafts',
       // Sentimento
       'sentiment_analyses',
       'sentiment_processing_queue',
@@ -414,6 +432,27 @@ export async function GET(request: NextRequest) {
     const waRecipientsEnv = splitCsv(process.env.ALERTS_NOTIFY_WHATSAPP_PHONES);
     const intranetRecipientsEnv = splitCsv(process.env.ALERTS_NOTIFY_INTRANET_USER_IDS).filter((x) => isUuid(x));
 
+    // Banco/UI (alert_recipient_rules)
+    let dbEmailRecipients = 0;
+    let dbIntranetRecipients = 0;
+    let dbRecipientRulesConfigured = false;
+    try {
+      const { data } = await supabaseAdmin
+        .from('alert_recipient_rules')
+        .select('channel,is_enabled')
+        .eq('is_enabled', true)
+        .limit(1000);
+      const rows = (data || []) as any[];
+      dbRecipientRulesConfigured = rows.length > 0;
+      dbEmailRecipients = rows.filter((r) => String(r.channel || '') === 'email').length;
+      dbIntranetRecipients = rows.filter((r) => String(r.channel || '') === 'intranet').length;
+    } catch {
+      // tabela pode não existir ainda; ignore
+      dbRecipientRulesConfigured = false;
+      dbEmailRecipients = 0;
+      dbIntranetRecipients = 0;
+    }
+
     const alerts = {
       applicable: true,
       actorUserIdConfigured: Boolean(alertsActorUserId),
@@ -422,15 +461,18 @@ export async function GET(request: NextRequest) {
       hasEmailRecipientsEnv: emailRecipientsEnv.length > 0,
       hasWhatsAppRecipientsEnv: waRecipientsEnv.length > 0,
       hasIntranetRecipientsEnv: intranetRecipientsEnv.length > 0,
+      hasRecipientsDb: dbRecipientRulesConfigured,
+      dbEmailRecipients,
+      dbIntranetRecipients,
       fallbackAdminEmails,
       fallbackAdminUserIds,
       status:
         // se ao menos 1 canal estiver configurado, consideramos "pass" para não bloquear prod
         (requiredStatus.sendgrid === 'pass' &&
           sendgridFromConfigured &&
-          (emailRecipientsEnv.length > 0 || fallbackAdminEmails > 0)) ||
+          (emailRecipientsEnv.length > 0 || dbEmailRecipients > 0 || fallbackAdminEmails > 0)) ||
         (optionalStatus.whatsapp?.status === 'pass' && waRecipientsEnv.length > 0) ||
-        (isUuid(alertsActorUserId) && (intranetRecipientsEnv.length > 0 || fallbackAdminUserIds > 0))
+        (isUuid(alertsActorUserId) && (intranetRecipientsEnv.length > 0 || dbIntranetRecipients > 0 || fallbackAdminUserIds > 0))
           ? ('pass' as ReadinessStatus)
           : ('warn' as ReadinessStatus),
     };

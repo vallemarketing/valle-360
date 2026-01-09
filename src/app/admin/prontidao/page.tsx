@@ -76,6 +76,7 @@ export default function ProntidaoPage() {
         { job: 'overdue', url: '/api/cron/overdue' },
         { job: 'ml', url: '/api/cron/ml' },
         { job: 'alerts', url: '/api/cron/alerts' },
+        { job: 'csuite-insights', url: '/api/cron/csuite-insights' },
         { job: 'social-publish', url: '/api/cron/social-publish' },
         { job: 'social-metrics', url: '/api/cron/social-metrics' },
       ];
