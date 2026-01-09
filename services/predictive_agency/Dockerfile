@@ -18,6 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY services/predictive_agency/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Provide a tiny `chromadb` stub so `crewai` can import without installing ChromaDB.
+COPY services/predictive_agency/chromadb ./chromadb
+
 # Install CrewAI without pulling its full dependency tree (Railway build timeout).
 # We only use core classes (Agent/Crew/Task) and our own tools/memory via Supabase.
 RUN pip install --no-cache-dir --no-deps crewai==0.86.0 \
