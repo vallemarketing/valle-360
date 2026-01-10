@@ -40,7 +40,6 @@ import {
   Building2,
   Workflow,
   CheckCircle2,
-  Calendar,
   Instagram,
   Bell,
   LogOut
