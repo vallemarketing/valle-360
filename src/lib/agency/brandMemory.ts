@@ -153,3 +153,74 @@ export async function searchBrandMemory(params: SearchParams): Promise<{ matches
 
   return { matches: (data || []) as SearchMatch[] };
 }
+
+// ── Alias for searchBrandMemory ─────────────────────────────────────────────
+export async function searchMemory(
+  query: string,
+  clientId?: string,
+  matchCount: number = 5
+): Promise<SearchMatch[]> {
+  if (!clientId) return [];
+  
+  try {
+    const result = await searchBrandMemory({
+      clientId,
+      query,
+      matchCount,
+      similarityThreshold: 0.65,
+    });
+    return result.matches;
+  } catch (error) {
+    console.error('searchMemory error:', error);
+    return [];
+  }
+}
+
+// ── Get Brand Context ───────────────────────────────────────────────────────
+/**
+ * Retrieves consolidated brand context for a client
+ * Used by agents to understand brand voice, values, and guidelines
+ */
+export async function getBrandContext(clientId: string): Promise<string | null> {
+  if (!clientId) return null;
+  
+  try {
+    // Search for key brand elements
+    const queries = [
+      'tom de voz e personalidade da marca',
+      'valores e missão da empresa',
+      'público-alvo e personas',
+      'diretrizes visuais e identidade',
+    ];
+    
+    const allMatches: SearchMatch[] = [];
+    
+    for (const query of queries) {
+      const matches = await searchMemory(query, clientId, 3);
+      allMatches.push(...matches);
+    }
+    
+    if (allMatches.length === 0) {
+      return null;
+    }
+    
+    // Remove duplicates by id
+    const uniqueMatches = Array.from(
+      new Map(allMatches.map(m => [m.id, m])).values()
+    );
+    
+    // Sort by similarity and take top results
+    uniqueMatches.sort((a, b) => b.similarity - a.similarity);
+    const topMatches = uniqueMatches.slice(0, 8);
+    
+    // Consolidate into a single context string
+    const context = topMatches
+      .map(m => m.content)
+      .join('\n\n---\n\n');
+    
+    return context;
+  } catch (error) {
+    console.error('getBrandContext error:', error);
+    return null;
+  }
+}
