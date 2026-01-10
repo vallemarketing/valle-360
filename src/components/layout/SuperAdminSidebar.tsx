@@ -43,7 +43,8 @@ import {
   Instagram,
   Bell,
   LogOut,
-  Zap
+  Zap,
+  FileCode
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -164,6 +165,7 @@ const navGroups: NavGroup[] = [
     icon: Scale,
     items: [
       { id: "contracts-legal", label: "Contratos", href: "/admin/contratos", icon: FileText },
+      { id: "contract-templates", label: "Templates de Contrato", href: "/admin/contratos/templates", icon: FileCode },
       { id: "documents", label: "Documentos", href: "/admin/documentos", icon: FileSignature },
     ],
   },
