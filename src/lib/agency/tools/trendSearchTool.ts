@@ -3,7 +3,7 @@
  * Ferramenta para buscar tendências atuais usando Perplexity
  */
 
-import { searchWithPerplexity } from '@/lib/ai/perplexity';
+import { perplexityWebSearch } from '@/lib/integrations/perplexity';
 
 export interface TrendSearchParams {
   topic: string;
@@ -46,10 +46,10 @@ Liste as 5 principais tendências, incluindo:
 Foque em tendências dos últimos 7-14 dias.`;
 
   try {
-    const result = await searchWithPerplexity(query);
+    const result = await perplexityWebSearch({ query });
     
     // Parse the result into structured trends
-    const trends = parseTrendsFromText(result.content);
+    const trends = parseTrendsFromText(result.answer);
 
     return {
       trends,

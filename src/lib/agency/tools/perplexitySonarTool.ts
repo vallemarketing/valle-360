@@ -3,7 +3,7 @@
  * Ferramenta para pesquisas em tempo real usando Perplexity Sonar
  */
 
-import { searchWithPerplexity } from '@/lib/ai/perplexity';
+import { perplexityWebSearch } from '@/lib/integrations/perplexity';
 
 export interface PerplexitySonarParams {
   query: string;
@@ -45,10 +45,10 @@ export async function searchWithSonar(
   }
 
   try {
-    const result = await searchWithPerplexity(enhancedQuery);
+    const result = await perplexityWebSearch({ query: enhancedQuery });
     
     return {
-      content: result.content,
+      content: result.answer,
       sources: result.sources || [],
       searchedAt: new Date().toISOString(),
       query,
