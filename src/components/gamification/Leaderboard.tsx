@@ -131,8 +131,9 @@ export function Leaderboard({
                 `}
                 style={{ 
                   backgroundColor: isCurrentUser ? 'var(--primary-50)' : 'var(--bg-secondary)',
-                  ringColor: isCurrentUser ? 'var(--primary-500)' : undefined,
-                }}
+                  // @ts-ignore - ringColor is a Tailwind CSS custom property
+                  '--tw-ring-color': isCurrentUser ? 'var(--primary-500)' : undefined,
+                } as React.CSSProperties}
               >
                 {/* Rank */}
                 <div className={`

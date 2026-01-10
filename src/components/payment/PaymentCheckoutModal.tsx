@@ -21,6 +21,8 @@ interface PaymentCheckoutModalProps {
     number: string;
     amount: number;
     dueDate: string;
+    status?: string;
+    paidDate?: string | null;
   };
   onClose: () => void;
 }

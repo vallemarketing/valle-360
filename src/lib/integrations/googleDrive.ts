@@ -225,7 +225,15 @@ export async function uploadToDrive(
   
   const formData = new FormData();
   formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-  formData.append('file', content instanceof Buffer ? new Blob([content]) : content);
+  let fileBlob: Blob;
+  if (content instanceof Blob) {
+    fileBlob = content;
+  } else {
+    // Convert Buffer to Uint8Array for Blob compatibility
+    const uint8Array = new Uint8Array(content);
+    fileBlob = new Blob([uint8Array], { type: mimeType });
+  }
+  formData.append('file', fileBlob);
 
   const response = await fetch(
     'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink',

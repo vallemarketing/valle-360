@@ -148,7 +148,7 @@ export async function createEvent(
       success: true,
       eventId: response.data.id || undefined,
       htmlLink: response.data.htmlLink || undefined,
-      meetLink: response.data.hangoutLink || response.data.conferenceData?.entryPoints?.[0]?.uri,
+      meetLink: response.data.hangoutLink || response.data.conferenceData?.entryPoints?.[0]?.uri || undefined,
     };
   } catch (error: any) {
     console.error('Google Calendar create event error:', error);
