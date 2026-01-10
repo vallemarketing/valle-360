@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
-import whatsappService from '@/lib/integrations/whatsapp';
+import { sendWhatsAppMessage } from '@/lib/integrations/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +36,12 @@ export async function POST(request: NextRequest) {
   if (!toPhone) return NextResponse.json({ success: false, error: 'toPhone é obrigatório' }, { status: 400 });
   if (!text) return NextResponse.json({ success: false, error: 'text é obrigatório' }, { status: 400 });
 
-  const resp = await whatsappService.sendText(toPhone, text);
+  const resp = await sendWhatsAppMessage({
+    to: toPhone,
+    type: 'text',
+    text: text
+  });
+  
   if (!resp.success) {
     return NextResponse.json({ success: false, configured: true, error: resp.error || 'Falha ao enviar WhatsApp' }, { status: 502 });
   }
