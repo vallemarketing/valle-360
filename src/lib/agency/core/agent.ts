@@ -1,156 +1,127 @@
 /**
- * Predictive Agency - Base Agent Class
- * Classe base para todos os agentes de IA
+ * Base Agent Class for the Predictive Agency
  */
 
 import OpenAI from 'openai';
-import { AgentConfig, AgentMessage, AgentExecutionContext, AgentTool } from './types';
+import { AgentConfig, AgentExecutionResult, AgentTool } from './types';
 
 export class Agent {
-  private config: AgentConfig;
+  public id: string;
+  public name: string;
+  public role: string;
+  public goal: string;
+  public backstory: string;
+  public model: string;
+  public temperature: number;
+  public maxTokens: number;
+  public tools: AgentTool[];
+
   private openai: OpenAI;
-  private conversationHistory: AgentMessage[] = [];
 
   constructor(config: AgentConfig) {
-    this.config = {
-      model: 'gpt-4o',
-      temperature: 0.7,
-      maxTokens: 2000,
-      ...config,
-    };
+    this.id = config.id;
+    this.name = config.name;
+    this.role = config.role;
+    this.goal = config.goal;
+    this.backstory = config.backstory;
+    this.model = config.model ?? 'gpt-4o';
+    this.temperature = config.temperature ?? 0.7;
+    this.maxTokens = config.maxTokens ?? 2000;
+    this.tools = config.tools ?? [];
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY não configurada');
-    }
-
-    this.openai = new OpenAI({ apiKey });
-  }
-
-  get id(): string {
-    return this.config.id;
-  }
-
-  get name(): string {
-    return this.config.name;
-  }
-
-  get role(): string {
-    return this.config.role;
+    this.openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
   }
 
   /**
-   * Monta o system prompt do agente
+   * Execute a task with this agent
    */
-  private buildSystemPrompt(context?: AgentExecutionContext): string {
-    let prompt = `Você é ${this.config.name}, um ${this.config.role}.
+  async execute(taskDescription: string, context?: string): Promise<AgentExecutionResult> {
+    const startTime = Date.now();
+    
+    const systemPrompt = this.buildSystemPrompt();
+    const userPrompt = this.buildUserPrompt(taskDescription, context);
 
-## Seu Objetivo
-${this.config.goal}
+    try {
+      // If agent has tools, we might need to call them
+      let toolResults = '';
+      if (this.tools.length > 0 && context) {
+        // Execute relevant tools to gather context
+        for (const tool of this.tools) {
+          try {
+            const result = await tool.execute({ query: taskDescription });
+            if (result) {
+              toolResults += `\n\n[${tool.name}]:\n${result}`;
+            }
+          } catch (e) {
+            console.warn(`Tool ${tool.name} failed:`, e);
+          }
+        }
+      }
 
-## Seu Background
-${this.config.backstory}
+      const finalUserPrompt = toolResults 
+        ? `${userPrompt}\n\n--- INFORMAÇÕES RELEVANTES ---${toolResults}`
+        : userPrompt;
 
-## Diretrizes
-- Seja objetivo e profissional
-- Foque em entregar valor real e acionável
-- Use dados e insights quando disponíveis
-- Responda sempre em português do Brasil
-`;
+      const response = await this.openai.chat.completions.create({
+        model: this.model,
+        temperature: this.temperature,
+        max_tokens: this.maxTokens,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: finalUserPrompt },
+        ],
+      });
 
-    // Adiciona contexto de memória de marca se disponível
-    if (context?.brandMemory && context.brandMemory.length > 0) {
-      prompt += `
-## Memória de Marca (Contexto RAG)
-Os seguintes trechos são conhecimento da marca/cliente que você deve considerar:
+      const output = response.choices[0]?.message?.content ?? '';
+      const executionTime = Date.now() - startTime;
 
-${context.brandMemory.map((chunk, i) => `[${i + 1}] ${chunk}`).join('\n\n')}
-`;
+      return {
+        agentId: this.id,
+        agentName: this.name,
+        output,
+        tokenUsage: {
+          input: response.usage?.prompt_tokens ?? 0,
+          output: response.usage?.completion_tokens ?? 0,
+          total: response.usage?.total_tokens ?? 0,
+        },
+        executionTime,
+      };
+    } catch (error: any) {
+      const executionTime = Date.now() - startTime;
+      return {
+        agentId: this.id,
+        agentName: this.name,
+        output: `Erro na execução: ${error.message}`,
+        executionTime,
+      };
     }
+  }
 
-    // Adiciona outputs de tarefas anteriores
-    if (context?.previousTaskOutputs && Object.keys(context.previousTaskOutputs).length > 0) {
-      prompt += `
-## Contexto de Tarefas Anteriores
-Resultados de agentes que trabalharam antes de você nesta crew:
+  private buildSystemPrompt(): string {
+    return `Você é ${this.name}, um profissional especializado em ${this.role}.
 
-${Object.entries(context.previousTaskOutputs)
-  .map(([taskId, output]) => `### Tarefa: ${taskId}\n${output}`)
-  .join('\n\n')}
-`;
-    }
+SEU OBJETIVO:
+${this.goal}
 
-    // Adiciona descrição das tools disponíveis
-    if (this.config.tools && this.config.tools.length > 0) {
-      prompt += `
-## Ferramentas Disponíveis
-Você pode usar as seguintes ferramentas (chame-as no formato JSON quando necessário):
+SUA HISTÓRIA/CONTEXTO:
+${this.backstory}
 
-${this.config.tools.map(t => `- **${t.name}**: ${t.description}`).join('\n')}
-`;
+INSTRUÇÕES:
+- Responda sempre em português brasileiro
+- Seja direto e objetivo
+- Use sua expertise para entregar resultados de alta qualidade
+- Se precisar de mais informações, especifique claramente`;
+  }
+
+  private buildUserPrompt(taskDescription: string, context?: string): string {
+    let prompt = `TAREFA:\n${taskDescription}`;
+    
+    if (context) {
+      prompt += `\n\nCONTEXTO ADICIONAL:\n${context}`;
     }
 
     return prompt;
-  }
-
-  /**
-   * Executa uma tarefa
-   */
-  async execute(
-    taskDescription: string,
-    expectedOutput: string,
-    context?: AgentExecutionContext
-  ): Promise<string> {
-    const systemPrompt = this.buildSystemPrompt(context);
-
-    const userMessage = `## Tarefa
-${taskDescription}
-
-## Output Esperado
-${expectedOutput}
-
-Por favor, execute esta tarefa com base no seu papel e conhecimento.`;
-
-    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      { role: 'system', content: systemPrompt },
-      ...this.conversationHistory.map(m => ({
-        role: m.role as 'system' | 'user' | 'assistant',
-        content: m.content,
-      })),
-      { role: 'user', content: userMessage },
-    ];
-
-    const response = await this.openai.chat.completions.create({
-      model: this.config.model!,
-      messages,
-      temperature: this.config.temperature,
-      max_tokens: this.config.maxTokens,
-    });
-
-    const output = response.choices[0]?.message?.content || '';
-
-    // Adiciona ao histórico
-    this.conversationHistory.push({ role: 'user', content: userMessage });
-    this.conversationHistory.push({ role: 'assistant', content: output });
-
-    return output;
-  }
-
-  /**
-   * Limpa o histórico de conversação
-   */
-  clearHistory(): void {
-    this.conversationHistory = [];
-  }
-
-  /**
-   * Executa uma tool específica
-   */
-  async useTool(toolName: string, params: Record<string, any>): Promise<any> {
-    const tool = this.config.tools?.find(t => t.name === toolName);
-    if (!tool) {
-      throw new Error(`Tool "${toolName}" não encontrada para o agente ${this.name}`);
-    }
-    return tool.execute(params);
   }
 }

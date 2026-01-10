@@ -1,7 +1,8 @@
 /**
- * Agency Core - Export all core components
+ * Core Module Exports
  */
 
 export * from './types';
-export { Agent } from './agent';
-export { Crew } from './crew';
+export * from './agent';
+export * from './task';
+export * from './crew';

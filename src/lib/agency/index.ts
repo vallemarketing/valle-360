@@ -1,12 +1,17 @@
 /**
- * Predictive Agency - Main Export
- * Sistema de agentes de IA para automação de marketing
+ * Predictive Agency - Main Module Export
+ * 
+ * Complete AI Agency system with:
+ * - 23 specialized agents
+ * - Dynamic crews
+ * - Master orchestrator
+ * - Focus group validation
+ * - Brand memory (RAG)
+ * - Real-time tools
  */
 
 // Core
-export * from './core/types';
-export { Agent } from './core/agent';
-export { Crew } from './core/crew';
+export * from './core';
 
 // Agents
 export * from './agents';
@@ -14,5 +19,11 @@ export * from './agents';
 // Crews
 export * from './crews';
 
-// Brand Memory (RAG)
+// Orchestrator
+export * from './orchestrator';
+
+// Tools
+export * from './tools';
+
+// Brand Memory
 export * from './brandMemory';

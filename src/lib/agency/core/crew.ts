@@ -1,169 +1,114 @@
 /**
- * Predictive Agency - Crew Orchestrator
- * Orquestra múltiplos agentes trabalhando em tarefas sequenciais
+ * Crew Class for the Predictive Agency
+ * Orchestrates multiple agents working together
  */
 
 import { Agent } from './agent';
-import {
-  CrewConfig,
-  CrewResult,
-  TaskConfig,
-  TaskResult,
-  AgentExecutionContext,
-} from './types';
+import { Task } from './task';
+import { CrewConfig, CrewExecutionResult, AgentExecutionResult } from './types';
 
 export class Crew {
-  private config: CrewConfig;
+  public id: string;
+  public name: string;
+  public description: string;
+  public process: 'sequential' | 'hierarchical';
+
   private agents: Map<string, Agent> = new Map();
+  private tasks: Task[] = [];
 
   constructor(config: CrewConfig) {
-    this.config = config;
-
-    // Inicializa agentes
-    for (const agentConfig of config.agents) {
-      this.agents.set(agentConfig.id, new Agent(agentConfig));
-    }
-  }
-
-  get id(): string {
-    return this.config.id;
-  }
-
-  get name(): string {
-    return this.config.name;
+    this.id = config.id;
+    this.name = config.name;
+    this.description = config.description;
+    this.process = config.process ?? 'sequential';
   }
 
   /**
-   * Ordena tarefas baseado em dependências (topological sort)
+   * Add an agent to the crew
    */
-  private orderTasks(tasks: TaskConfig[]): TaskConfig[] {
-    const ordered: TaskConfig[] = [];
-    const visited = new Set<string>();
-    const temp = new Set<string>();
-
-    const taskMap = new Map(tasks.map(t => [t.id, t]));
-
-    const visit = (taskId: string) => {
-      if (visited.has(taskId)) return;
-      if (temp.has(taskId)) {
-        throw new Error(`Dependência circular detectada na task ${taskId}`);
-      }
-
-      temp.add(taskId);
-      const task = taskMap.get(taskId);
-      if (!task) return;
-
-      for (const depId of task.dependencies || []) {
-        visit(depId);
-      }
-
-      temp.delete(taskId);
-      visited.add(taskId);
-      ordered.push(task);
-    };
-
-    for (const task of tasks) {
-      visit(task.id);
-    }
-
-    return ordered;
+  addAgent(agent: Agent): void {
+    this.agents.set(agent.id, agent);
   }
 
   /**
-   * Executa a crew (todas as tarefas em ordem)
+   * Add a task to the crew
    */
-  async run(baseContext?: AgentExecutionContext): Promise<CrewResult> {
+  addTask(task: Task): void {
+    // Assign agent to task if available
+    const agent = this.agents.get(task.agentId);
+    if (agent) {
+      task.assignAgent(agent);
+    }
+    this.tasks.push(task);
+  }
+
+  /**
+   * Execute all tasks in sequence
+   */
+  async kickoff(initialContext?: string): Promise<CrewExecutionResult> {
     const startTime = Date.now();
-    const taskResults: TaskResult[] = [];
-    const taskOutputs: Record<string, string> = {};
-
-    if (this.config.verbose) {
-      console.log(`\n🚀 Iniciando Crew: ${this.config.name}`);
-      console.log(`📋 Tarefas: ${this.config.tasks.length}`);
-      console.log(`🤖 Agentes: ${this.config.agents.length}\n`);
-    }
+    const taskResults: AgentExecutionResult[] = [];
+    let totalTokens = 0;
+    let accumulatedContext = initialContext ?? '';
 
     try {
-      // Ordena tarefas por dependências
-      const orderedTasks = this.orderTasks(this.config.tasks);
+      if (this.process === 'sequential') {
+        // Execute tasks in order
+        for (const task of this.tasks) {
+          const agent = this.agents.get(task.agentId);
+          if (!agent) {
+            throw new Error(`Agent ${task.agentId} not found for task ${task.id}`);
+          }
 
-      for (const task of orderedTasks) {
-        const agent = this.agents.get(task.agentId);
-        if (!agent) {
-          throw new Error(`Agente "${task.agentId}" não encontrado para task "${task.id}"`);
+          task.assignAgent(agent);
+          const result = await task.execute(accumulatedContext);
+          taskResults.push(result);
+          
+          // Accumulate context for next task
+          accumulatedContext += `\n\n[Resultado de ${agent.name}]:\n${result.output}`;
+          totalTokens += result.tokenUsage?.total ?? 0;
         }
+      } else {
+        // Hierarchical: manager delegates and reviews
+        // For now, still execute sequentially but could add manager logic
+        for (const task of this.tasks) {
+          const agent = this.agents.get(task.agentId);
+          if (!agent) {
+            throw new Error(`Agent ${task.agentId} not found for task ${task.id}`);
+          }
 
-        if (this.config.verbose) {
-          console.log(`\n📌 Task: ${task.id}`);
-          console.log(`🤖 Agente: ${agent.name} (${agent.role})`);
-        }
-
-        const taskStart = Date.now();
-
-        // Monta contexto com outputs anteriores
-        const context: AgentExecutionContext = {
-          ...baseContext,
-          previousTaskOutputs: { ...taskOutputs },
-          metadata: { ...baseContext?.metadata, ...task.context },
-        };
-
-        const output = await agent.execute(
-          task.description,
-          task.expectedOutput,
-          context
-        );
-
-        const durationMs = Date.now() - taskStart;
-        taskOutputs[task.id] = output;
-
-        const result: TaskResult = {
-          taskId: task.id,
-          agentId: task.agentId,
-          output,
-          durationMs,
-          executedAt: new Date(),
-        };
-
-        taskResults.push(result);
-
-        if (this.config.verbose) {
-          console.log(`✅ Completa em ${durationMs}ms`);
-          console.log(`📝 Output (preview): ${output.slice(0, 200)}...`);
+          task.assignAgent(agent);
+          const result = await task.execute(accumulatedContext);
+          taskResults.push(result);
+          
+          accumulatedContext += `\n\n[Resultado de ${agent.name}]:\n${result.output}`;
+          totalTokens += result.tokenUsage?.total ?? 0;
         }
       }
 
-      // O output final é o resultado da última tarefa
-      const finalOutput = taskResults[taskResults.length - 1]?.output || '';
+      const finalOutput = taskResults.map(r => r.output).join('\n\n---\n\n');
+      const totalTime = Date.now() - startTime;
 
       return {
-        crewId: this.config.id,
-        success: true,
-        taskResults,
+        crewId: this.id,
+        crewName: this.name,
         finalOutput,
-        totalDurationMs: Date.now() - startTime,
+        taskResults,
+        totalTokens,
+        totalTime,
+        success: true,
       };
     } catch (error: any) {
-      if (this.config.verbose) {
-        console.error(`❌ Erro na Crew: ${error.message}`);
-      }
-
       return {
-        crewId: this.config.id,
-        success: false,
-        taskResults,
+        crewId: this.id,
+        crewName: this.name,
         finalOutput: '',
-        totalDurationMs: Date.now() - startTime,
+        taskResults,
+        totalTokens,
+        totalTime: Date.now() - startTime,
+        success: false,
         error: error.message,
       };
-    }
-  }
-
-  /**
-   * Limpa histórico de todos os agentes
-   */
-  reset(): void {
-    for (const agent of this.agents.values()) {
-      agent.clearHistory();
     }
   }
 }
