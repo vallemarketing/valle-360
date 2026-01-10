@@ -23,6 +23,7 @@ import type { MentionCandidate } from '@/lib/mentions/types';
 import { MentionsText } from '@/lib/mentions/render';
 import { applyMentionReplacement, extractMentionUserIds, getActiveMentionQuery } from '@/lib/mentions/parse';
 import { filterCandidates } from '@/lib/mentions/suggestions';
+import { triggerSilentAnalysis } from '@/lib/messaging/silentAnalysis';
 
 interface Attachment {
   id: string;
@@ -332,6 +333,17 @@ export function GroupChatWindow({ group, currentUserId, readOnly = false }: Grou
         } catch {
           // ignore
         }
+
+        // Análise silenciosa de sentimento (fire-and-forget)
+        triggerSilentAnalysis({
+          messageId: messageData.id,
+          content: newMessage.trim(),
+          senderId: currentUserId,
+          senderType: 'collaborator', // Grupos são usados por colaboradores
+          conversationType: 'group',
+          groupId: group.id,
+          conversationName: group.name,
+        });
       }
 
       setNewMessage('');

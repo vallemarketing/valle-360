@@ -20,6 +20,27 @@ export default function ClienteMensagensPage() {
   const [selectedConversation, setSelectedConversation] = useState<any>(null)
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [isNewConversationModalOpen, setIsNewConversationModalOpen] = useState(false)
+  const [allowedTeamUserIds, setAllowedTeamUserIds] = useState<string[]>([])
+  const [loadingTeam, setLoadingTeam] = useState(true)
+
+  // Buscar profissionais atribuídos ao projeto do cliente
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      try {
+        const response = await fetch('/api/client/team-members')
+        const data = await response.json()
+        if (data.success && data.teamMembers) {
+          const userIds = data.teamMembers.map((m: any) => m.userId)
+          setAllowedTeamUserIds(userIds)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar equipe do projeto:', error)
+      } finally {
+        setLoadingTeam(false)
+      }
+    }
+    loadTeamMembers()
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -106,7 +127,8 @@ export default function ClienteMensagensPage() {
                   currentUserId={currentUserId}
                   filterType="all"
                   peerTypeFilter="non_client"
-                  titleOverride="Equipe"
+                  titleOverride="Equipe do Projeto"
+                  allowedUserIds={allowedTeamUserIds.length > 0 ? allowedTeamUserIds : undefined}
                 />
                   )}
                 </div>

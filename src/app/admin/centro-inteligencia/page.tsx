@@ -48,6 +48,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import ScopeCreepWidget from './widgets/ScopeCreepWidget';
+import { ConversationAnalyticsDashboard } from '@/components/intelligence/ConversationAnalyticsDashboard';
 import {
   LineChart as RechartsLineChart,
   Line,
@@ -925,6 +926,37 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
         </div>
       </div>
 
+      {/* Abas de navegação */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="flex gap-4">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`pb-3 px-1 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === 'overview'
+                ? 'border-orange-600 text-orange-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Visão Geral
+          </button>
+          <button
+            onClick={() => setActiveTab('conversations')}
+            className={`pb-3 px-1 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === 'conversations'
+                ? 'border-orange-600 text-orange-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Análise de Conversas
+          </button>
+        </nav>
+      </div>
+
+      {/* Conteúdo baseado na aba ativa */}
+      {activeTab === 'conversations' ? (
+        <ConversationAnalyticsDashboard />
+      ) : (
+        <>
       {/* KPIs Clicáveis */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {kpis.map((kpi, index) => {
@@ -2020,6 +2052,8 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
           </motion.div>
         )}
       </AnimatePresence>
+        </>
+      )}
     </div>
   );
 }

@@ -23,6 +23,7 @@ interface GroupListProps {
   selectedGroupId?: string;
   currentUserId: string;
   adminView?: boolean;
+  onCreateGroup?: () => void;
 }
 
 export function GroupList({
@@ -30,6 +31,7 @@ export function GroupList({
   selectedGroupId,
   currentUserId,
   adminView = false,
+  onCreateGroup,
 }: GroupListProps) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -193,6 +195,16 @@ export function GroupList({
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex-1">
             Grupos
           </h2>
+          {onCreateGroup && (
+            <Button
+              size="sm"
+              onClick={onCreateGroup}
+              className="bg-orange-600 hover:bg-orange-700"
+              title="Criar novo grupo"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          )}
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />

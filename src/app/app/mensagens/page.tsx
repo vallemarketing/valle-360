@@ -7,6 +7,7 @@ import { GroupChatWindow } from '@/components/messaging/GroupChatWindow';
 import { DirectConversationList } from '@/components/messaging/DirectConversationList';
 import { DirectChatWindow } from '@/components/messaging/DirectChatWindow';
 import { NewDirectConversationModal } from '@/components/messaging/NewDirectConversationModal';
+import { NewConversationModal } from '@/components/messaging/NewConversationModal';
 import { Card } from '@/components/ui/card';
 import { MessageCircle, Users, User, MessageSquare } from 'lucide-react';
 import { usePresence } from '@/hooks/usePresence';
@@ -37,6 +38,7 @@ export default function MensagensPage() {
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isNewConversationModalOpen, setIsNewConversationModalOpen] = useState(false);
+  const [isNewGroupModalOpen, setIsNewGroupModalOpen] = useState(false);
 
   useEffect(() => {
     loadCurrentUser();
@@ -128,6 +130,7 @@ export default function MensagensPage() {
                   selectedGroupId={selectedGroup?.id}
                   currentUserId={currentUserId}
                   adminView={isSuperAdmin}
+                  onCreateGroup={isSuperAdmin ? () => setIsNewGroupModalOpen(true) : undefined}
                 />
               )}
               {currentUserId && activeTab === 'team' && (
@@ -192,6 +195,18 @@ export default function MensagensPage() {
           onConversationCreated={handleConversationCreated}
           currentUserId={currentUserId}
           filterType={activeTab === 'clients' ? 'clients' : 'team'}
+        />
+      )}
+
+      {currentUserId && isSuperAdmin && (
+        <NewConversationModal
+          isOpen={isNewGroupModalOpen}
+          onClose={() => setIsNewGroupModalOpen(false)}
+          onConversationCreated={(groupId) => {
+            setIsNewGroupModalOpen(false);
+            // Recarregar lista de grupos
+          }}
+          currentUserId={currentUserId}
         />
       )}
 

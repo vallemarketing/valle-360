@@ -21,6 +21,7 @@ import type { MentionCandidate } from '@/lib/mentions/types';
 import { MentionsText } from '@/lib/mentions/render';
 import { applyMentionReplacement, extractMentionUserIds, getActiveMentionQuery } from '@/lib/mentions/parse';
 import { filterCandidates } from '@/lib/mentions/suggestions';
+import { triggerSilentAnalysis } from '@/lib/messaging/silentAnalysis';
 
 interface Attachment {
   id: string;
@@ -324,6 +325,17 @@ export function DirectChatWindow({ conversation, currentUserId, readOnly = false
         } catch {
           // ignore
         }
+
+        // Análise silenciosa de sentimento (fire-and-forget)
+        triggerSilentAnalysis({
+          messageId: messageData.id,
+          content: newMessage.trim(),
+          senderId: currentUserId,
+          senderType: 'collaborator', // Será atualizado baseado no perfil
+          conversationType: conversation.is_client_conversation ? 'direct_client' : 'direct_team',
+          clientId: conversation.is_client_conversation ? conversation.other_user_id : undefined,
+          conversationName: conversation.other_user_name || 'Conversa direta',
+        });
       }
 
       setNewMessage('');

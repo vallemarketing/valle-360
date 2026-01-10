@@ -31,6 +31,8 @@ interface DirectConversationListProps {
   peerTypeFilter?: 'all' | 'client' | 'non_client';
   titleOverride?: string;
   adminView?: boolean;
+  /** IDs de usuários permitidos (para filtrar apenas profissionais do projeto) */
+  allowedUserIds?: string[];
 }
 
 export function DirectConversationList({
@@ -42,6 +44,7 @@ export function DirectConversationList({
   peerTypeFilter = 'all',
   titleOverride,
   adminView = false,
+  allowedUserIds,
 }: DirectConversationListProps) {
   const [conversations, setConversations] = useState<DirectConversation[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -227,6 +230,11 @@ export function DirectConversationList({
 
     if (peerTypeFilter === 'client' && conv.other_user_type !== 'client') return false;
     if (peerTypeFilter === 'non_client' && conv.other_user_type === 'client') return false;
+
+    // Filtrar por IDs de usuários permitidos (para clientes verem apenas profissionais do projeto)
+    if (allowedUserIds && allowedUserIds.length > 0) {
+      if (!allowedUserIds.includes(conv.other_user_id)) return false;
+    }
 
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
