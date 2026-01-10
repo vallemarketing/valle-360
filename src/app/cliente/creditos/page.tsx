@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { 
   Plus, 
   TrendingDown, 
+  TrendingUp,
   AlertCircle, 
   CreditCard, 
   Wallet, 
@@ -16,7 +17,8 @@ import {
   CheckCircle,
   QrCode,
   FileText,
-  DollarSign
+  DollarSign,
+  Loader2
 } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 
@@ -25,28 +27,72 @@ import { formatCurrency, cn } from '@/lib/utils';
 // Com modal de adicionar crédito igual ao de pagar
 // ============================================
 
-const CREDIT_OPTIONS = [
-  { value: 5000, bonus: 0 },
-  { value: 10000, bonus: 500 },
-  { value: 20000, bonus: 1500 },
-  { value: 50000, bonus: 5000 },
-];
+interface Transaction {
+  id: string;
+  type: 'purchase' | 'usage' | 'bonus' | 'refund';
+  amount: number;
+  description: string;
+  created_at: string;
+}
+
+interface CreditsData {
+  balance: number;
+  stats: {
+    monthly_usage: number;
+    last_month_usage: number;
+    usage_change_percent: number;
+    estimated_duration_months: number;
+    low_balance: boolean;
+  };
+  transactions: Transaction[];
+  credit_options: Array<{ value: number; bonus: number }>;
+}
 
 export default function CreditosPage() {
-  const [balance] = useState(8500);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<CreditsData | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card' | 'boleto' | null>(null);
   const [step, setStep] = useState<'amount' | 'payment' | 'success'>('amount');
-  
-  const lowBalance = balance < 5000;
+  const [purchasing, setPurchasing] = useState(false);
 
-  const transactions = [
-    { id: 1, type: 'purchase', amount: 5000, date: '2025-11-01', description: 'Compra de créditos' },
-    { id: 2, type: 'usage', amount: -1200, date: '2025-11-05', description: 'Campanha Instagram Ads' },
-    { id: 3, type: 'usage', amount: -800, date: '2025-11-10', description: 'Google Ads - Novembro' },
-    { id: 4, type: 'purchase', amount: 10000, date: '2025-10-15', description: 'Compra de créditos' },
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch('/api/client/credits', { cache: 'no-store' });
+        const json = await res.json();
+        
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || 'Erro ao carregar créditos');
+        }
+        
+        setData(json);
+      } catch (e: any) {
+        setError(e.message);
+        console.error('Error fetching credits:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const balance = data?.balance || 0;
+  const lowBalance = data?.stats?.low_balance || balance < 5000;
+  const monthlyUsage = data?.stats?.monthly_usage || 0;
+  const usageChange = data?.stats?.usage_change_percent || 0;
+  const estimatedDuration = data?.stats?.estimated_duration_months || 0;
+  const transactions = data?.transactions || [];
+  const CREDIT_OPTIONS = data?.credit_options || [
+    { value: 5000, bonus: 0 },
+    { value: 10000, bonus: 500 },
+    { value: 20000, bonus: 1500 },
+    { value: 50000, bonus: 5000 },
   ];
 
   const resetModal = () => {
@@ -55,16 +101,57 @@ export default function CreditosPage() {
     setPaymentMethod(null);
     setStep('amount');
     setShowAddModal(false);
+    setPurchasing(false);
   };
 
-  const handleProceed = () => {
+  const handleProceed = async () => {
     if (step === 'amount' && (selectedAmount || customAmount)) {
       setStep('payment');
     } else if (step === 'payment' && paymentMethod) {
-      setStep('success');
-      setTimeout(resetModal, 3000);
+      try {
+        setPurchasing(true);
+        const res = await fetch('/api/client/credits', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: finalAmount,
+            payment_method: paymentMethod,
+          }),
+        });
+        const json = await res.json();
+        
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || 'Erro ao processar pagamento');
+        }
+        
+        setStep('success');
+        setTimeout(resetModal, 3000);
+      } catch (e: any) {
+        alert(e.message);
+      } finally {
+        setPurchasing(false);
+      }
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1672d6]" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-red-600">Erro: {error}</p>
+        <Button onClick={() => window.location.reload()} className="mt-4">
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
 
   const finalAmount = selectedAmount || Number(customAmount) || 0;
   const bonus = CREDIT_OPTIONS.find(o => o.value === finalAmount)?.bonus || 0;
@@ -131,10 +218,13 @@ export default function CreditosPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[#001533] dark:text-white">{formatCurrency(2000)}</div>
-            <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
-              <TrendingDown className="w-3 h-3" />
-              -15% vs. mês anterior
+            <div className="text-3xl font-bold text-[#001533] dark:text-white">{formatCurrency(monthlyUsage)}</div>
+            <p className={cn(
+              "text-xs mt-2 flex items-center gap-1",
+              usageChange < 0 ? "text-emerald-600" : usageChange > 0 ? "text-red-500" : "text-gray-500"
+            )}>
+              {usageChange < 0 ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+              {usageChange > 0 ? '+' : ''}{usageChange}% vs. mês anterior
             </p>
           </CardContent>
         </Card>
@@ -144,7 +234,7 @@ export default function CreditosPage() {
             <CardTitle className="text-sm text-[#001533]/60 dark:text-white/60">Previsão de Duração</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[#001533] dark:text-white">4.2 meses</div>
+            <div className="text-3xl font-bold text-[#001533] dark:text-white">{estimatedDuration} meses</div>
             <p className="text-xs text-[#001533]/60 dark:text-white/60 mt-2">Com base no consumo atual</p>
           </CardContent>
         </Card>
@@ -164,55 +254,71 @@ export default function CreditosPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {transactions.map((transaction, index) => (
-                <motion.div
-                  key={transaction.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 + index * 0.1 }}
-                  className="flex items-center justify-between p-4 rounded-xl bg-[#001533]/5 dark:bg-white/5 hover:bg-[#001533]/10 dark:hover:bg-white/10 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "p-2 rounded-lg",
-                      transaction.type === 'purchase' 
-                        ? "bg-emerald-500/10 text-emerald-600" 
-                        : "bg-red-500/10 text-red-600"
-                    )}>
-                      {transaction.type === 'purchase' ? (
-                        <Plus className="size-4" />
-                      ) : (
-                        <TrendingDown className="size-4" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-[#001533] dark:text-white">{transaction.description}</p>
-                      <p className="text-sm text-[#001533]/60 dark:text-white/60">
-                        {new Date(transaction.date).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <p className={cn(
-                      "text-lg font-bold",
-                      transaction.type === 'purchase' ? "text-emerald-500" : "text-red-500"
-                    )}>
-                      {transaction.type === 'purchase' ? '+' : ''}
-                      {formatCurrency(transaction.amount)}
-                    </p>
-                    <Badge 
-                      variant="outline"
-                      className={cn(
-                        transaction.type === 'purchase' 
-                          ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" 
-                          : "bg-red-500/10 text-red-600 border-red-500/30"
-                      )}
+              {transactions.length === 0 ? (
+                <p className="text-center text-[#001533]/60 dark:text-white/60 py-8">
+                  Nenhuma transação registrada ainda.
+                </p>
+              ) : (
+                transactions.map((transaction, index) => {
+                  const isPositive = transaction.type === 'purchase' || transaction.type === 'bonus' || transaction.type === 'refund';
+                  const typeLabel = {
+                    purchase: 'Compra',
+                    usage: 'Uso',
+                    bonus: 'Bônus',
+                    refund: 'Reembolso',
+                  }[transaction.type] || 'Transação';
+                  
+                  return (
+                    <motion.div
+                      key={transaction.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + index * 0.1 }}
+                      className="flex items-center justify-between p-4 rounded-xl bg-[#001533]/5 dark:bg-white/5 hover:bg-[#001533]/10 dark:hover:bg-white/10 transition-colors"
                     >
-                      {transaction.type === 'purchase' ? 'Compra' : 'Uso'}
-                    </Badge>
-                  </div>
-                </motion.div>
-              ))}
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "p-2 rounded-lg",
+                          isPositive 
+                            ? "bg-emerald-500/10 text-emerald-600" 
+                            : "bg-red-500/10 text-red-600"
+                        )}>
+                          {isPositive ? (
+                            <Plus className="size-4" />
+                          ) : (
+                            <TrendingDown className="size-4" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-[#001533] dark:text-white">{transaction.description}</p>
+                          <p className="text-sm text-[#001533]/60 dark:text-white/60">
+                            {new Date(transaction.created_at).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <p className={cn(
+                          "text-lg font-bold",
+                          isPositive ? "text-emerald-500" : "text-red-500"
+                        )}>
+                          {isPositive && transaction.amount > 0 ? '+' : ''}
+                          {formatCurrency(transaction.amount)}
+                        </p>
+                        <Badge 
+                          variant="outline"
+                          className={cn(
+                            isPositive 
+                              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" 
+                              : "bg-red-500/10 text-red-600 border-red-500/30"
+                          )}
+                        >
+                          {typeLabel}
+                        </Badge>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )}
             </div>
           </CardContent>
         </Card>
@@ -386,9 +492,10 @@ export default function CreditosPage() {
                         </Button>
                         <Button
                           onClick={handleProceed}
-                          disabled={!paymentMethod}
+                          disabled={!paymentMethod || purchasing}
                           className="flex-1 bg-[#1672d6] hover:bg-[#1260b5]"
                         >
+                          {purchasing ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
                           Confirmar Pagamento
                         </Button>
                       </div>

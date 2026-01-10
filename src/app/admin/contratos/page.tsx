@@ -187,8 +187,11 @@ export default function ContratosPage() {
   };
 
   const handleNewContract = () => {
-    // TODO: Implementar formulário de novo contrato com template padrão
     setShowNewContractModal(true);
+  };
+
+  const handleCloseNewContractModal = () => {
+    setShowNewContractModal(false);
   };
 
   const handleExportCSV = async () => {
@@ -566,6 +569,528 @@ export default function ContratosPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal de Novo Contrato */}
+      <AnimatePresence>
+        {showNewContractModal && (
+          <NewContractModal 
+            onClose={handleCloseNewContractModal}
+            onSuccess={(contractData) => {
+              toast.success('Contrato criado com sucesso!');
+              handleCloseNewContractModal();
+              // Reload page or update state
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+// ===== NEW CONTRACT MODAL COMPONENT =====
+
+interface NewContractModalProps {
+  onClose: () => void;
+  onSuccess: (contract: any) => void;
+}
+
+function NewContractModal({ onClose, onSuccess }: NewContractModalProps) {
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [extractedData, setExtractedData] = useState<any>(null);
+  const [useOCR, setUseOCR] = useState(false);
+  
+  // Form data
+  const [formData, setFormData] = useState({
+    clientName: '',
+    clientCompany: '',
+    clientEmail: '',
+    clientCNPJ: '',
+    clientAddress: '',
+    type: 'service' as 'service' | 'project' | 'retainer',
+    template: 'standard',
+    services: [] as string[],
+    value: '',
+    durationMonths: '12',
+    startDate: new Date().toISOString().split('T')[0],
+    paymentDay: '10',
+    renewalType: 'manual' as 'auto' | 'manual' | 'none',
+  });
+
+  const availableServices = [
+    'Gestão de Redes Sociais',
+    'Tráfego Pago (Meta Ads)',
+    'Tráfego Pago (Google Ads)',
+    'Design Gráfico',
+    'Criação de Conteúdo',
+    'Consultoria Estratégica',
+    'Desenvolvimento Web',
+    'SEO',
+    'Email Marketing',
+    'Branding',
+  ];
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const toggleService = (service: string) => {
+    setFormData(prev => ({
+      ...prev,
+      services: prev.services.includes(service)
+        ? prev.services.filter(s => s !== service)
+        : [...prev.services, service]
+    }));
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadedFile(file);
+    
+    if (useOCR) {
+      setLoading(true);
+      try {
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+        
+        const res = await fetch('/api/admin/ocr/extract', {
+          method: 'POST',
+          body: formDataUpload,
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setExtractedData(data);
+          
+          // Auto-fill form with extracted data
+          if (data.clientName) setFormData(prev => ({ ...prev, clientName: data.clientName }));
+          if (data.clientCompany) setFormData(prev => ({ ...prev, clientCompany: data.clientCompany }));
+          if (data.clientCNPJ) setFormData(prev => ({ ...prev, clientCNPJ: data.clientCNPJ }));
+          if (data.clientAddress) setFormData(prev => ({ ...prev, clientAddress: data.clientAddress }));
+          if (data.clientEmail) setFormData(prev => ({ ...prev, clientEmail: data.clientEmail }));
+          
+          toast.success('Dados extraídos com sucesso!');
+        }
+      } catch (error) {
+        toast.error('Falha ao extrair dados do documento');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      const endDate = new Date(formData.startDate);
+      endDate.setMonth(endDate.getMonth() + parseInt(formData.durationMonths));
+      
+      const contractData = {
+        client_name: formData.clientName,
+        client_email: formData.clientEmail,
+        client_company: formData.clientCompany,
+        client_cnpj: formData.clientCNPJ,
+        client_address: formData.clientAddress,
+        type: formData.type,
+        template_used: formData.template,
+        services: formData.services.map(s => ({ name: s, description: '', monthly_value: parseFloat(formData.value) / formData.services.length, deliverables: [] })),
+        total_value: parseFloat(formData.value) * parseInt(formData.durationMonths),
+        payment_terms: `Mensal, vencimento dia ${formData.paymentDay}`,
+        duration_months: parseInt(formData.durationMonths),
+        start_date: formData.startDate,
+        end_date: endDate.toISOString(),
+        renewal_type: formData.renewalType,
+        status: 'draft',
+      };
+
+      const res = await fetch('/api/admin/contracts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contractData),
+      });
+
+      if (res.ok) {
+        const contract = await res.json();
+        onSuccess(contract);
+      } else {
+        const error = await res.json();
+        toast.error(error.message || 'Falha ao criar contrato');
+      }
+    } catch (error) {
+      toast.error('Erro ao criar contrato');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-[#0a0f1a] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+      >
+        {/* Header */}
+        <div className="p-6 border-b border-[#001533]/10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-[#1672d6]/10">
+              <FileText className="w-5 h-5 text-[#1672d6]" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-[#001533] dark:text-white">Novo Contrato</h2>
+              <p className="text-sm text-[#001533]/60">Passo {step} de 3</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-[#001533]/5 rounded-lg">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-1 bg-[#001533]/10">
+          <div 
+            className="h-full bg-[#1672d6] transition-all duration-300"
+            style={{ width: `${(step / 3) * 100}%` }}
+          />
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {/* Step 1: Dados do Cliente */}
+          {step === 1 && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="font-semibold text-[#001533] dark:text-white mb-4 flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Dados do Cliente
+                </h3>
+
+                {/* OCR Option */}
+                <div className="mb-6 p-4 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-600" />
+                      <span className="font-medium text-purple-700 dark:text-purple-300">Extrair dados com IA</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={useOCR}
+                        onChange={(e) => setUseOCR(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                  
+                  {useOCR && (
+                    <div>
+                      <p className="text-sm text-purple-600 dark:text-purple-400 mb-3">
+                        Faça upload de RG, CNPJ, ou Contrato Social para extrair automaticamente os dados.
+                      </p>
+                      <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-purple-300 rounded-xl cursor-pointer hover:border-purple-500 transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                        />
+                        <Upload className="w-5 h-5 text-purple-500" />
+                        <span className="text-sm text-purple-600">
+                          {uploadedFile ? uploadedFile.name : 'Clique para fazer upload'}
+                        </span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Nome Completo *</label>
+                    <Input
+                      name="clientName"
+                      value={formData.clientName}
+                      onChange={handleInputChange}
+                      placeholder="João da Silva"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Email *</label>
+                    <Input
+                      name="clientEmail"
+                      type="email"
+                      value={formData.clientEmail}
+                      onChange={handleInputChange}
+                      placeholder="joao@empresa.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Empresa *</label>
+                    <Input
+                      name="clientCompany"
+                      value={formData.clientCompany}
+                      onChange={handleInputChange}
+                      placeholder="Empresa Ltda"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">CNPJ</label>
+                    <Input
+                      name="clientCNPJ"
+                      value={formData.clientCNPJ}
+                      onChange={handleInputChange}
+                      placeholder="00.000.000/0001-00"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-2">Endereço</label>
+                    <Input
+                      name="clientAddress"
+                      value={formData.clientAddress}
+                      onChange={handleInputChange}
+                      placeholder="Rua, número, bairro - Cidade/UF"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Serviços */}
+          {step === 2 && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="font-semibold text-[#001533] dark:text-white mb-4 flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Serviços e Condições
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Tipo de Contrato *</label>
+                      <select
+                        name="type"
+                        value={formData.type}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 rounded-lg border border-[#001533]/20 bg-white dark:bg-[#001533] focus:outline-none focus:ring-2 focus:ring-[#1672d6]"
+                      >
+                        <option value="service">Prestação de Serviço</option>
+                        <option value="project">Projeto</option>
+                        <option value="retainer">Retainer</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Template</label>
+                      <select
+                        name="template"
+                        value={formData.template}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 rounded-lg border border-[#001533]/20 bg-white dark:bg-[#001533] focus:outline-none focus:ring-2 focus:ring-[#1672d6]"
+                      >
+                        <option value="standard">Padrão</option>
+                        <option value="premium">Premium</option>
+                        <option value="enterprise">Enterprise</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-3">Serviços Contratados *</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {availableServices.map((service) => (
+                        <button
+                          key={service}
+                          type="button"
+                          onClick={() => toggleService(service)}
+                          className={cn(
+                            "p-3 text-sm text-left rounded-lg border transition-all",
+                            formData.services.includes(service)
+                              ? "border-[#1672d6] bg-[#1672d6]/10 text-[#1672d6]"
+                              : "border-[#001533]/20 hover:border-[#1672d6]/50"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            {formData.services.includes(service) && <CheckCircle className="w-4 h-4" />}
+                            {service}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Valores e Prazos */}
+          {step === 3 && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="font-semibold text-[#001533] dark:text-white mb-4 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  Valores e Prazos
+                </h3>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Valor Mensal (R$) *</label>
+                    <Input
+                      name="value"
+                      type="number"
+                      value={formData.value}
+                      onChange={handleInputChange}
+                      placeholder="5000"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Duração (meses) *</label>
+                    <select
+                      name="durationMonths"
+                      value={formData.durationMonths}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 rounded-lg border border-[#001533]/20 bg-white dark:bg-[#001533] focus:outline-none focus:ring-2 focus:ring-[#1672d6]"
+                    >
+                      <option value="3">3 meses</option>
+                      <option value="6">6 meses</option>
+                      <option value="12">12 meses</option>
+                      <option value="24">24 meses</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Data de Início *</label>
+                    <Input
+                      name="startDate"
+                      type="date"
+                      value={formData.startDate}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Dia de Vencimento</label>
+                    <select
+                      name="paymentDay"
+                      value={formData.paymentDay}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 rounded-lg border border-[#001533]/20 bg-white dark:bg-[#001533] focus:outline-none focus:ring-2 focus:ring-[#1672d6]"
+                    >
+                      {[5, 10, 15, 20, 25].map(day => (
+                        <option key={day} value={day}>Dia {day}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-2">Renovação</label>
+                    <select
+                      name="renewalType"
+                      value={formData.renewalType}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 rounded-lg border border-[#001533]/20 bg-white dark:bg-[#001533] focus:outline-none focus:ring-2 focus:ring-[#1672d6]"
+                    >
+                      <option value="manual">Manual (requer aprovação)</option>
+                      <option value="auto">Automática</option>
+                      <option value="none">Sem renovação</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="mt-6 p-4 rounded-xl bg-[#1672d6]/5 border border-[#1672d6]/20">
+                  <h4 className="font-medium text-[#1672d6] mb-3">Resumo do Contrato</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-[#001533]/60">Cliente:</span>
+                      <span className="ml-2 font-medium">{formData.clientCompany || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#001533]/60">Tipo:</span>
+                      <span className="ml-2 font-medium">{formData.type}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#001533]/60">Serviços:</span>
+                      <span className="ml-2 font-medium">{formData.services.length} selecionados</span>
+                    </div>
+                    <div>
+                      <span className="text-[#001533]/60">Duração:</span>
+                      <span className="ml-2 font-medium">{formData.durationMonths} meses</span>
+                    </div>
+                    <div>
+                      <span className="text-[#001533]/60">Valor Mensal:</span>
+                      <span className="ml-2 font-medium text-[#1672d6]">
+                        R$ {parseFloat(formData.value || '0').toLocaleString('pt-BR')}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#001533]/60">Valor Total:</span>
+                      <span className="ml-2 font-medium text-[#1672d6]">
+                        R$ {(parseFloat(formData.value || '0') * parseInt(formData.durationMonths)).toLocaleString('pt-BR')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-[#001533]/10 flex justify-between">
+          <Button
+            variant="outline"
+            onClick={() => step > 1 ? setStep(step - 1) : onClose()}
+          >
+            {step > 1 ? 'Voltar' : 'Cancelar'}
+          </Button>
+          
+          {step < 3 ? (
+            <Button
+              onClick={() => setStep(step + 1)}
+              className="bg-[#1672d6] hover:bg-[#1260b5]"
+              disabled={
+                (step === 1 && (!formData.clientName || !formData.clientEmail || !formData.clientCompany)) ||
+                (step === 2 && formData.services.length === 0)
+              }
+            >
+              Próximo
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSubmit}
+              className="bg-[#1672d6] hover:bg-[#1260b5]"
+              disabled={loading || !formData.value}
+            >
+              {loading ? (
+                <>
+                  <Clock className="w-4 h-4 mr-2 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Criar Contrato
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

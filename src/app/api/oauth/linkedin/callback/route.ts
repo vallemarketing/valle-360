@@ -1,118 +1,147 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
-export const dynamic = 'force-dynamic';
+/**
+ * LinkedIn OAuth Callback Endpoint
+ * Receives authorization code and exchanges for tokens
+ */
 
-const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID;
-const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET;
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
+const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID || '';
+const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET || '';
+const LINKEDIN_REDIRECT_URI = process.env.LINKEDIN_REDIRECT_URI || `${process.env.NEXT_PUBLIC_APP_URL}/api/oauth/linkedin/callback`;
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-function buildCallbackRedirect(params: { platform: string; ok: boolean; error?: string }) {
-  const base = `${APP_URL || ''}/cliente/redes/callback`;
-  const url = new URL(base);
-  url.searchParams.set('platform', params.platform);
-  url.searchParams.set('ok', params.ok ? '1' : '0');
-  if (params.error) url.searchParams.set('error', params.error.slice(0, 180));
-  return url.toString();
+interface LinkedInTokenResponse {
+  access_token: string;
+  expires_in: number;
+  refresh_token?: string;
+  refresh_token_expires_in?: number;
+  scope: string;
 }
 
-function parseState(raw: string | null) {
-  if (!raw) return { clientId: null as string | null };
-  try {
-    const j = JSON.parse(raw);
-    const clientId = j?.clientId ? String(j.clientId) : null;
-    return { clientId };
-  } catch {
-    return { clientId: raw };
-  }
+interface LinkedInUserInfo {
+  sub: string;
+  name: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
+  email?: string;
 }
 
 export async function GET(request: NextRequest) {
+  const supabase = getSupabaseAdmin();
+
   try {
-    if (!APP_URL) return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL não configurado' }, { status: 500 });
-    if (!LINKEDIN_CLIENT_ID || !LINKEDIN_CLIENT_SECRET) {
-      return NextResponse.redirect(buildCallbackRedirect({ platform: 'linkedin', ok: false, error: 'Credenciais do app não configuradas' }));
+    const code = request.nextUrl.searchParams.get('code');
+    const state = request.nextUrl.searchParams.get('state');
+    const errorParam = request.nextUrl.searchParams.get('error');
+
+    if (errorParam) {
+      const errorDesc = request.nextUrl.searchParams.get('error_description') || 'Autorização negada';
+      return NextResponse.redirect(`${APP_URL}/cliente/redes-sociais?error=${encodeURIComponent(errorDesc)}`);
     }
 
-    const { searchParams } = new URL(request.url);
-    const code = searchParams.get('code');
-    const stateRaw = searchParams.get('state');
-    const { clientId } = parseState(stateRaw);
-
-    if (!code) {
-      return NextResponse.redirect(buildCallbackRedirect({ platform: 'linkedin', ok: false, error: 'Código de autorização não fornecido' }));
-    }
-    if (!clientId) {
-      return NextResponse.redirect(buildCallbackRedirect({ platform: 'linkedin', ok: false, error: 'client_id ausente no state' }));
+    if (!code || !state) {
+      return NextResponse.redirect(`${APP_URL}/cliente/redes-sociais?error=Parâmetros inválidos`);
     }
 
-    const redirectUri = `${APP_URL.replace(/\/+$/, '')}/api/oauth/linkedin/callback`;
+    // Decode state
+    let stateData: { clientId: string; userId: string; role: string; timestamp: number };
+    try {
+      stateData = JSON.parse(Buffer.from(state, 'base64url').toString());
+    } catch {
+      return NextResponse.redirect(`${APP_URL}/cliente/redes-sociais?error=State inválido`);
+    }
 
+    // Validate timestamp (10 min expiry)
+    if (Date.now() - stateData.timestamp > 10 * 60 * 1000) {
+      return NextResponse.redirect(`${APP_URL}/cliente/redes-sociais?error=Sessão expirada`);
+    }
+
+    // Exchange code for access token
     const tokenResponse = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: redirectUri,
+        redirect_uri: LINKEDIN_REDIRECT_URI,
         client_id: LINKEDIN_CLIENT_ID,
         client_secret: LINKEDIN_CLIENT_SECRET,
       }),
     });
-    const tokenData = await tokenResponse.json();
-    if (tokenData?.error) {
-      return NextResponse.redirect(
-        buildCallbackRedirect({ platform: 'linkedin', ok: false, error: tokenData.error_description || tokenData.error || 'Erro token' })
-      );
+
+    const tokenData: LinkedInTokenResponse = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      console.error('LinkedIn token exchange failed:', tokenData);
+      return NextResponse.redirect(`${APP_URL}/cliente/redes-sociais?error=Falha ao obter token`);
     }
 
-    const accessToken = String(tokenData.access_token || '');
-    const expiresIn = Number(tokenData.expires_in || 0);
-    const expiresAtIso = expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null;
-
-    const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    // Get user info
+    const userInfoResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
     });
-    const profileData = await profileResponse.json();
 
-    const externalId = String(profileData?.id || '');
-    const displayName = `${profileData?.localizedFirstName || ''} ${profileData?.localizedLastName || ''}`.trim() || 'LinkedIn';
+    const userInfo: LinkedInUserInfo = await userInfoResponse.json();
 
-    const admin = getSupabaseAdmin();
-    const { data: row, error: upErr } = await admin
-      .from('social_connected_accounts')
-      .upsert(
-        {
-          client_id: clientId,
-          platform: 'linkedin',
-          external_account_id: externalId || `li_${Date.now()}`,
-          username: null,
-          display_name: displayName,
-          profile_picture_url: null,
-          status: expiresAtIso ? 'active' : 'active',
-          metadata: {},
-        } as any,
-        { onConflict: 'client_id,platform,external_account_id' }
-      )
-      .select('id')
-      .single();
-    if (upErr) throw upErr;
+    if (!userInfo.sub) {
+      console.error('LinkedIn user info failed:', userInfo);
+      return NextResponse.redirect(`${APP_URL}/cliente/redes-sociais?error=Falha ao obter informações do usuário`);
+    }
 
-    await admin.from('social_connected_account_secrets').upsert(
-      {
-        account_id: row.id,
-        access_token: accessToken || null,
-        token_type: 'bearer',
-        scopes: [],
-        expires_at: expiresAtIso,
-      } as any,
-      { onConflict: 'account_id' }
+    // Calculate token expiry
+    const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
+
+    // Store connection
+    const connectionData = {
+      client_id: stateData.clientId,
+      platform: 'linkedin',
+      account_id: userInfo.sub,
+      account_name: userInfo.name,
+      account_avatar: userInfo.picture,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      token_expires_at: expiresAt,
+      scopes: tokenData.scope.split(' '),
+      is_active: true,
+      connected_by: stateData.userId,
+      connected_by_role: stateData.role,
+    };
+
+    const { error: upsertError } = await supabase
+      .from('client_social_connections')
+      .upsert(connectionData, {
+        onConflict: 'client_id,platform,account_id',
+      });
+
+    if (upsertError) {
+      console.error('Error storing LinkedIn connection:', upsertError);
+      return NextResponse.redirect(`${APP_URL}/cliente/redes-sociais?error=Erro ao salvar conexão`);
+    }
+
+    // Log to audit
+    await supabase.from('social_connection_audit').insert({
+      client_id: stateData.clientId,
+      platform: 'linkedin',
+      account_id: userInfo.sub,
+      account_name: userInfo.name,
+      action: 'connected',
+      performed_by: stateData.userId,
+      performed_by_role: stateData.role,
+      metadata: { scopes: tokenData.scope.split(' '), email: userInfo.email },
+    });
+
+    // Redirect back with success
+    return NextResponse.redirect(
+      `${APP_URL}/cliente/${stateData.clientId}/redes-sociais?success=true&connected=1`
     );
-
-    return NextResponse.redirect(buildCallbackRedirect({ platform: 'linkedin', ok: true }));
-  } catch (e: any) {
-    return NextResponse.redirect(buildCallbackRedirect({ platform: 'linkedin', ok: false, error: e?.message || 'Erro no callback' }));
+  } catch (error: any) {
+    console.error('LinkedIn OAuth callback error:', error);
+    return NextResponse.redirect(`${APP_URL}/cliente/redes-sociais?error=${encodeURIComponent(error.message || 'Erro desconhecido')}`);
   }
 }
-
-

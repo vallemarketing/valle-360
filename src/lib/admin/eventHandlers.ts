@@ -757,12 +757,162 @@ export async function handleEvent(event: DomainEventRow): Promise<HandlerResult>
         return { ok: true };
       }
 
+      case 'contract.signed': {
+        // Contract has been digitally signed - activate and start production
+        const supabase = getSupabaseAdmin();
+        const contractId = event.entity_id;
+        const payload = (event.payload || {}) as Record<string, any>;
+
+        if (!contractId) {
+          return { ok: false, error: 'Missing contract_id' };
+        }
+
+        // 1. Activate contract
+        await supabase
+          .from('contracts')
+          .update({
+            status: 'active',
+            active: true,
+            activated_at: new Date().toISOString(),
+            signed_at: payload.signed_at || new Date().toISOString(),
+            signed_by: payload.signed_by || null,
+            signature_ip: payload.signature_ip || null,
+          })
+          .eq('id', contractId);
+
+        // 2. Get contract details
+        const { data: contract } = await supabase
+          .from('contracts')
+          .select('*, clients(id, company_name, email, contact_name)')
+          .eq('id', contractId)
+          .single();
+
+        if (!contract) {
+          return { ok: false, error: 'Contract not found' };
+        }
+
+        const clientId = contract.client_id;
+        const monthlyValue = contract.monthly_value || contract.total_value / (contract.duration_months || 12) || 0;
+
+        // 3. Create/update first invoice
+        const today = new Date();
+        const dueDay = Number(contract.due_day || 10);
+        const dueDate = new Date(today.getFullYear(), today.getMonth(), dueDay);
+        if (dueDate < today) {
+          dueDate.setMonth(dueDate.getMonth() + 1);
+        }
+
+        await supabase
+          .from('invoices')
+          .insert({
+            contract_id: contractId,
+            client_id: clientId,
+            amount: monthlyValue,
+            due_date: dueDate.toISOString(),
+            issue_date: today.toISOString(),
+            status: 'pending',
+            description: 'Primeira mensalidade',
+            notes: 'Gerada automaticamente após assinatura do contrato.',
+            created_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single();
+
+        // 4. Schedule recurring invoices
+        const endDate = contract.end_date ? new Date(contract.end_date) : null;
+        const nextRun = new Date(dueDate);
+        nextRun.setMonth(nextRun.getMonth() + 1);
+
+        await supabase.from('recurring_invoice_schedules').insert({
+          contract_id: contractId,
+          client_id: clientId,
+          amount: monthlyValue,
+          frequency: 'monthly',
+          day_of_month: dueDay,
+          next_run: nextRun.toISOString(),
+          end_date: endDate?.toISOString() || null,
+          is_active: true,
+          created_at: new Date().toISOString(),
+        });
+
+        // 5. Create production tasks from contract services
+        const services = contract.services || [];
+        for (const service of services) {
+          const serviceName = typeof service === 'string' ? service : service.name;
+          const area = mapServiceToArea(serviceName);
+
+          await addOnboardingKanbanTask({
+            clientId,
+            title: `[NOVO] ${serviceName} - ${contract.clients?.company_name || 'Cliente'}`,
+            description: `Iniciar produção do serviço conforme contrato assinado.\n\nCliente: ${contract.clients?.company_name}\nContrato ID: ${contractId}`,
+            status: 'todo',
+            priority: 'high',
+            area,
+            createdBy: event.actor_user_id,
+            referenceLinks: {
+              type: 'contract',
+              contract_id: contractId,
+              service_name: serviceName,
+            },
+          });
+        }
+
+        // 6. Workflow transitions
+        await insertWorkflowTransition({
+          fromArea: 'Jurídico',
+          toArea: 'Financeiro',
+          triggerEvent: 'contract.signed',
+          payload: { contract_id: contractId, client_id: clientId },
+          createdBy: event.actor_user_id,
+          sourceEventId: event.id,
+          correlationId: event.correlation_id,
+        });
+
+        await insertWorkflowTransition({
+          fromArea: 'Jurídico',
+          toArea: 'Operacao',
+          triggerEvent: 'contract.signed',
+          payload: { contract_id: contractId, client_id: clientId, services },
+          createdBy: event.actor_user_id,
+          sourceEventId: event.id,
+          correlationId: event.correlation_id,
+        });
+
+        // 7. Notify team
+        await notifyAdmins(
+          'Contrato Assinado',
+          `Contrato de ${contract.clients?.company_name || 'cliente'} foi assinado digitalmente. Produção iniciada.`,
+          {
+            contract_id: contractId,
+            client_id: clientId,
+            signed_by: payload.signed_by,
+            correlation_id: event.correlation_id,
+          },
+          hubLinkFor({ tab: 'transitions', status: 'pending', q: contractId || event.correlation_id || 'contract.signed' })
+        );
+
+        return { ok: true };
+      }
+
       default:
         return { ok: true };
     }
   } catch (e: any) {
     return { ok: false, error: e?.message || 'Falha ao processar evento' };
   }
+}
+
+// Helper to map service names to areas
+function mapServiceToArea(serviceName: string): string {
+  const name = serviceName.toLowerCase();
+  if (name.includes('social') || name.includes('redes')) return 'Social Media';
+  if (name.includes('tráfego') || name.includes('trafego') || name.includes('ads')) return 'Tráfego';
+  if (name.includes('design') || name.includes('visual')) return 'Design';
+  if (name.includes('video') || name.includes('vídeo')) return 'Video';
+  if (name.includes('web') || name.includes('site') || name.includes('desenvolvimento')) return 'Desenvolvimento';
+  if (name.includes('seo')) return 'SEO';
+  if (name.includes('conteúdo') || name.includes('conteudo')) return 'Conteúdo';
+  return 'Operacao';
 }
 
 

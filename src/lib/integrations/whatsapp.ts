@@ -1,14 +1,21 @@
-// WhatsApp Business API Integration - Valle 360
+/**
+ * WhatsApp Business API Integration
+ * Supports both Meta WhatsApp Business API and Evolution API
+ */
 
-interface WhatsAppConfig {
-  phoneNumberId: string;
+// Types
+export interface WhatsAppConfig {
+  provider: 'meta' | 'evolution' | 'twilio';
+  apiUrl?: string;
   accessToken: string;
-  webhookVerifyToken: string;
+  phoneNumberId?: string; // For Meta
+  instanceName?: string; // For Evolution
+  accountSid?: string; // For Twilio
 }
 
-interface WhatsAppMessage {
-  to: string;
-  type: 'text' | 'template' | 'image' | 'document';
+export interface WhatsAppMessage {
+  to: string; // Phone number with country code (e.g., 5511999999999)
+  type: 'text' | 'template' | 'image' | 'document' | 'audio' | 'video';
   text?: string;
   template?: {
     name: string;
@@ -18,445 +25,305 @@ interface WhatsAppMessage {
   media?: {
     url: string;
     caption?: string;
+    filename?: string;
   };
 }
 
-interface WhatsAppTemplate {
-  name: string;
-  language: string;
-  category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
-  components: any[];
+export interface WhatsAppSendResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
 }
 
-// Templates pré-definidos para Valle 360
-export const WHATSAPP_TEMPLATES = {
-  // Cobrança de colaborador
-  TASK_REMINDER: {
-    name: 'task_reminder_v1',
-    language: 'pt_BR',
-    category: 'UTILITY' as const,
-    components: [
-      {
-        type: 'BODY',
-        text: 'Oi {{1}}! 👋\n\nNotei que a tarefa "{{2}}" está há {{3}} dias sem movimentação.\n\nPrecisa de ajuda? Responda:\n1️⃣ Estender prazo\n2️⃣ Pedir ajuda\n3️⃣ Falar com gestor'
-      }
-    ]
-  },
+// Configuration from environment
+function getConfig(): WhatsAppConfig {
+  const provider = (process.env.WHATSAPP_PROVIDER || 'meta') as WhatsAppConfig['provider'];
   
-  // Cobrança financeira
-  PAYMENT_REMINDER: {
-    name: 'payment_reminder_v1',
-    language: 'pt_BR',
-    category: 'UTILITY' as const,
-    components: [
-      {
-        type: 'BODY',
-        text: 'Olá {{1}}! 😊\n\nLembrando que a fatura #{{2}} no valor de R$ {{3}} venceu há {{4}} dias.\n\n💳 Link: {{5}}\n\nDúvidas? Responda esta mensagem!'
-      }
-    ]
-  },
-  
-  // Aprovação pendente
-  APPROVAL_PENDING: {
-    name: 'approval_pending_v1',
-    language: 'pt_BR',
-    category: 'UTILITY' as const,
-    components: [
-      {
-        type: 'BODY',
-        text: 'Oi {{1}}!\n\nVocê tem {{2}} itens aguardando aprovação há {{3}} dias.\n\n👉 Aprovar: {{4}}\n\nLeva menos de 2 minutos! 😉'
-      }
-    ]
-  },
-  
-  // NPS/Feedback
-  NPS_REQUEST: {
-    name: 'nps_request_v1',
-    language: 'pt_BR',
-    category: 'MARKETING' as const,
-    components: [
-      {
-        type: 'BODY',
-        text: '{{1}}, tudo bem?\n\nFaz {{2}} dias que não conversamos!\n\nDe 0 a 10, qual nota você daria para a Valle 360?\n\nSua opinião é super importante! 💜'
-      }
-    ]
-  },
-  
-  // Boas-vindas
-  WELCOME: {
-    name: 'welcome_v1',
-    language: 'pt_BR',
-    category: 'MARKETING' as const,
-    components: [
-      {
-        type: 'BODY',
-        text: 'Bem-vindo à Valle 360, {{1}}! 🎉\n\nSou a Val, sua assistente virtual. Estou aqui para ajudar no que precisar.\n\nAcesse seu portal: {{2}}\n\nQualquer dúvida, é só me chamar!'
-      }
-    ]
+  switch (provider) {
+    case 'evolution':
+      return {
+        provider: 'evolution',
+        apiUrl: process.env.EVOLUTION_API_URL || 'https://api.evolution.com',
+        accessToken: process.env.EVOLUTION_API_KEY || '',
+        instanceName: process.env.EVOLUTION_INSTANCE_NAME || 'valle360',
+      };
+    case 'twilio':
+      return {
+        provider: 'twilio',
+        accessToken: process.env.TWILIO_AUTH_TOKEN || '',
+        accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+        phoneNumberId: process.env.TWILIO_WHATSAPP_NUMBER || '',
+      };
+    default:
+      return {
+        provider: 'meta',
+        apiUrl: 'https://graph.facebook.com/v18.0',
+        accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+        phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+      };
   }
+}
+
+/**
+ * Send a WhatsApp message
+ */
+export async function sendWhatsAppMessage(message: WhatsAppMessage): Promise<WhatsAppSendResult> {
+  const config = getConfig();
+  
+  if (!config.accessToken) {
+    console.warn('WhatsApp not configured');
+    return { success: false, error: 'WhatsApp not configured' };
+  }
+
+  try {
+    switch (config.provider) {
+      case 'meta':
+        return await sendViaMeta(config, message);
+      case 'evolution':
+        return await sendViaEvolution(config, message);
+      case 'twilio':
+        return await sendViaTwilio(config, message);
+      default:
+        return { success: false, error: 'Unknown provider' };
+    }
+  } catch (error: any) {
+    console.error('WhatsApp send error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Send via Meta WhatsApp Business API
+ */
+async function sendViaMeta(config: WhatsAppConfig, message: WhatsAppMessage): Promise<WhatsAppSendResult> {
+  const url = `${config.apiUrl}/${config.phoneNumberId}/messages`;
+  
+  let body: any = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: formatPhoneNumber(message.to),
+  };
+
+  if (message.type === 'text') {
+    body.type = 'text';
+    body.text = { 
+      preview_url: true,
+      body: message.text 
+    };
+  } else if (message.type === 'template') {
+    body.type = 'template';
+    body.template = {
+      name: message.template?.name,
+      language: { code: message.template?.language || 'pt_BR' },
+      components: message.template?.components || [],
+    };
+  } else if (message.type === 'image') {
+    body.type = 'image';
+    body.image = {
+      link: message.media?.url,
+      caption: message.media?.caption,
+    };
+  } else if (message.type === 'document') {
+    body.type = 'document';
+    body.document = {
+      link: message.media?.url,
+      caption: message.media?.caption,
+      filename: message.media?.filename,
+    };
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${config.accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    return { 
+      success: false, 
+      error: data.error?.message || 'Failed to send message' 
+    };
+  }
+
+  return {
+    success: true,
+    messageId: data.messages?.[0]?.id,
+  };
+}
+
+/**
+ * Send via Evolution API
+ */
+async function sendViaEvolution(config: WhatsAppConfig, message: WhatsAppMessage): Promise<WhatsAppSendResult> {
+  const baseUrl = `${config.apiUrl}/message`;
+  let endpoint = '';
+  let body: any = {
+    number: formatPhoneNumber(message.to),
+  };
+
+  if (message.type === 'text') {
+    endpoint = `${baseUrl}/sendText/${config.instanceName}`;
+    body.textMessage = { text: message.text };
+  } else if (message.type === 'image') {
+    endpoint = `${baseUrl}/sendMedia/${config.instanceName}`;
+    body.mediaMessage = {
+      mediatype: 'image',
+      media: message.media?.url,
+      caption: message.media?.caption,
+    };
+  } else if (message.type === 'document') {
+    endpoint = `${baseUrl}/sendMedia/${config.instanceName}`;
+    body.mediaMessage = {
+      mediatype: 'document',
+      media: message.media?.url,
+      caption: message.media?.caption,
+      fileName: message.media?.filename,
+    };
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'apikey': config.accessToken,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    return { 
+      success: false, 
+      error: data.message || 'Failed to send message' 
+    };
+  }
+
+  return {
+    success: true,
+    messageId: data.key?.id,
+  };
+}
+
+/**
+ * Send via Twilio
+ */
+async function sendViaTwilio(config: WhatsAppConfig, message: WhatsAppMessage): Promise<WhatsAppSendResult> {
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${config.accountSid}/Messages.json`;
+  
+  const formData = new URLSearchParams();
+  formData.append('From', `whatsapp:${config.phoneNumberId}`);
+  formData.append('To', `whatsapp:+${formatPhoneNumber(message.to)}`);
+  
+  if (message.type === 'text') {
+    formData.append('Body', message.text || '');
+  } else if (message.media?.url) {
+    formData.append('MediaUrl', message.media.url);
+    if (message.media.caption) {
+      formData.append('Body', message.media.caption);
+    }
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Basic ' + Buffer.from(`${config.accountSid}:${config.accessToken}`).toString('base64'),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: formData.toString(),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    return { 
+      success: false, 
+      error: data.message || 'Failed to send message' 
+    };
+  }
+
+  return {
+    success: true,
+    messageId: data.sid,
+  };
+}
+
+/**
+ * Format phone number (remove special characters, ensure country code)
+ */
+function formatPhoneNumber(phone: string): string {
+  // Remove all non-digit characters
+  let cleaned = phone.replace(/\D/g, '');
+  
+  // If no country code, assume Brazil (+55)
+  if (cleaned.length === 10 || cleaned.length === 11) {
+    cleaned = '55' + cleaned;
+  }
+  
+  return cleaned;
+}
+
+/**
+ * Pre-defined message templates
+ */
+export const WhatsAppTemplates = {
+  // Approval request
+  approvalRequest: (clientName: string, contentTitle: string, approvalUrl: string): WhatsAppMessage => ({
+    to: '',
+    type: 'text',
+    text: `🎨 *Novo Conteúdo para Aprovação*\n\nOlá ${clientName}!\n\nUm novo conteúdo está aguardando sua aprovação:\n\n📝 *${contentTitle}*\n\nClique no link para revisar e aprovar:\n${approvalUrl}\n\n_Valle 360_`,
+  }),
+
+  // Invoice reminder
+  invoiceReminder: (clientName: string, invoiceNumber: string, amount: string, dueDate: string): WhatsAppMessage => ({
+    to: '',
+    type: 'text',
+    text: `💰 *Lembrete de Fatura*\n\nOlá ${clientName}!\n\nLembramos que sua fatura está próxima do vencimento:\n\n📄 Fatura: #${invoiceNumber}\n💵 Valor: ${amount}\n📅 Vencimento: ${dueDate}\n\nSe já realizou o pagamento, desconsidere esta mensagem.\n\n_Valle 360_`,
+  }),
+
+  // Post published
+  postPublished: (clientName: string, platform: string, postUrl?: string): WhatsAppMessage => ({
+    to: '',
+    type: 'text',
+    text: `🚀 *Conteúdo Publicado!*\n\nOlá ${clientName}!\n\nSeu conteúdo foi publicado com sucesso no *${platform}*! 🎉\n\n${postUrl ? `🔗 Ver publicação: ${postUrl}\n\n` : ''}Acompanhe as métricas no painel.\n\n_Valle 360_`,
+  }),
+
+  // Meeting reminder
+  meetingReminder: (clientName: string, meetingTitle: string, dateTime: string, meetingUrl?: string): WhatsAppMessage => ({
+    to: '',
+    type: 'text',
+    text: `📅 *Lembrete de Reunião*\n\nOlá ${clientName}!\n\nSua reunião está marcada para:\n\n📌 *${meetingTitle}*\n🕐 ${dateTime}\n\n${meetingUrl ? `🔗 Link: ${meetingUrl}\n\n` : ''}Nos vemos em breve!\n\n_Valle 360_`,
+  }),
+
+  // Contract signed
+  contractSigned: (clientName: string): WhatsAppMessage => ({
+    to: '',
+    type: 'text',
+    text: `🎉 *Contrato Assinado com Sucesso!*\n\nOlá ${clientName}!\n\nSeu contrato foi assinado com sucesso. Bem-vindo à Valle 360!\n\nNossa equipe já está preparando tudo para começarmos. Em breve entraremos em contato para agendar a reunião de kickoff.\n\n✨ Estamos animados para essa parceria!\n\n_Valle 360_`,
+  }),
+
+  // Task update
+  taskUpdate: (clientName: string, taskTitle: string, status: string): WhatsAppMessage => ({
+    to: '',
+    type: 'text',
+    text: `📋 *Atualização de Tarefa*\n\nOlá ${clientName}!\n\nA tarefa *"${taskTitle}"* foi atualizada:\n\n📊 Status: ${status}\n\nAcompanhe todos os detalhes no seu painel.\n\n_Valle 360_`,
+  }),
 };
 
-class WhatsAppService {
-  private config: WhatsAppConfig | null = null;
-  private baseUrl = 'https://graph.facebook.com/v18.0';
-
-  initialize(config: WhatsAppConfig) {
-    this.config = config;
-  }
-
-  private getConfig(): WhatsAppConfig {
-    if (!this.config) {
-      this.config = {
-        phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
-        accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
-        webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || ''
-      };
-    }
-    return this.config;
-  }
-
-  // Enviar mensagem de texto simples
-  async sendText(to: string, text: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    try {
-      const config = this.getConfig();
-      
-      const response = await fetch(
-        `${this.baseUrl}/${config.phoneNumberId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${config.accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            recipient_type: 'individual',
-            to: this.formatPhoneNumber(to),
-            type: 'text',
-            text: { body: text }
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.error) {
-        return { success: false, error: data.error.message };
-      }
-
-      return { success: true, messageId: data.messages?.[0]?.id };
-    } catch (error) {
-      console.error('Erro ao enviar WhatsApp:', error);
-      return { success: false, error: 'Erro de conexão' };
-    }
-  }
-
-  // Enviar template
-  async sendTemplate(
-    to: string,
-    templateName: string,
-    language: string = 'pt_BR',
-    parameters: string[] = []
-  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    try {
-      const config = this.getConfig();
-      
-      const components = parameters.length > 0 ? [{
-        type: 'body',
-        parameters: parameters.map(param => ({
-          type: 'text',
-          text: param
-        }))
-      }] : [];
-
-      const response = await fetch(
-        `${this.baseUrl}/${config.phoneNumberId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${config.accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            recipient_type: 'individual',
-            to: this.formatPhoneNumber(to),
-            type: 'template',
-            template: {
-              name: templateName,
-              language: { code: language },
-              components
-            }
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.error) {
-        return { success: false, error: data.error.message };
-      }
-
-      return { success: true, messageId: data.messages?.[0]?.id };
-    } catch (error) {
-      console.error('Erro ao enviar template WhatsApp:', error);
-      return { success: false, error: 'Erro de conexão' };
-    }
-  }
-
-  // Enviar lembrete de tarefa
-  async sendTaskReminder(
-    to: string,
-    employeeName: string,
-    taskTitle: string,
-    daysOverdue: number
-  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    return this.sendTemplate(
-      to,
-      WHATSAPP_TEMPLATES.TASK_REMINDER.name,
-      'pt_BR',
-      [employeeName, taskTitle, daysOverdue.toString()]
-    );
-  }
-
-  // Enviar lembrete de pagamento
-  async sendPaymentReminder(
-    to: string,
-    clientName: string,
-    invoiceNumber: string,
-    amount: string,
-    daysOverdue: number,
-    paymentLink: string
-  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    return this.sendTemplate(
-      to,
-      WHATSAPP_TEMPLATES.PAYMENT_REMINDER.name,
-      'pt_BR',
-      [clientName, invoiceNumber, amount, daysOverdue.toString(), paymentLink]
-    );
-  }
-
-  // Enviar lembrete de aprovação
-  async sendApprovalReminder(
-    to: string,
-    clientName: string,
-    pendingCount: number,
-    daysPending: number,
-    approvalLink: string
-  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    return this.sendTemplate(
-      to,
-      WHATSAPP_TEMPLATES.APPROVAL_PENDING.name,
-      'pt_BR',
-      [clientName, pendingCount.toString(), daysPending.toString(), approvalLink]
-    );
-  }
-
-  // Enviar pesquisa NPS
-  async sendNPSRequest(
-    to: string,
-    clientName: string,
-    daysSinceLastContact: number
-  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    return this.sendTemplate(
-      to,
-      WHATSAPP_TEMPLATES.NPS_REQUEST.name,
-      'pt_BR',
-      [clientName, daysSinceLastContact.toString()]
-    );
-  }
-
-  // Enviar boas-vindas
-  async sendWelcome(
-    to: string,
-    clientName: string,
-    portalLink: string
-  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    return this.sendTemplate(
-      to,
-      WHATSAPP_TEMPLATES.WELCOME.name,
-      'pt_BR',
-      [clientName, portalLink]
-    );
-  }
-
-  // Enviar imagem
-  async sendImage(
-    to: string,
-    imageUrl: string,
-    caption?: string
-  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    try {
-      const config = this.getConfig();
-      
-      const response = await fetch(
-        `${this.baseUrl}/${config.phoneNumberId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${config.accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            recipient_type: 'individual',
-            to: this.formatPhoneNumber(to),
-            type: 'image',
-            image: {
-              link: imageUrl,
-              caption
-            }
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.error) {
-        return { success: false, error: data.error.message };
-      }
-
-      return { success: true, messageId: data.messages?.[0]?.id };
-    } catch (error) {
-      console.error('Erro ao enviar imagem WhatsApp:', error);
-      return { success: false, error: 'Erro de conexão' };
-    }
-  }
-
-  // Enviar documento
-  async sendDocument(
-    to: string,
-    documentUrl: string,
-    filename: string,
-    caption?: string
-  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    try {
-      const config = this.getConfig();
-      
-      const response = await fetch(
-        `${this.baseUrl}/${config.phoneNumberId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${config.accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            recipient_type: 'individual',
-            to: this.formatPhoneNumber(to),
-            type: 'document',
-            document: {
-              link: documentUrl,
-              filename,
-              caption
-            }
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.error) {
-        return { success: false, error: data.error.message };
-      }
-
-      return { success: true, messageId: data.messages?.[0]?.id };
-    } catch (error) {
-      console.error('Erro ao enviar documento WhatsApp:', error);
-      return { success: false, error: 'Erro de conexão' };
-    }
-  }
-
-  // Marcar mensagem como lida
-  async markAsRead(messageId: string): Promise<boolean> {
-    try {
-      const config = this.getConfig();
-      
-      await fetch(
-        `${this.baseUrl}/${config.phoneNumberId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${config.accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            status: 'read',
-            message_id: messageId
-          })
-        }
-      );
-
-      return true;
-    } catch (error) {
-      console.error('Erro ao marcar como lida:', error);
-      return false;
-    }
-  }
-
-  // Formatar número de telefone
-  private formatPhoneNumber(phone: string): string {
-    // Remove caracteres não numéricos
-    let cleaned = phone.replace(/\D/g, '');
-    
-    // Adiciona código do país se não tiver
-    if (!cleaned.startsWith('55')) {
-      cleaned = '55' + cleaned;
-    }
-    
-    return cleaned;
-  }
-
-  // Verificar webhook (para validação do Meta)
-  verifyWebhook(mode: string, token: string, challenge: string): string | null {
-    const config = this.getConfig();
-    
-    if (mode === 'subscribe' && token === config.webhookVerifyToken) {
-      return challenge;
-    }
-    
-    return null;
-  }
-
-  // Processar webhook de mensagem recebida
-  processWebhook(body: any): {
-    from: string;
-    message: string;
-    messageId: string;
-    timestamp: number;
-    type: string;
-  } | null {
-    try {
-      const entry = body.entry?.[0];
-      const change = entry?.changes?.[0];
-      const message = change?.value?.messages?.[0];
-      
-      if (!message) return null;
-
-      return {
-        from: message.from,
-        message: message.text?.body || '',
-        messageId: message.id,
-        timestamp: parseInt(message.timestamp),
-        type: message.type
-      };
-    } catch (error) {
-      console.error('Erro ao processar webhook:', error);
-      return null;
-    }
-  }
+/**
+ * Send a templated message
+ */
+export async function sendTemplatedMessage(
+  phone: string,
+  template: WhatsAppMessage
+): Promise<WhatsAppSendResult> {
+  return sendWhatsAppMessage({
+    ...template,
+    to: phone,
+  });
 }
-
-export const whatsappService = new WhatsAppService();
-export default whatsappService;
-
-
-
-
-
-
-
-
-

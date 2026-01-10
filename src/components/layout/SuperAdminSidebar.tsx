@@ -42,7 +42,8 @@ import {
   CheckCircle2,
   Instagram,
   Bell,
-  LogOut
+  LogOut,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -152,6 +153,7 @@ const navGroups: NavGroup[] = [
     label: "Social",
     icon: Instagram,
     items: [
+      { id: "social-command", label: "Command Center", href: "/admin/social-media/command-center", icon: Zap },
       { id: "social-upload", label: "Agendar Postagem", href: "/admin/social-media/upload", icon: Instagram },
       { id: "social-gestao", label: "Gestão de Posts", href: "/admin/social-media/gestao", icon: Calendar },
     ],

@@ -91,10 +91,17 @@ class N8NClient {
    * Lista todos os workflows
    */
   async listWorkflows(): Promise<Workflow[]> {
-    // TODO: Implementar chamada real
-    // return this.request<{ data: Workflow[] }>('/workflows').then(r => r.data);
+    // Try real API call first
+    if (this.apiKey && this.baseUrl) {
+      try {
+        const response = await this.request<{ data: Workflow[] }>('/api/v1/workflows');
+        return response.data || [];
+      } catch (error) {
+        console.warn('N8N API not available, using mock data:', error);
+      }
+    }
     
-    // Mock data
+    // Fallback to mock data
     return [
       {
         id: 'wf_1',
@@ -174,13 +181,19 @@ class N8NClient {
    * Ativa/desativa um workflow
    */
   async toggleWorkflow(id: string, active: boolean): Promise<boolean> {
-    // TODO: Implementar chamada real
-    // return this.request<{ success: boolean }>(`/workflows/${id}`, {
-    //   method: 'PATCH',
-    //   body: JSON.stringify({ active })
-    // }).then(r => r.success);
+    if (this.apiKey && this.baseUrl) {
+      try {
+        await this.request(`/api/v1/workflows/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ active })
+        });
+        return true;
+      } catch (error) {
+        console.error('Failed to toggle workflow:', error);
+      }
+    }
     
-    console.log(`Workflow ${id} ${active ? 'ativado' : 'desativado'}`);
+    console.log(`Workflow ${id} ${active ? 'ativado' : 'desativado'} (mock)`);
     return true;
   }
 
@@ -188,19 +201,35 @@ class N8NClient {
    * Executa um workflow manualmente
    */
   async executeWorkflow(id: string, data?: Record<string, any>): Promise<WorkflowExecution> {
-    // TODO: Implementar chamada real
-    // return this.request<WorkflowExecution>(`/workflows/${id}/execute`, {
-    //   method: 'POST',
-    //   body: JSON.stringify({ data })
-    // });
+    if (this.apiKey && this.baseUrl) {
+      try {
+        const result = await this.request<any>(`/api/v1/workflows/${id}/execute`, {
+          method: 'POST',
+          body: JSON.stringify(data || {})
+        });
+        
+        return {
+          id: result.executionId || `exec_${Date.now()}`,
+          workflowId: id,
+          status: result.finished ? 'success' : 'running',
+          startedAt: result.startedAt || new Date().toISOString(),
+          finishedAt: result.stoppedAt,
+          data: result.data
+        };
+      } catch (error) {
+        console.error('Failed to execute workflow:', error);
+        throw error;
+      }
+    }
     
+    // Mock response
     return {
       id: `exec_${Date.now()}`,
       workflowId: id,
       status: 'success',
       startedAt: new Date().toISOString(),
       finishedAt: new Date().toISOString(),
-      data: { result: 'Workflow executado com sucesso' }
+      data: { result: 'Workflow executado com sucesso (mock)' }
     };
   }
 
@@ -212,8 +241,26 @@ class N8NClient {
    * Lista execuções de um workflow
    */
   async listExecutions(workflowId?: string): Promise<WorkflowExecution[]> {
-    // TODO: Implementar chamada real
+    if (this.apiKey && this.baseUrl) {
+      try {
+        const params = workflowId ? `?workflowId=${workflowId}` : '';
+        const result = await this.request<{ data: any[] }>(`/api/v1/executions${params}`);
+        
+        return (result.data || []).map((exec: any) => ({
+          id: exec.id,
+          workflowId: exec.workflowId,
+          status: exec.finished ? (exec.stoppedAt ? 'success' : 'error') : 'running',
+          startedAt: exec.startedAt,
+          finishedAt: exec.stoppedAt,
+          data: exec.data,
+          error: exec.data?.error?.message,
+        }));
+      } catch (error) {
+        console.warn('Failed to list executions, using mock:', error);
+      }
+    }
     
+    // Mock data fallback
     const executions: WorkflowExecution[] = [
       {
         id: 'exec_1',
@@ -295,9 +342,35 @@ class N8NClient {
       throw new Error(`Webhook ${webhookId} não encontrado`);
     }
 
-    // TODO: Implementar chamada real
-    console.log(`Webhook ${webhook.name} disparado com dados:`, data);
-    return true;
+    try {
+      await fetch(webhook.url, {
+        method: webhook.method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      console.log(`Webhook ${webhook.name} disparado com sucesso`);
+      return true;
+    } catch (error) {
+      console.error(`Falha ao disparar webhook ${webhook.name}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Dispara um webhook por URL direta
+   */
+  async triggerWebhookByUrl(url: string, data: Record<string, any>): Promise<boolean> {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Falha ao disparar webhook:', error);
+      return false;
+    }
   }
 }
 

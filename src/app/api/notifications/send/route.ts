@@ -1,58 +1,108 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
+import { sendPushNotification, sendBulkPushNotifications, PushSubscription, PushNotificationPayload } from '@/lib/notifications/web-push';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * POST - Send push notification to specific users or all subscribers
+ * Admin/internal use only
+ */
 export async function POST(request: NextRequest) {
   try {
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const { data: auth } = await supabase.auth.getUser();
+    const user = auth?.user;
     
-    const { userId, type, title, message, metadata, link } = await request.json()
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 });
+    }
 
-    if (!userId || !type || !title || !message) {
+    // Check if user is admin
+    const admin = getSupabaseAdmin();
+    const { data: profile } = await admin
+      .from('user_profiles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    const role = (profile as any)?.role;
+    if (!['super_admin', 'admin', 'gerente'].includes(role)) {
+      return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { 
+      user_ids, // Array of user IDs to notify, or empty for all
+      notification, // PushNotificationPayload
+    } = body;
+    
+    if (!notification || !notification.title || !notification.body) {
       return NextResponse.json(
-        { error: 'userId, type, title e message são obrigatórios' },
+        { success: false, error: 'notification.title and notification.body are required' },
         { status: 400 }
-      )
+      );
     }
 
-    // Inserir notificação no banco
-    const { data: notification, error } = await supabaseAdmin
-      .from('notifications')
-      .insert({
-        user_id: userId,
-        type, // ex: 'system', 'task_assigned', etc
-        title,
-        message,
-        metadata: metadata || {},
-        link: link || null,
-        is_read: false,
-        created_at: new Date().toISOString(),
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Erro ao criar notificação:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    // Fetch subscriptions
+    let query = admin
+      .from('push_subscriptions')
+      .select('endpoint, p256dh, auth, user_id')
+      .eq('active', true);
+    
+    if (user_ids && Array.isArray(user_ids) && user_ids.length > 0) {
+      query = query.in('user_id', user_ids);
+    }
+    
+    const { data: subscriptions, error: subError } = await query;
+    
+    if (subError) {
+      throw new Error(`Failed to fetch subscriptions: ${subError.message}`);
+    }
+    
+    if (!subscriptions || subscriptions.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'No active subscriptions found',
+        sent: 0,
+        failed: 0,
+      });
     }
 
-    // TODO: Implementar notificação em tempo real via WebSocket/Pusher/Socket.io
-    // TODO: Implementar notificação push (Firebase Cloud Messaging)
-    // TODO: Implementar notificação por email opcional
+    // Convert to PushSubscription format
+    const pushSubscriptions: PushSubscription[] = (subscriptions as any[]).map(sub => ({
+      endpoint: sub.endpoint,
+      keys: {
+        p256dh: sub.p256dh,
+        auth: sub.auth,
+      },
+    }));
 
-    return NextResponse.json({ 
-      success: true, 
-      notification 
-    })
-  } catch (error: any) {
-    console.error('Erro ao enviar notificação:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    // Send notifications
+    const result = await sendBulkPushNotifications(pushSubscriptions, notification as PushNotificationPayload);
+
+    // Clean up expired subscriptions
+    if (result.expired.length > 0) {
+      await admin
+        .from('push_subscriptions')
+        .update({ active: false, updated_at: new Date().toISOString() })
+        .in('endpoint', result.expired);
+    }
+
+    return NextResponse.json({
+      success: true,
+      sent: result.sent,
+      failed: result.failed,
+      expired: result.expired.length,
+    });
+  } catch (e: any) {
+    console.error('Send push notification error:', e);
+    return NextResponse.json(
+      { success: false, error: e?.message || 'Erro interno' },
+      { status: 500 }
+    );
   }
 }
-
-
-

@@ -1,83 +1,115 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Gift, Star, Share2, Trophy, Copy, Check, Users, Calendar, DollarSign } from 'lucide-react';
+import { Gift, Star, Share2, Trophy, Copy, Check, Users, Calendar, DollarSign, Loader2 } from 'lucide-react';
 
 interface Referral {
-  id: number;
-  name: string;
-  email: string;
+  id: string;
+  referred_name: string | null;
+  referred_email: string;
   status: 'pending' | 'active' | 'paid';
-  signedUpAt: string;
+  created_at: string;
   earnings: number;
+}
+
+interface Benefit {
+  id: string;
+  name: string;
+  description: string;
+  credits_required: number;
+  category: string;
+  available: boolean;
+}
+
+interface BenefitsData {
+  referral_code: string;
+  referral_url: string;
+  referrals: Referral[];
+  stats: {
+    total_referrals: number;
+    active_referrals: number;
+    total_earnings: number;
+  };
+  level: {
+    name: string;
+    discount: number;
+  };
+  available_benefits: Benefit[];
 }
 
 export default function BeneficiosPage() {
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<BenefitsData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const referrals: Referral[] = [
-    {
-      id: 1,
-      name: 'Maria Silva',
-      email: 'maria@exemplo.com',
-      status: 'paid',
-      signedUpAt: '2025-09-15',
-      earnings: 500,
-    },
-    {
-      id: 2,
-      name: 'João Santos',
-      email: 'joao@exemplo.com',
-      status: 'active',
-      signedUpAt: '2025-10-01',
-      earnings: 500,
-    },
-    {
-      id: 3,
-      name: 'Ana Costa',
-      email: 'ana@exemplo.com',
-      status: 'active',
-      signedUpAt: '2025-10-10',
-      earnings: 500,
-    },
-    {
-      id: 4,
-      name: 'Pedro Oliveira',
-      email: 'pedro@exemplo.com',
-      status: 'active',
-      signedUpAt: '2025-10-20',
-      earnings: 500,
-    },
-    {
-      id: 5,
-      name: 'Carla Mendes',
-      email: 'carla@exemplo.com',
-      status: 'pending',
-      signedUpAt: '2025-10-28',
-      earnings: 0,
-    },
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch('/api/client/benefits', { cache: 'no-store' });
+        const json = await res.json();
+        
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || 'Erro ao carregar benefícios');
+        }
+        
+        setData(json);
+      } catch (e: any) {
+        setError(e.message);
+        console.error('Error fetching benefits:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const totalEarnings = referrals.filter((r) => r.status !== 'pending').reduce((sum, r) => sum + r.earnings, 0);
-  const activeReferrals = referrals.filter((r) => r.status === 'active' || r.status === 'paid').length;
+    fetchData();
+  }, []);
+
+  const referrals = data?.referrals || [];
+  const totalEarnings = data?.stats?.total_earnings || 0;
+  const activeReferrals = data?.stats?.active_referrals || 0;
+  const referralUrl = data?.referral_url || '';
+  const level = data?.level?.name || 'Bronze';
+  const levelDiscount = data?.level?.discount || 0;
+  const availableBenefits = data?.available_benefits || [];
 
   const handleCopy = () => {
-    navigator.clipboard.writeText('https://valle360.com/ref/GUILHERME2024');
+    navigator.clipboard.writeText(referralUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-red-600">Erro: {error}</p>
+        <Button onClick={() => window.location.reload()} className="mt-4">
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
   const getStatusBadge = (status: Referral['status']) => {
-    const statusConfig = {
+    const statusConfig: Record<Referral['status'], { label: string; className: string }> = {
       pending: { label: 'Pendente', className: 'bg-yellow-100 text-yellow-700' },
       active: { label: 'Ativo', className: 'bg-green-100 text-green-700' },
       paid: { label: 'Pago', className: 'bg-blue-100 text-blue-700' },
     };
 
-    const config = statusConfig[status];
+    const config = statusConfig[status] || statusConfig.pending;
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
@@ -129,9 +161,9 @@ export default function BeneficiosPage() {
             <Trophy className="h-5 w-5 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold text-orange-600">Gold</div>
+            <div className="text-4xl font-bold text-orange-600">{level}</div>
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              5% de desconto em serviços
+              {levelDiscount}% de desconto em serviços
             </p>
           </CardContent>
         </Card>
@@ -152,7 +184,7 @@ export default function BeneficiosPage() {
           <div className="flex items-center gap-3">
             <input
               type="text"
-              value="https://valle360.com/ref/GUILHERME2024"
+              value={referralUrl}
               readOnly
               className="flex-1 px-4 py-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white font-mono text-sm"
             />
@@ -203,15 +235,15 @@ export default function BeneficiosPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 dark:text-white truncate">
-                        {referral.name}
+                        {referral.referred_name || 'Indicado'}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                        {referral.email}
+                        {referral.referred_email}
                       </p>
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
                         <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                           <Calendar className="w-3 h-3" />
-                          {new Date(referral.signedUpAt).toLocaleDateString('pt-BR')}
+                          {new Date(referral.created_at).toLocaleDateString('pt-BR')}
                         </div>
                         {referral.status !== 'pending' && (
                           <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
@@ -240,61 +272,43 @@ export default function BeneficiosPage() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-orange-300 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-orange-600 flex items-center justify-center">
-                <Gift className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Consultoria Gratuita</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  1 hora de consultoria estratégica
-                </p>
-                <Badge variant="outline" className="mt-1">
-                  R$ 1.000 em créditos
-                </Badge>
-              </div>
-            </div>
-            <Button className="bg-orange-600 hover:bg-orange-700">Resgatar</Button>
-          </div>
-
-          <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-orange-300 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-orange-600 flex items-center justify-center">
-                <Star className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Design Gráfico Extra</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  2 artes adicionais no mês
-                </p>
-                <Badge variant="outline" className="mt-1">
-                  R$ 500 em créditos
-                </Badge>
-              </div>
-            </div>
-            <Button className="bg-orange-600 hover:bg-orange-700">Resgatar</Button>
-          </div>
-
-          <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 opacity-50">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-gray-400 dark:bg-gray-600 flex items-center justify-center">
-                <Trophy className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Upgrade de Plano</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  1 mês de plano premium
-                </p>
-                <Badge variant="outline" className="mt-1">
-                  R$ 2.500 em créditos
-                </Badge>
-              </div>
-            </div>
-            <Button variant="outline" disabled>
-              Em breve
-            </Button>
-          </div>
+          {availableBenefits.length === 0 ? (
+            <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+              Nenhum benefício disponível no momento.
+            </p>
+          ) : (
+            availableBenefits.map((benefit) => {
+              const Icon = benefit.category === 'premium' ? Trophy : benefit.category === 'service' ? Star : Gift;
+              return (
+                <div
+                  key={benefit.id}
+                  className={`flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-orange-300 transition-all ${!benefit.available ? 'opacity-50' : ''}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${benefit.available ? 'bg-orange-600' : 'bg-gray-400 dark:bg-gray-600'}`}>
+                      <Icon className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">{benefit.name}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {benefit.description}
+                      </p>
+                      <Badge variant="outline" className="mt-1">
+                        R$ {benefit.credits_required.toLocaleString('pt-BR')} em créditos
+                      </Badge>
+                    </div>
+                  </div>
+                  {benefit.available ? (
+                    <Button className="bg-orange-600 hover:bg-orange-700">Resgatar</Button>
+                  ) : (
+                    <Button variant="outline" disabled>
+                      Em breve
+                    </Button>
+                  )}
+                </div>
+              );
+            })
+          )}
         </CardContent>
       </Card>
     </div>
