@@ -143,7 +143,7 @@ function parseInternalEvent(body: any) {
     signedBy: body.signed_by,
     signedAt: body.signed_at,
     signatureIp: body.signature_ip,
-    documentUrl: null,
+    documentUrl: undefined,
   };
 }
 
