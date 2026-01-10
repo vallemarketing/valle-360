@@ -101,17 +101,21 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Log the connection
-    await supabase.from('audit_logs').insert({
-      user_id: stateData.userId,
-      action: 'integration_connected',
-      resource_type: 'google_drive',
-      metadata: {
-        email: googleUser.email,
-        client_id: stateData.clientId,
-      },
-      created_at: new Date().toISOString(),
-    }).catch(() => {});
+    // Log the connection (best-effort)
+    try {
+      await supabase.from('audit_logs').insert({
+        user_id: stateData.userId,
+        action: 'integration_connected',
+        resource_type: 'google_drive',
+        metadata: {
+          email: googleUser.email,
+          client_id: stateData.clientId,
+        },
+        created_at: new Date().toISOString(),
+      });
+    } catch {
+      // Ignore audit log errors
+    }
 
     // Redirect back
     const redirectUrl = new URL(stateData.redirect, request.url);

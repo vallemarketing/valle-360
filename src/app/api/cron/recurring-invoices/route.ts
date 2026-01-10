@@ -110,16 +110,20 @@ export async function GET(request: NextRequest) {
           })
           .eq('id', schedule.id);
 
-        // Create notification
-        await supabase.from('notifications').insert({
-          user_id: schedule.client_id, // Notify client
-          type: 'invoice_generated',
-          title: 'Nova fatura disponível',
-          message: `Sua fatura de R$ ${schedule.amount.toLocaleString('pt-BR')} vence em ${dueDate.toLocaleDateString('pt-BR')}`,
-          link: '/cliente/financeiro',
-          is_read: false,
-          created_at: new Date().toISOString(),
-        }).catch(() => {});
+        // Create notification (best-effort)
+        try {
+          await supabase.from('notifications').insert({
+            user_id: schedule.client_id, // Notify client
+            type: 'invoice_generated',
+            title: 'Nova fatura disponível',
+            message: `Sua fatura de R$ ${schedule.amount.toLocaleString('pt-BR')} vence em ${dueDate.toLocaleDateString('pt-BR')}`,
+            link: '/cliente/financeiro',
+            is_read: false,
+            created_at: new Date().toISOString(),
+          });
+        } catch {
+          // Ignore notification errors
+        }
 
         console.log(`[INVOICE] Created ${invoice.id} for client ${schedule.client_id}`);
         generated++;
@@ -129,13 +133,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Log cron execution
-    await supabase.from('cron_logs').insert({
-      job_name: 'recurring_invoices',
-      run_at: new Date().toISOString(),
-      status: failed === 0 ? 'success' : 'partial',
-      result: { generated, failed, total: schedules.length },
-    }).catch(() => {});
+    // Log cron execution (best-effort)
+    try {
+      await supabase.from('cron_logs').insert({
+        job_name: 'recurring_invoices',
+        run_at: new Date().toISOString(),
+        status: failed === 0 ? 'success' : 'partial',
+        result: { generated, failed, total: schedules.length },
+      });
+    } catch {
+      // Ignore logging errors
+    }
 
     console.log(`[CRON] Completed: ${generated} invoices generated, ${failed} failed`);
 

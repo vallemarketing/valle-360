@@ -176,13 +176,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Log cron execution
-    await supabase.from('cron_logs').insert({
-      job_name: 'billing_automation',
-      run_at: new Date().toISOString(),
-      status: results.errors === 0 ? 'success' : 'partial',
-      result: results,
-    }).catch(() => {});
+    // Log cron execution (best-effort)
+    try {
+      await supabase.from('cron_logs').insert({
+        job_name: 'billing_automation',
+        run_at: new Date().toISOString(),
+        status: results.errors === 0 ? 'success' : 'partial',
+        result: results,
+      });
+    } catch {
+      // Ignore logging errors
+    }
 
     console.log('[CRON] Billing complete:', results);
 

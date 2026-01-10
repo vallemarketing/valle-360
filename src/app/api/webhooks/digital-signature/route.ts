@@ -59,16 +59,18 @@ export async function POST(request: NextRequest) {
       await handleContractViewed(eventData);
     }
 
-    // Log the webhook
-    await supabase.from('webhook_logs').insert({
-      provider,
-      event_type: eventData.eventType,
-      contract_id: eventData.contractId,
-      payload: body,
-      created_at: new Date().toISOString(),
-    }).catch(() => {
+    // Log the webhook (best-effort)
+    try {
+      await supabase.from('webhook_logs').insert({
+        provider,
+        event_type: eventData.eventType,
+        contract_id: eventData.contractId,
+        payload: body,
+        created_at: new Date().toISOString(),
+      });
+    } catch {
       // Best effort logging
-    });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
@@ -201,12 +203,16 @@ async function handleContractDeclined(eventData: any) {
 async function handleContractViewed(eventData: any) {
   const { contractId, signedBy } = eventData;
 
-  await supabase.from('contract_events').insert({
-    contract_id: contractId,
-    event_type: 'viewed',
-    event_by: signedBy,
-    event_at: new Date().toISOString(),
-  }).catch(() => {});
+  try {
+    await supabase.from('contract_events').insert({
+      contract_id: contractId,
+      event_type: 'viewed',
+      event_by: signedBy,
+      event_at: new Date().toISOString(),
+    });
+  } catch {
+    // Ignore logging errors
+  }
 }
 
 // Dispatch contract.signed event for automation
@@ -241,44 +247,56 @@ async function dispatchContractSignedEvent(contract: any) {
 
   console.log(`[INVOICE CREATED] ${invoice?.id} for contract ${contract.id}`);
 
-  // 3. Schedule recurring invoices
-  await supabase.from('recurring_invoice_schedules').insert({
-    contract_id: contract.id,
-    client_id: contract.client_id,
-    amount: monthlyValue,
-    frequency: 'monthly',
-    day_of_month: parseInt(contract.payment_terms?.match(/\d+/)?.[0] || '10'),
-    next_run: new Date(dueDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    end_date: contract.end_date,
-    is_active: true,
-    created_at: new Date().toISOString(),
-  }).catch(() => {});
+  // 3. Schedule recurring invoices (best-effort)
+  try {
+    await supabase.from('recurring_invoice_schedules').insert({
+      contract_id: contract.id,
+      client_id: contract.client_id,
+      amount: monthlyValue,
+      frequency: 'monthly',
+      day_of_month: parseInt(contract.payment_terms?.match(/\d+/)?.[0] || '10'),
+      next_run: new Date(dueDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      end_date: contract.end_date,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    });
+  } catch {
+    // Ignore scheduling errors
+  }
 
   // 4. Create production tasks from contract services
   if (contract.services && contract.services.length > 0) {
     await createProductionTasks(contract);
   }
 
-  // 5. Create workflow transition to Operations
-  await supabase.from('workflow_transitions').insert({
-    from_area: 'juridico',
-    to_area: 'financeiro',
-    resource_type: 'contract',
-    resource_id: contract.id,
-    client_id: contract.client_id,
-    status: 'completed',
-    transitioned_at: new Date().toISOString(),
-  }).catch(() => {});
+  // 5. Create workflow transition to Operations (best-effort)
+  try {
+    await supabase.from('workflow_transitions').insert({
+      from_area: 'juridico',
+      to_area: 'financeiro',
+      resource_type: 'contract',
+      resource_id: contract.id,
+      client_id: contract.client_id,
+      status: 'completed',
+      transitioned_at: new Date().toISOString(),
+    });
+  } catch {
+    // Ignore transition errors
+  }
 
-  await supabase.from('workflow_transitions').insert({
-    from_area: 'juridico',
-    to_area: 'operacoes',
-    resource_type: 'contract',
-    resource_id: contract.id,
-    client_id: contract.client_id,
-    status: 'completed',
-    transitioned_at: new Date().toISOString(),
-  }).catch(() => {});
+  try {
+    await supabase.from('workflow_transitions').insert({
+      from_area: 'juridico',
+      to_area: 'operacoes',
+      resource_type: 'contract',
+      resource_id: contract.id,
+      client_id: contract.client_id,
+      status: 'completed',
+      transitioned_at: new Date().toISOString(),
+    });
+  } catch {
+    // Ignore transition errors
+  }
 
   // 6. Notify teams
   await notifyTeam(contract.id, 'contract_signed', `Contrato de ${contract.client_company} assinado! Iniciar produção.`);
@@ -311,23 +329,25 @@ async function createProductionTasks(contract: any) {
   for (const service of contract.services) {
     const area = serviceAreaMapping[service.name] || 'operacoes';
     
-    await supabase.from('kanban_cards').insert({
-      title: `[NOVO CLIENTE] ${service.name} - ${contract.client_company}`,
-      description: `Iniciar serviço de ${service.name} conforme contrato.\n\nEntregas: ${service.deliverables?.join(', ') || 'Conforme briefing'}\n\nValor mensal: R$ ${service.monthly_value?.toLocaleString('pt-BR') || 'N/A'}`,
-      client_id: clientId,
-      area: area,
-      column: 'backlog',
-      priority: 'high',
-      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-      metadata: {
-        contract_id: contract.id,
-        service_name: service.name,
-        auto_created: true,
-      },
-      created_at: new Date().toISOString(),
-    }).catch((err) => {
+    try {
+      await supabase.from('kanban_cards').insert({
+        title: `[NOVO CLIENTE] ${service.name} - ${contract.client_company}`,
+        description: `Iniciar serviço de ${service.name} conforme contrato.\n\nEntregas: ${service.deliverables?.join(', ') || 'Conforme briefing'}\n\nValor mensal: R$ ${service.monthly_value?.toLocaleString('pt-BR') || 'N/A'}`,
+        client_id: clientId,
+        area: area,
+        column: 'backlog',
+        priority: 'high',
+        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+        metadata: {
+          contract_id: contract.id,
+          service_name: service.name,
+          auto_created: true,
+        },
+        created_at: new Date().toISOString(),
+      });
+    } catch (err) {
       console.error('Failed to create task:', err);
-    });
+    }
   }
 
   console.log(`[TASKS CREATED] ${contract.services.length} tasks for contract ${contract.id}`);
@@ -351,6 +371,10 @@ async function notifyTeam(contractId: string, type: string, message: string) {
       created_at: new Date().toISOString(),
     }));
 
-    await supabase.from('notifications').insert(notifications).catch(() => {});
+    try {
+      await supabase.from('notifications').insert(notifications);
+    } catch {
+      // Ignore notification errors
+    }
   }
 }

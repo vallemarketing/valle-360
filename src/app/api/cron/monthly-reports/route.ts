@@ -123,16 +123,20 @@ export async function GET(request: NextRequest) {
           results.emailed++;
         }
 
-        // Create notification
-        await supabase.from('notifications').insert({
-          user_id: client.id, // Assuming client has a user
-          type: 'report_generated',
-          title: 'Relatório mensal disponível',
-          message: `Seu relatório de ${lastMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })} está pronto!`,
-          link: '/cliente/relatorios',
-          is_read: false,
-          created_at: new Date().toISOString(),
-        }).catch(() => {});
+        // Create notification (best-effort)
+        try {
+          await supabase.from('notifications').insert({
+            user_id: client.id, // Assuming client has a user
+            type: 'report_generated',
+            title: 'Relatório mensal disponível',
+            message: `Seu relatório de ${lastMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })} está pronto!`,
+            link: '/cliente/relatorios',
+            is_read: false,
+            created_at: new Date().toISOString(),
+          });
+        } catch {
+          // Ignore notification errors
+        }
 
         console.log(`[REPORT] Generated for ${client.company_name}`);
       } catch (err) {
@@ -141,13 +145,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Log cron execution
-    await supabase.from('cron_logs').insert({
-      job_name: 'monthly_reports',
-      run_at: new Date().toISOString(),
-      status: results.failed === 0 ? 'success' : 'partial',
-      result: results,
-    }).catch(() => {});
+    // Log cron execution (best-effort)
+    try {
+      await supabase.from('cron_logs').insert({
+        job_name: 'monthly_reports',
+        run_at: new Date().toISOString(),
+        status: results.failed === 0 ? 'success' : 'partial',
+        result: results,
+      });
+    } catch {
+      // Ignore logging errors
+    }
 
     console.log('[CRON] Monthly reports complete:', results);
 
