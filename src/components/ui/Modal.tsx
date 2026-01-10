@@ -142,7 +142,7 @@ interface ConfirmModalProps {
   onClose: () => void;
   onConfirm: () => void;
   title?: string;
-  message?: string;
+  message?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'info' | 'success';
@@ -186,9 +186,9 @@ export function ConfirmModal({
         </h3>
 
         {/* Message */}
-        <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+        <div className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
           {message}
-        </p>
+        </div>
 
         {/* Actions */}
         <div className="flex gap-3">
