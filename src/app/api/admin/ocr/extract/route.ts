@@ -91,20 +91,22 @@ Exemplo: {"clientName": "João Silva", "clientCompany": "Empresa Ltda", "clientC
       };
     }
 
-    // Log the extraction
-    await supabase.from('audit_logs').insert({
-      user_id: user.id,
-      action: 'ocr_extract',
-      resource_type: 'document',
-      metadata: {
-        filename: file.name,
-        size: file.size,
-        extracted: extractedData,
-      },
-      created_at: new Date().toISOString(),
-    }).catch(() => {
-      // Audit log is best-effort
-    });
+    // Log the extraction (best-effort)
+    try {
+      await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        action: 'ocr_extract',
+        resource_type: 'document',
+        metadata: {
+          filename: file.name,
+          size: file.size,
+          extracted: extractedData,
+        },
+        created_at: new Date().toISOString(),
+      });
+    } catch {
+      // Audit log is best-effort, ignore errors
+    }
 
     return NextResponse.json(extractedData);
   } catch (error: any) {

@@ -3,7 +3,14 @@ import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 import { logCronRun, requireCronAuth } from '@/lib/cron/cronUtils';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { SendGridClient } from '@/lib/integrations/email/sendgrid';
-import whatsappService from '@/lib/integrations/whatsapp';
+import { sendWhatsAppMessage } from '@/lib/integrations/whatsapp';
+
+// Wrapper para manter compatibilidade com o código existente
+const whatsappService = {
+  sendText: async (phone: string, text: string) => {
+    return sendWhatsAppMessage({ to: phone, type: 'text', text });
+  }
+};
 
 export const dynamic = 'force-dynamic';
 
