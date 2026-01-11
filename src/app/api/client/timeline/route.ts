@@ -190,7 +190,7 @@ async function generateAutomaticTimeline(
 
   if (snapshots && snapshots.length > 0) {
     // Adicionar evento de métricas trimestrais
-    const quarterlySnapshots = snapshots.filter((_, i) => i % 3 === 0);
+    const quarterlySnapshots = snapshots.filter((_: any, i: number) => i % 3 === 0);
     
     for (let i = 1; i < quarterlySnapshots.length; i++) {
       const current = quarterlySnapshots[i];

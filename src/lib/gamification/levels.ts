@@ -139,3 +139,22 @@ export const POINT_ACTIONS = {
 };
 
 export type PointAction = keyof typeof POINT_ACTIONS;
+
+// Função compatível com API antiga
+export function getLevelInfo(points: number): { level: number; tier: string; currentLevel: Level; nextLevel: Level | null; progress: number; pointsNeeded: number } {
+  const currentLevel = getLevelByPoints(points);
+  const nextLevel = getNextLevel(currentLevel);
+  const progressData = getProgressToNextLevel(points);
+  
+  // Mapear nível para número (1-5)
+  const levelNumber = LEVELS.findIndex(l => l.id === currentLevel.id) + 1;
+  
+  return {
+    level: levelNumber,
+    tier: currentLevel.name,
+    currentLevel,
+    nextLevel,
+    progress: progressData.progress,
+    pointsNeeded: progressData.pointsNeeded
+  };
+}
