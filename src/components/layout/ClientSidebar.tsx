@@ -96,7 +96,7 @@ const navGroups = [
     label: "Conta",
     items: [
       { href: "/cliente/perfil", label: "Meu Perfil", icon: UserCircle },
-      { href: "/cliente/valle-club", label: "Valle Club", icon: Trophy }, // Gamificação
+      { href: "/cliente/programa-fidelidade", label: "Valle Club", icon: Trophy }, // Gamificação 2.0
       { href: "/cliente/beneficios", label: "Benefícios", icon: Gift },
       { href: "/cliente/arquivos", label: "Arquivos", icon: FolderOpen },
       { href: "/cliente/suporte", label: "Falar com Suporte", icon: HelpCircle }, // Movido para Conta
