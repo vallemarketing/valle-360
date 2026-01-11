@@ -67,6 +67,7 @@ const navGroups = [
       { href: "/cliente/evolucao", label: "Evolução", icon: TrendingUp },
       { href: "/cliente/reputacao", label: "Reputação", icon: Star },
       { href: "/cliente/concorrentes", label: "Concorrentes", icon: Users },
+      { href: "/cliente/contatos", label: "Meus Contatos", icon: Users },
       { href: "/cliente/redes", label: "Redes Sociais", icon: Share2 },
     ],
   },
