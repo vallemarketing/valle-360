@@ -29,7 +29,7 @@ export default function CHROPage() {
             director="chro"
             title="Conversar com CHRO"
             subtitle="Chat executivo focado em RH (solicitações, carga, riscos)."
-            buttonClassName="bg-orange-600 hover:bg-orange-700"
+            buttonClassName="bg-primary hover:bg-[#1260b5]"
           />
           <ExecutiveChatModal
             role="chro"

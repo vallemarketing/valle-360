@@ -121,12 +121,12 @@ export function PostPreview({
       <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
         {copy.length} caracteres
         {selectedPlatform === 'instagram' && copy.length > 2200 && (
-          <span className="text-orange-500 ml-2">
+          <span className="text-primary ml-2">
             ⚠️ Limite do Instagram: 2200
           </span>
         )}
         {selectedPlatform === 'linkedin' && copy.length > 3000 && (
-          <span className="text-orange-500 ml-2">
+          <span className="text-primary ml-2">
             ⚠️ Limite do LinkedIn: 3000
           </span>
         )}

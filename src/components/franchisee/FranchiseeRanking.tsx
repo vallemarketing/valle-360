@@ -59,7 +59,7 @@ export function FranchiseeRanking({
     switch (position) {
       case 1: return 'from-yellow-400 to-amber-500';
       case 2: return 'from-gray-300 to-gray-400';
-      case 3: return 'from-orange-400 to-orange-600';
+      case 3: return 'from-[#1672d6] to-[#001533]';
       default: return 'from-gray-200 to-gray-300';
     }
   };
@@ -68,7 +68,7 @@ export function FranchiseeRanking({
     switch (position) {
       case 1: return <Crown className="w-4 h-4 text-yellow-600" />;
       case 2: return <Medal className="w-4 h-4 text-gray-500" />;
-      case 3: return <Medal className="w-4 h-4 text-orange-600" />;
+      case 3: return <Medal className="w-4 h-4 text-primary" />;
       default: return null;
     }
   };
@@ -139,19 +139,19 @@ export function FranchiseeRanking({
             onClick={() => onFranchiseeClick?.(displayedFranchisees[2])}
             className="cursor-pointer"
           >
-            <div className="bg-gradient-to-b from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 rounded-2xl p-4 pt-8 relative h-44 flex flex-col justify-end">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-lg">
+            <div className="bg-gradient-to-b from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30 rounded-2xl p-4 pt-8 relative h-44 flex flex-col justify-end">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center shadow-lg">
                 <Medal className="w-6 h-6 text-white" />
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-orange-500">3º</p>
+                <p className="text-2xl font-bold text-primary">3º</p>
                 <p className="font-bold text-gray-800 dark:text-white mt-2 truncate">
                   {displayedFranchisees[2].unit_name}
                 </p>
                 <p className="text-sm text-gray-500 truncate">
                   {displayedFranchisees[2].city}
                 </p>
-                <p className="text-xl font-bold text-orange-600 mt-2">
+                <p className="text-xl font-bold text-primary mt-2">
                   {displayedFranchisees[2].total_score} pts
                 </p>
               </div>

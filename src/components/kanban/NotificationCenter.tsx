@@ -164,7 +164,7 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
                   variant="ghost"
                   size="sm"
                   onClick={markAllAsRead}
-                  className="text-xs text-orange-600 hover:text-orange-700"
+                  className="text-xs text-primary hover:text-amber-700"
                 >
                   Marcar todas como lidas
                 </Button>
@@ -174,7 +174,7 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
             <div className="max-h-96 overflow-y-auto">
               {isLoading ? (
                 <div className="p-8 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                   <p className="mt-2 text-sm text-gray-500">Carregando...</p>
                 </div>
               ) : notifications.length === 0 ? (
@@ -187,7 +187,7 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
                   <div
                     key={notification.id}
                     className={`p-4 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer group ${
-                      !notification.is_read ? 'bg-orange-50 dark:bg-orange-900/10' : ''
+                      !notification.is_read ? 'bg-amber-50 dark:bg-amber-900/10' : ''
                     }`}
                     onClick={() => handleNotificationClick(notification)}
                   >
@@ -195,7 +195,7 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                         notification.is_read
                           ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                          : 'bg-orange-100 dark:bg-orange-900/30 text-orange-600'
+                          : 'bg-amber-100 dark:bg-amber-900/30 text-primary'
                       }`}>
                         {getNotificationIcon(notification.type)}
                       </div>

@@ -30,7 +30,7 @@ const SERVICE_TYPES = [
 const PRIORITY_CONFIG = {
   low: { label: 'Baixa', color: 'bg-gray-100 text-gray-700', icon: '⬇️' },
   normal: { label: 'Normal', color: 'bg-blue-100 text-blue-700', icon: '➡️' },
-  high: { label: 'Alta', color: 'bg-orange-100 text-orange-700', icon: '⬆️' },
+  high: { label: 'Alta', color: 'bg-amber-100 text-amber-700', icon: '⬆️' },
   urgent: { label: 'Urgente', color: 'bg-red-100 text-red-700', icon: '🔥' }
 }
 

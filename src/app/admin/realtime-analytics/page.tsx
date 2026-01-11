@@ -265,9 +265,9 @@ export default function RealtimeAnalyticsPage() {
 
       {/* Anomalias Detectadas */}
       {anomalies.length > 0 && (
-        <Card className="border-orange-500 border-2">
-          <CardHeader className="bg-orange-50">
-            <CardTitle className="flex items-center gap-2 text-orange-600">
+        <Card className="border-primary border-2">
+          <CardHeader className="bg-amber-50">
+            <CardTitle className="flex items-center gap-2 text-primary">
               <Zap className="w-5 h-5" />
               Anomalias Detectadas pela IA
             </CardTitle>
@@ -275,7 +275,7 @@ export default function RealtimeAnalyticsPage() {
           <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {anomalies.map((anomaly) => (
-                <div key={anomaly.id} className="bg-orange-50 p-4 rounded-lg">
+                <div key={anomaly.id} className="bg-amber-50 p-4 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge variant={
                       anomaly.anomaly_type === 'spike' ? 'default' : 'danger'
@@ -291,7 +291,7 @@ export default function RealtimeAnalyticsPage() {
                     </div>
                     <div>
                       <p className="text-gray-600">Valor Atual</p>
-                      <p className="font-bold text-orange-600">{anomaly.actual_value?.toFixed(2)}</p>
+                      <p className="font-bold text-primary">{anomaly.actual_value?.toFixed(2)}</p>
                     </div>
                     <div className="col-span-2">
                       <p className="text-gray-600">Desvio</p>
@@ -428,7 +428,7 @@ export default function RealtimeAnalyticsPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">Pago</span>
-                <span className="font-bold text-orange-600">{metrics?.paid_traffic || 0}%</span>
+                <span className="font-bold text-primary">{metrics?.paid_traffic || 0}%</span>
               </div>
             </div>
           </CardContent>

@@ -94,9 +94,9 @@ const typeConfig = {
   },
   warning: {
     icon: Clock,
-    color: "text-orange-600",
-    bg: "bg-orange-500/10",
-    border: "border-orange-500/20",
+    color: "text-primary",
+    bg: "bg-primary/10",
+    border: "border-primary/20",
   },
   info: {
     icon: Bell,

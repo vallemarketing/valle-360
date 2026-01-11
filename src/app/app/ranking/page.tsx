@@ -83,7 +83,7 @@ export default function RankingPage() {
                           : index === 1
                           ? 'bg-gray-300 text-gray-700'
                           : index === 2
-                          ? 'bg-orange-400 text-white'
+                          ? 'bg-amber-400 text-white'
                           : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                       }`}
                     >
@@ -94,7 +94,7 @@ export default function RankingPage() {
                         <h3 className="font-semibold text-gray-900 dark:text-white">{person.name}</h3>
                         {getTrendIcon(person.trend)}
                         {person.streak >= 3 && (
-                          <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">
+                          <Badge className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white border-0">
                             🔥 {person.streak} meses
                           </Badge>
                         )}
@@ -162,12 +162,12 @@ export default function RankingPage() {
               </div>
             </div>
 
-            <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-300">
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-amber-300">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-semibold text-orange-900 dark:text-orange-200">Alerta 2</h4>
-                  <p className="text-sm text-orange-800 dark:text-orange-300">
+                  <h4 className="font-semibold text-amber-900 dark:text-amber-200">Alerta 2</h4>
+                  <p className="text-sm text-amber-800 dark:text-amber-300">
                     2 meses consecutivos com problemas ou muitos atrasos
                   </p>
                 </div>

@@ -480,7 +480,7 @@ export default function SentimentConfigPage() {
                   <span className="text-sm text-gray-500">
                     {testText.split(/\s+/).filter(w => w).length} palavras
                     {selectedAnalysis === 'classification' && testText.split(/\s+/).filter(w => w).length < 20 && (
-                      <span className="text-orange-500 ml-2">⚠️ Mínimo 20 palavras para classificação</span>
+                      <span className="text-primary ml-2">⚠️ Mínimo 20 palavras para classificação</span>
                     )}
                   </span>
                   <Button

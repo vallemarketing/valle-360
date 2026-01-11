@@ -312,7 +312,7 @@ function KanbanCardComponent({
       onDragEnd={onDragEnd}
       onClick={onClick}
       className={`p-3 rounded-xl border cursor-pointer transition-all hover:shadow-md ${
-        isAging ? 'ring-2 ring-orange-400' : ''
+        isAging ? 'ring-2 ring-primary400' : ''
       }`}
       style={{ 
         backgroundColor: 'var(--bg-primary)',

@@ -267,8 +267,8 @@ const WebDesignerDashboard = ({ config }: { config: any }) => {
           style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-light)' }}
         >
           <div className="flex items-center justify-between mb-2">
-            <Clock className="w-5 h-5 text-orange-500" />
-            <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700">Pendente</span>
+            <Clock className="w-5 h-5 text-primary" />
+            <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">Pendente</span>
           </div>
           <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{stats.pendingApproval}</p>
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Aguardando Aprovação</p>
@@ -332,7 +332,7 @@ const WebDesignerDashboard = ({ config }: { config: any }) => {
                     </span>
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                       project.status === 'em_andamento' ? 'bg-blue-100 text-blue-700' :
-                      project.status === 'revisao' ? 'bg-orange-100 text-orange-700' :
+                      project.status === 'revisao' ? 'bg-amber-100 text-amber-700' :
                       'bg-gray-100 text-gray-700'
                     }`}>
                       {project.status === 'em_andamento' ? 'Em Andamento' :
@@ -428,7 +428,7 @@ const WebDesignerDashboard = ({ config }: { config: any }) => {
                     </div>
                     <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
                       client.status === 'online' ? 'bg-green-500' :
-                      client.status === 'aguardando' ? 'bg-orange-500' : 'bg-gray-400'
+                      client.status === 'aguardando' ? 'bg-primary' : 'bg-gray-400'
                     }`} />
                   </div>
                   <div className="flex-1 min-w-0">

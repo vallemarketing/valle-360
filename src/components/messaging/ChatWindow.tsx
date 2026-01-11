@@ -312,7 +312,7 @@ export function ChatWindow({ conversation, currentUserId }: ChatWindowProps) {
 
         <div className={`flex gap-3 mb-4 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
           {!isOwnMessage && (
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xs text-white font-medium flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-xs text-white font-medium flex-shrink-0">
               {getInitials(message.sender_name || 'U')}
             </div>
           )}
@@ -325,7 +325,7 @@ export function ChatWindow({ conversation, currentUserId }: ChatWindowProps) {
             )}
 
             {message.reply_to_message && (
-              <div className="mb-1 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs border-l-2 border-orange-600">
+              <div className="mb-1 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs border-l-2 border-primary">
                 <p className="text-gray-600 dark:text-gray-400 font-medium">
                   {message.reply_to_message.sender_name}
                 </p>
@@ -405,7 +405,7 @@ export function ChatWindow({ conversation, currentUserId }: ChatWindowProps) {
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -414,7 +414,7 @@ export function ChatWindow({ conversation, currentUserId }: ChatWindowProps) {
     <div className="h-full flex flex-col bg-white dark:bg-gray-900">
       <div className="p-4 border-b flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-medium">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-medium">
             {getInitials(
               conversation.conversation_type === 'direct'
                 ? conversation.participant_name || 'U'

@@ -127,7 +127,7 @@ export default function SolicitacoesPage() {
 
   const getStatusBadge = (status: Request['status']) => {
     const variants = {
-      pending: { color: 'bg-orange-100 text-orange-700', icon: <Clock className="w-3 h-3" />, label: 'Pendente' },
+      pending: { color: 'bg-amber-100 text-amber-700', icon: <Clock className="w-3 h-3" />, label: 'Pendente' },
       approved: { color: 'bg-green-100 text-green-700', icon: <CheckCircle className="w-3 h-3" />, label: 'Aprovado' },
       rejected: { color: 'bg-red-100 text-red-700', icon: <XCircle className="w-3 h-3" />, label: 'Recusado' },
     };
@@ -156,7 +156,7 @@ export default function SolicitacoesPage() {
             Gerencie home office, folgas e reembolsos
           </p>
         </div>
-        <Button className="bg-orange-600 hover:bg-orange-700">
+        <Button className="bg-primary hover:bg-[#1260b5]">
           <Plus className="w-4 h-4 mr-2" />
           Nova Solicitação
         </Button>
@@ -180,9 +180,9 @@ export default function SolicitacoesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Pendentes</p>
-                <p className="text-2xl font-bold text-orange-600">{stats.pending}</p>
+                <p className="text-2xl font-bold text-primary">{stats.pending}</p>
               </div>
-              <Clock className="w-8 h-8 text-orange-400" />
+              <Clock className="w-8 h-8 text-amber-400" />
             </div>
           </CardContent>
         </Card>
@@ -221,7 +221,7 @@ export default function SolicitacoesPage() {
                 size="sm"
                 variant={filterStatus === 'all' ? 'default' : 'outline'}
                 onClick={() => setFilterStatus('all')}
-                className={filterStatus === 'all' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+                className={filterStatus === 'all' ? 'bg-primary hover:bg-[#1260b5]' : ''}
               >
                 Todos
               </Button>
@@ -229,7 +229,7 @@ export default function SolicitacoesPage() {
                 size="sm"
                 variant={filterStatus === 'pending' ? 'default' : 'outline'}
                 onClick={() => setFilterStatus('pending')}
-                className={filterStatus === 'pending' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+                className={filterStatus === 'pending' ? 'bg-primary hover:bg-[#1260b5]' : ''}
               >
                 Pendentes
               </Button>
@@ -237,7 +237,7 @@ export default function SolicitacoesPage() {
                 size="sm"
                 variant={filterStatus === 'approved' ? 'default' : 'outline'}
                 onClick={() => setFilterStatus('approved')}
-                className={filterStatus === 'approved' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+                className={filterStatus === 'approved' ? 'bg-primary hover:bg-[#1260b5]' : ''}
               >
                 Aprovados
               </Button>
@@ -245,7 +245,7 @@ export default function SolicitacoesPage() {
                 size="sm"
                 variant={filterStatus === 'rejected' ? 'default' : 'outline'}
                 onClick={() => setFilterStatus('rejected')}
-                className={filterStatus === 'rejected' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+                className={filterStatus === 'rejected' ? 'bg-primary hover:bg-[#1260b5]' : ''}
               >
                 Recusados
               </Button>
@@ -257,7 +257,7 @@ export default function SolicitacoesPage() {
               size="sm"
               variant={filterType === 'all' ? 'default' : 'outline'}
               onClick={() => setFilterType('all')}
-              className={filterType === 'all' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+              className={filterType === 'all' ? 'bg-primary hover:bg-[#1260b5]' : ''}
             >
               Todos Tipos
             </Button>
@@ -265,7 +265,7 @@ export default function SolicitacoesPage() {
               size="sm"
               variant={filterType === 'home_office' ? 'default' : 'outline'}
               onClick={() => setFilterType('home_office')}
-              className={filterType === 'home_office' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+              className={filterType === 'home_office' ? 'bg-primary hover:bg-[#1260b5]' : ''}
             >
               <Home className="w-3 h-3 mr-1" />
               Home Office
@@ -274,7 +274,7 @@ export default function SolicitacoesPage() {
               size="sm"
               variant={filterType === 'day_off' ? 'default' : 'outline'}
               onClick={() => setFilterType('day_off')}
-              className={filterType === 'day_off' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+              className={filterType === 'day_off' ? 'bg-primary hover:bg-[#1260b5]' : ''}
             >
               <Calendar className="w-3 h-3 mr-1" />
               Folga
@@ -283,7 +283,7 @@ export default function SolicitacoesPage() {
               size="sm"
               variant={filterType === 'reimbursement' ? 'default' : 'outline'}
               onClick={() => setFilterType('reimbursement')}
-              className={filterType === 'reimbursement' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+              className={filterType === 'reimbursement' ? 'bg-primary hover:bg-[#1260b5]' : ''}
             >
               <DollarSign className="w-3 h-3 mr-1" />
               Reembolso

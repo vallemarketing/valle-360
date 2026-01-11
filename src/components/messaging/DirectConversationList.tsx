@@ -273,7 +273,7 @@ export function DirectConversationList({
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -335,7 +335,7 @@ export function DirectConversationList({
                 selectedConversationId === conv.id
                   ? conv.is_client_conversation
                     ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600'
-                    : 'bg-orange-50 dark:bg-orange-900/20 border-l-4 border-l-orange-600'
+                    : 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-primary'
                   : conv.is_client_conversation && conv.unread_count && conv.unread_count > 0
                   ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-l-blue-400'
                   : ''
@@ -350,7 +350,7 @@ export function DirectConversationList({
                       className="w-12 h-12 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-medium">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-medium">
                       {getInitials(conv.other_user_name)}
                     </div>
                   )}

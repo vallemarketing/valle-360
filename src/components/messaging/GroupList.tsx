@@ -183,7 +183,7 @@ export function GroupList({
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -199,7 +199,7 @@ export function GroupList({
             <Button
               size="sm"
               onClick={onCreateGroup}
-              className="bg-orange-600 hover:bg-orange-700"
+              className="bg-primary hover:bg-[#1260b5]"
               title="Criar novo grupo"
             >
               <Plus className="w-4 h-4" />
@@ -233,13 +233,13 @@ export function GroupList({
               onClick={() => onSelectGroup(group)}
               className={`w-full p-4 border-b hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left ${
                 selectedGroupId === group.id
-                  ? 'bg-orange-50 dark:bg-orange-900/20 border-l-4 border-l-orange-600'
+                  ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-primary'
                   : ''
               }`}
             >
               <div className="flex gap-3">
                 <div className="relative flex-shrink-0">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-medium">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-medium">
                     {getGroupIcon(group.type)}
                   </div>
                   {group.unread_count && group.unread_count > 0 && (

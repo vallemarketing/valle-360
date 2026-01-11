@@ -135,11 +135,11 @@ export default function CompetitiveIntelligencePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Alta Ameaça</p>
-                <p className="text-3xl font-bold text-orange-600">
+                <p className="text-3xl font-bold text-primary">
                   {competitors.filter(c => c.threat_level === 'high').length}
                 </p>
               </div>
-              <TrendingUp className="w-10 h-10 text-orange-500" />
+              <TrendingUp className="w-10 h-10 text-primary" />
             </div>
           </CardContent>
         </Card>

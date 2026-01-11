@@ -70,7 +70,7 @@ export default function ClienteFinanceiroPage() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, { className: string; label: string }> = {
-      pending: { className: 'bg-orange-500/10 text-orange-600 border-orange-500/30', label: 'Pendente' },
+      pending: { className: 'bg-primary/10 text-primary border-primary/30', label: 'Pendente' },
       overdue: { className: 'bg-red-500/10 text-red-600 border-red-500/30', label: 'Em Atraso' },
       paid: { className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30', label: 'Pago' },
       cancelled: { className: 'bg-gray-500/10 text-gray-600 border-gray-500/30', label: 'Cancelado' },
@@ -144,18 +144,18 @@ export default function ClienteFinanceiroPage() {
             "flex items-center gap-3 p-4 rounded-xl border",
             pendingInvoices.some(i => i.status === 'overdue')
               ? "bg-red-500/10 border-red-500/30"
-              : "bg-orange-500/10 border-orange-500/30"
+              : "bg-primary/10 border-primary/30"
           )}
         >
           <AlertCircle className={cn(
             "size-5 flex-shrink-0",
-            pendingInvoices.some(i => i.status === 'overdue') ? "text-red-500" : "text-orange-500"
+            pendingInvoices.some(i => i.status === 'overdue') ? "text-red-500" : "text-primary"
           )} />
           <p className={cn(
             "text-sm",
             pendingInvoices.some(i => i.status === 'overdue') 
               ? "text-red-700 dark:text-red-300" 
-              : "text-orange-700 dark:text-orange-300"
+              : "text-amber-700 dark:text-amber-300"
           )}>
             Você tem <strong>{pendingInvoices.length} fatura(s) pendente(s)</strong>
             {pendingInvoices.some(i => i.status === 'overdue') && (
@@ -183,7 +183,7 @@ export default function ClienteFinanceiroPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-orange-600">{formatCurrency(summary?.totalPending || 0)}</div>
+            <div className="text-3xl font-bold text-primary">{formatCurrency(summary?.totalPending || 0)}</div>
             <p className="text-sm text-[#001533]/60 dark:text-white/60 mt-1">{summary?.pending || 0} fatura(s)</p>
           </CardContent>
         </Card>
@@ -265,7 +265,7 @@ export default function ClienteFinanceiroPage() {
                           ? "bg-emerald-500/10 text-emerald-600"
                           : invoice.status === 'overdue'
                           ? "bg-red-500/10 text-red-600"
-                          : "bg-orange-500/10 text-orange-600"
+                          : "bg-primary/10 text-primary"
                       )}>
                         {invoice.status === 'paid' ? (
                           <CheckCircle className="size-5" />

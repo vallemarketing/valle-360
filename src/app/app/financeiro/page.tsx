@@ -192,7 +192,7 @@ export default function FinanceiroPage() {
     const variants = {
       pix: { label: 'PIX', color: 'bg-blue-100 text-blue-700' },
       credit_card: { label: 'Cartão', color: 'bg-purple-100 text-purple-700' },
-      boleto: { label: 'Boleto', color: 'bg-orange-100 text-orange-700' },
+      boleto: { label: 'Boleto', color: 'bg-amber-100 text-amber-700' },
       transfer: { label: 'Transferência', color: 'bg-teal-100 text-teal-700' },
     };
     const variant = variants[method as keyof typeof variants];
@@ -228,7 +228,7 @@ export default function FinanceiroPage() {
             <Download className="w-4 h-4 mr-2" />
             Exportar
           </Button>
-          <Button className="bg-orange-600 hover:bg-orange-700">
+          <Button className="bg-primary hover:bg-[#1260b5]">
             <Plus className="w-4 h-4 mr-2" />
             Nova Fatura
           </Button>
@@ -346,12 +346,12 @@ export default function FinanceiroPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">Taxa de Inadimplência</span>
-              <PieChart className="w-5 h-5 text-orange-600" />
+              <PieChart className="w-5 h-5 text-primary" />
             </div>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
               {((metrics.overdue / metrics.monthlyRevenue) * 100).toFixed(1)}%
             </p>
-            <p className="text-xs text-orange-600 mt-1">Do faturamento</p>
+            <p className="text-xs text-primary mt-1">Do faturamento</p>
           </CardContent>
         </Card>
       </div>
@@ -360,7 +360,7 @@ export default function FinanceiroPage() {
         <Button
           variant={selectedTab === 'invoices' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('invoices')}
-          className={selectedTab === 'invoices' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'invoices' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <Receipt className="w-4 h-4 mr-2" />
           Faturas ({invoices.length})
@@ -368,7 +368,7 @@ export default function FinanceiroPage() {
         <Button
           variant={selectedTab === 'expenses' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('expenses')}
-          className={selectedTab === 'expenses' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'expenses' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <CreditCard className="w-4 h-4 mr-2" />
           Despesas ({expenses.length})
@@ -376,7 +376,7 @@ export default function FinanceiroPage() {
         <Button
           variant={selectedTab === 'reports' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('reports')}
-          className={selectedTab === 'reports' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'reports' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <BarChart3 className="w-4 h-4 mr-2" />
           Relatórios
@@ -398,7 +398,7 @@ export default function FinanceiroPage() {
                   size="sm"
                   variant={selectedFilter === 'all' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('all')}
-                  className={selectedFilter === 'all' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'all' ? 'bg-primary' : ''}
                 >
                   Todas
                 </Button>
@@ -406,7 +406,7 @@ export default function FinanceiroPage() {
                   size="sm"
                   variant={selectedFilter === 'pending' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('pending')}
-                  className={selectedFilter === 'pending' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'pending' ? 'bg-primary' : ''}
                 >
                   Pendentes
                 </Button>
@@ -414,7 +414,7 @@ export default function FinanceiroPage() {
                   size="sm"
                   variant={selectedFilter === 'overdue' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('overdue')}
-                  className={selectedFilter === 'overdue' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'overdue' ? 'bg-primary' : ''}
                 >
                   Atrasadas
                 </Button>
@@ -433,7 +433,7 @@ export default function FinanceiroPage() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-start gap-3 flex-1">
-                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white">
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white">
                           <Receipt className="w-6 h-6" />
                         </div>
                         <div className="flex-1">

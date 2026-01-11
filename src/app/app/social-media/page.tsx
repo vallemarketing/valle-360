@@ -163,7 +163,7 @@ export default function SocialMediaPage() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      pending_approval: { color: 'bg-orange-100 text-orange-700', label: 'Aguardando Aprovação' },
+      pending_approval: { color: 'bg-amber-100 text-amber-700', label: 'Aguardando Aprovação' },
       approved: { color: 'bg-blue-100 text-blue-700', label: 'Aprovado' },
       scheduled: { color: 'bg-green-100 text-green-700', label: 'Agendado' },
       published: { color: 'bg-gray-100 text-gray-700', label: 'Publicado' },
@@ -189,7 +189,7 @@ export default function SocialMediaPage() {
               Agendar Postagem
             </a>
           </Button>
-          <Button className="bg-orange-600 hover:bg-orange-700">
+          <Button className="bg-primary hover:bg-[#1260b5]">
             <Plus className="w-4 h-4 mr-2" />
             Novo Post
           </Button>
@@ -205,7 +205,7 @@ export default function SocialMediaPage() {
                 variant={viewMode === 'list' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('list')}
-                className={viewMode === 'list' ? 'bg-orange-600' : ''}
+                className={viewMode === 'list' ? 'bg-primary' : ''}
               >
                 <FileText className="w-4 h-4 mr-2" />
                 Lista
@@ -214,7 +214,7 @@ export default function SocialMediaPage() {
                 variant={viewMode === 'calendar' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('calendar')}
-                className={viewMode === 'calendar' ? 'bg-orange-600' : ''}
+                className={viewMode === 'calendar' ? 'bg-primary' : ''}
               >
                 <Calendar className="w-4 h-4 mr-2" />
                 Calendário
@@ -226,7 +226,7 @@ export default function SocialMediaPage() {
           <select
             value={selectedClient}
             onChange={(e) => setSelectedClient(e.target.value)}
-            className="flex-1 px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="flex-1 px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {clients.map((client) => (
               <option key={client.id} value={client.id}>
@@ -242,15 +242,15 @@ export default function SocialMediaPage() {
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className="bg-orange-50 dark:bg-orange-900/20 border-orange-200 hover:shadow-lg transition-shadow">
+        <Card className="bg-blue-50 dark:bg-blue-900/20 border-amber-200 hover:shadow-lg transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-orange-700 dark:text-orange-300 mb-1">Aguardando Aprovação</p>
-                <p className="text-3xl font-bold text-orange-600">{pendingApprovals.length}</p>
-                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Requer atenção</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mb-1">Aguardando Aprovação</p>
+                <p className="text-3xl font-bold text-primary">{pendingApprovals.length}</p>
+                <p className="text-xs text-primary dark:text-amber-400 mt-1">Requer atenção</p>
               </div>
-              <AlertCircle className="w-10 h-10 text-orange-500" />
+              <AlertCircle className="w-10 h-10 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -319,8 +319,8 @@ export default function SocialMediaPage() {
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{(metrics.reach / 1000).toFixed(1)}K</p>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Alcance</p>
             </div>
-            <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg border border-orange-200">
-              <Target className="w-6 h-6 mx-auto mb-2 text-orange-600" />
+            <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-lg border border-amber-200">
+              <Target className="w-6 h-6 mx-auto mb-2 text-primary" />
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{metrics.engagement_rate}%</p>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Taxa Engajamento</p>
             </div>
@@ -333,16 +333,16 @@ export default function SocialMediaPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-2 border-orange-200">
+      <Card className="border-2 border-amber-200">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-orange-900 dark:text-orange-200">Posts Pendentes de Aprovação</CardTitle>
-              <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
+              <CardTitle className="text-amber-900 dark:text-amber-200">Posts Pendentes de Aprovação</CardTitle>
+              <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
                 Aguardando aprovação do cliente
               </p>
             </div>
-            <Badge className="bg-orange-600 text-white text-lg px-3 py-1">
+            <Badge className="bg-primary text-white text-lg px-3 py-1">
               {pendingApprovals.length}
             </Badge>
           </div>
@@ -356,11 +356,11 @@ export default function SocialMediaPage() {
           ) : (
             <div className="space-y-3">
               {pendingApprovals.map((post) => (
-                <Card key={post.id} className="hover:shadow-md transition-shadow border-orange-100">
+                <Card key={post.id} className="hover:shadow-md transition-shadow border-amber-100">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3 flex-1">
-                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white">
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white">
                           {getTypeIcon(post.type)}
                         </div>
                         <div className="flex-1">
@@ -389,7 +389,7 @@ export default function SocialMediaPage() {
                           )}
                         </div>
                       </div>
-                      <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
+                      <Button size="sm" className="bg-primary hover:bg-[#1260b5]">
                         Ver Detalhes
                       </Button>
                     </div>

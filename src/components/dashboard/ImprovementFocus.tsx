@@ -79,9 +79,9 @@ export function ImprovementFocus() {
   if (focusItems.length === 0) return null
 
   return (
-    <div className="bg-gradient-to-br from-orange-50 to-pink-50 rounded-xl p-6 border border-orange-100 shadow-sm">
+    <div className="bg-gradient-to-br from-amber-50 to-pink-50 rounded-xl p-6 border border-amber-100 shadow-sm">
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
+        <div className="p-2 bg-amber-100 rounded-lg text-primary">
           <Target size={24} />
         </div>
         <div>
@@ -92,18 +92,18 @@ export function ImprovementFocus() {
 
       <div className="space-y-3">
         {focusItems.map((item) => (
-          <div key={item.id} className="bg-white p-4 rounded-lg border border-orange-100 shadow-sm flex gap-4 transition-transform hover:scale-[1.02] cursor-pointer">
+          <div key={item.id} className="bg-white p-4 rounded-lg border border-amber-100 shadow-sm flex gap-4 transition-transform hover:scale-[1.02] cursor-pointer">
             <div className={`w-1 h-full rounded-full ${item.priority === 'high' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
             <div className="flex-1">
                 <div className="flex justify-between items-start">
                     <h4 className="font-semibold text-sm text-gray-800">{item.title}</h4>
                     {item.type === 'course' && <BookOpen size={16} className="text-blue-500" />}
                     {item.type === 'action' && <ArrowUp size={16} className="text-green-500" />}
-                    {item.type === 'alert' && <AlertCircle size={16} className="text-orange-500" />}
+                    {item.type === 'alert' && <AlertCircle size={16} className="text-primary" />}
                 </div>
                 <p className="text-xs text-gray-600 mt-1 leading-relaxed">{item.description}</p>
                 {item.link && (
-                    <span className="text-xs font-medium text-orange-600 mt-2 block hover:underline">
+                    <span className="text-xs font-medium text-primary mt-2 block hover:underline">
                         Começar agora →
                     </span>
                 )}
@@ -112,8 +112,8 @@ export function ImprovementFocus() {
         ))}
       </div>
 
-      <div className="mt-4 pt-4 border-t border-orange-200/50 flex justify-between items-center">
-        <span className="text-xs font-medium text-gray-600">Seu XP atual: <span className="text-orange-600">{metrics.xp}</span></span>
+      <div className="mt-4 pt-4 border-t border-amber-200/50 flex justify-between items-center">
+        <span className="text-xs font-medium text-gray-600">Seu XP atual: <span className="text-primary">{metrics.xp}</span></span>
         <span className="text-xs text-gray-400">Próximo nível: 1500 XP</span>
       </div>
     </div>

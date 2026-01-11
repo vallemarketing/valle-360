@@ -109,7 +109,7 @@ export default function SLADashboardPage() {
     const styles: Record<string, string> = {
       low: 'bg-gray-500/10 text-gray-600 border-gray-500/30',
       medium: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
-      high: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
+      high: 'bg-primary/10 text-primary border-primary/30',
       urgent: 'bg-red-500/10 text-red-600 border-red-500/30',
     };
     return <Badge variant="outline" className={styles[priority]}>{priority}</Badge>;

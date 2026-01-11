@@ -224,7 +224,7 @@ export function NewDirectConversationModal({
                         className="w-12 h-12 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-medium">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-medium">
                         {getInitials(user.full_name)}
                       </div>
                     )}

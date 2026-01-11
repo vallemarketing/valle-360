@@ -214,17 +214,17 @@ export default function DashboardTrafegoPage() {
                 animate={{ opacity: 1, x: 0 }}
                 className="rounded-xl p-4 flex items-center gap-3"
                 style={{ 
-                  backgroundColor: 'var(--orange-50)', 
+                  backgroundColor: 'var(--amber-50)', 
                   borderWidth: '1px',
-                  borderColor: 'var(--orange-200)'
+                  borderColor: 'var(--amber-200)'
                 }}
               >
-                <Zap className="w-5 h-5" style={{ color: 'var(--orange-600)' }} />
+                <Zap className="w-5 h-5" style={{ color: 'var(--amber-600)' }} />
                 <div className="flex-1">
-                  <p className="font-semibold text-sm" style={{ color: 'var(--orange-700)' }}>
+                  <p className="font-semibold text-sm" style={{ color: 'var(--amber-700)' }}>
                     ⚡ Budget acabando
                   </p>
-                  <p className="text-xs" style={{ color: 'var(--orange-600)' }}>
+                  <p className="text-xs" style={{ color: 'var(--amber-600)' }}>
                     {campaign.clientName} - {campaign.platform}: Restam apenas R$ {(campaign.budget - campaign.spent).toFixed(2)}
                   </p>
                 </div>

@@ -219,7 +219,7 @@ export default function DashboardExecutivoPage() {
               className={cn(
                 "flex items-center justify-between p-4 rounded-xl border",
                 alert.type === 'critical' && "bg-red-500/10 border-red-500/30",
-                alert.type === 'warning' && "bg-orange-500/10 border-orange-500/30",
+                alert.type === 'warning' && "bg-primary/10 border-primary/30",
                 alert.type === 'info' && "bg-blue-500/10 border-blue-500/30"
               )}
             >
@@ -227,7 +227,7 @@ export default function DashboardExecutivoPage() {
                 <AlertTriangle className={cn(
                   "w-5 h-5",
                   alert.type === 'critical' && "text-red-500",
-                  alert.type === 'warning' && "text-orange-500",
+                  alert.type === 'warning' && "text-primary",
                   alert.type === 'info' && "text-blue-500"
                 )} />
                 <div>
@@ -347,8 +347,8 @@ export default function DashboardExecutivoPage() {
                   ARR: {formatCurrency(metrics.finance.arr)}
                 </div>
               </div>
-              <div className="p-2 rounded-lg bg-orange-500/10">
-                <BarChart3 className="w-5 h-5 text-orange-600" />
+              <div className="p-2 rounded-lg bg-primary/10">
+                <BarChart3 className="w-5 h-5 text-primary" />
               </div>
             </div>
             <div className="flex justify-between mt-3 text-xs text-[#001533]/50 dark:text-white/50">
@@ -453,8 +453,8 @@ export default function DashboardExecutivoPage() {
                 <p className="text-lg font-bold text-[#001533] dark:text-white">{metrics.operations.tasks_completed}</p>
                 <p className="text-xs text-[#001533]/50 dark:text-white/50">Concluídas</p>
               </div>
-              <div className="p-3 rounded-lg bg-orange-500/10 text-center">
-                <Clock className="w-5 h-5 text-orange-600 mx-auto mb-1" />
+              <div className="p-3 rounded-lg bg-primary/10 text-center">
+                <Clock className="w-5 h-5 text-primary mx-auto mb-1" />
                 <p className="text-lg font-bold text-[#001533] dark:text-white">{metrics.operations.tasks_pending}</p>
                 <p className="text-xs text-[#001533]/50 dark:text-white/50">Pendentes</p>
               </div>

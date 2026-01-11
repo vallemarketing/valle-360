@@ -227,9 +227,9 @@ export default function TrafegoComparativoPage() {
       )}
 
       {!loading && selectedClient && !hasData && (
-        <Card className="border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-white">
+        <Card className="border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-white">
           <CardContent className="py-16 text-center">
-            <Target className="w-16 h-16 mx-auto text-orange-500 mb-4" />
+            <Target className="w-16 h-16 mx-auto text-primary mb-4" />
             <p className="text-lg font-semibold text-valle-navy-700">
               Dados insuficientes para comparação
             </p>

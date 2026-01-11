@@ -229,7 +229,7 @@ export function FeatureBadge({
   }
 
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold rounded-full">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-yellow-400 to-amber-500 text-white text-xs font-bold rounded-full">
       <Lock className="w-3 h-3" />
       {label}
     </span>

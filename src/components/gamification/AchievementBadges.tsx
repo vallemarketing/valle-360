@@ -103,7 +103,7 @@ const RARITY_COLORS: Record<string, { bg: string; border: string; glow: string }
     glow: 'rgba(139, 92, 246, 0.3)'
   },
   legendary: { 
-    bg: 'from-yellow-400 to-orange-500', 
+    bg: 'from-yellow-400 to-amber-500', 
     border: '#F59E0B',
     glow: 'rgba(245, 158, 11, 0.4)'
   }

@@ -307,7 +307,7 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="text-xs text-orange-600 border-orange-500/30 hover:bg-orange-500/10"
+                className="text-xs text-primary border-primary/30 hover:bg-primary/10"
                 onClick={() => {
                   if (overdueCards.length > 0 && overdueCards[0].assignees.length > 0) {
                     handleCharge(overdueCards[0].assignees[0], overdueCards.filter(c => c.assignees.includes(overdueCards[0].assignees[0])));
@@ -420,18 +420,18 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
 
           {/* Risco (preditivo) */}
           {riskCount > 0 && topRisk.length > 0 && (
-            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-              <p className="text-sm font-medium text-orange-800">Itens em risco</p>
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm font-medium text-amber-800">Itens em risco</p>
               <ul className="mt-1 space-y-1">
                 {topRisk.slice(0, 3).map((t) => (
-                  <li key={t.id} className="text-xs text-orange-700">
+                  <li key={t.id} className="text-xs text-amber-700">
                     <strong>{t.score}</strong> — {t.title}
                     {t.reasons?.length ? ` (${t.reasons[0]})` : ''}
                   </li>
                 ))}
               </ul>
               {topRisk.length > 3 && (
-                <p className="text-xs text-orange-700 mt-1">+{topRisk.length - 3} outros</p>
+                <p className="text-xs text-amber-700 mt-1">+{topRisk.length - 3} outros</p>
               )}
             </div>
           )}
@@ -506,7 +506,7 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          className="h-7 w-7 p-0 text-orange-600 hover:bg-orange-50"
+                          className="h-7 w-7 p-0 text-primary hover:bg-primary/10"
                           onClick={() => handleCharge(collaborator, collabCards.filter(c => c.dueDate && new Date(c.dueDate) < today))}
                           title="Cobrar"
                         >
@@ -545,11 +545,11 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                     <div className={cn(
                       "p-3 rounded-xl",
                       activeModal === 'overdue' ? 'bg-red-100' : 
-                      activeModal === 'pending' ? 'bg-indigo-100' : 'bg-orange-100'
+                      activeModal === 'pending' ? 'bg-indigo-100' : 'bg-amber-100'
                     )}>
                       {activeModal === 'overdue' ? <AlertTriangle className="w-6 h-6 text-red-600" /> :
                        activeModal === 'pending' ? <Clock className="w-6 h-6 text-indigo-600" /> :
-                       <Zap className="w-6 h-6 text-orange-600" />}
+                       <Zap className="w-6 h-6 text-primary" />}
                 </div>
                 <div>
                       <h2 className="text-xl font-bold text-gray-900">
@@ -573,7 +573,7 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                       "p-4 rounded-xl border transition-all hover:shadow-md",
                       activeModal === 'overdue' ? 'bg-red-50 border-red-200' :
                       activeModal === 'pending' ? 'bg-indigo-50 border-indigo-200' : 
-                      'bg-orange-50 border-orange-200'
+                      'bg-amber-50 border-amber-200'
                     )}
                   >
                     <div className="flex items-start justify-between mb-2">
@@ -581,7 +581,7 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                       <Badge className={cn(
                         "text-white text-xs",
                         card.temperature === 'hot' ? 'bg-red-500' :
-                        card.temperature === 'warm' ? 'bg-orange-500' : 'bg-blue-500'
+                        card.temperature === 'warm' ? 'bg-amber-500' : 'bg-blue-500'
                       )}>
                         {card.temperature === 'hot' ? 'Quente' : card.temperature === 'warm' ? 'Morno' : 'Frio'}
                       </Badge>
@@ -618,7 +618,7 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                               <Button 
                                 size="sm" 
                                 variant="ghost" 
-                                className="h-7 px-2 text-xs text-orange-600"
+                                className="h-7 px-2 text-xs text-primary"
                                 onClick={() => handleCharge(assignee, [card])}
                               >
                                 <MessageSquare className="w-3 h-3 mr-1" />
@@ -727,8 +727,8 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-orange-100">
-                    <MessageSquare className="w-6 h-6 text-orange-600" />
+                  <div className="p-3 rounded-xl bg-amber-100">
+                    <MessageSquare className="w-6 h-6 text-primary" />
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-gray-900">Cobrar Colaborador</h2>
@@ -740,18 +740,18 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
               <div className="p-6">
                 {isGenerating ? (
                   <div className="flex flex-col items-center justify-center py-8">
-                    <div className="w-12 h-12 border-4 border-orange-500/30 border-t-orange-500 rounded-full animate-spin mb-4" />
+                    <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
                     <p className="text-gray-600">Gerando mensagem com IA...</p>
                   </div>
                 ) : messageSent ? (
                   <div className="flex flex-col items-center justify-center py-8">
-                    <CheckCircle2 className="w-16 h-16 text-orange-500 mb-4" />
+                    <CheckCircle2 className="w-16 h-16 text-primary mb-4" />
                     <p className="text-xl font-bold text-gray-900">Mensagem Enviada!</p>
                     <p className="text-gray-500 mt-2">O colaborador será notificado.</p>
                   </div>
                 ) : (
                   <>
-                    <div className="p-4 rounded-xl bg-orange-50 border border-orange-200 mb-4">
+                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 mb-4">
                       <p className="whitespace-pre-line text-gray-700">{messageGenerated}</p>
                     </div>
                     <div className="flex gap-3">
@@ -764,7 +764,7 @@ export default function KanbanInsights({ columns, area, boardId }: KanbanInsight
                         Copiar
                       </Button>
                       <Button
-                        className="flex-1 bg-orange-600 hover:bg-orange-700"
+                        className="flex-1 bg-primary hover:bg-[#1260b5]"
                         onClick={handleSendMessage}
                       >
                         <Send className="w-4 h-4 mr-2" />

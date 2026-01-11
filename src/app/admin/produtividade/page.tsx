@@ -189,8 +189,8 @@ export default function ProdutividadePage() {
         <Card className="border-[#001533]/10 dark:border-white/10">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-orange-500/10">
-                <Target className="w-5 h-5 text-orange-600" />
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Target className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-[#001533] dark:text-white">{stats.sla_compliance}%</p>
@@ -263,7 +263,7 @@ export default function ProdutividadePage() {
                     <p className="text-xs text-[#001533]/50 dark:text-white/50">Concluídas</p>
                   </div>
                   <div className="text-center">
-                    <p className="font-bold text-orange-500">{member.tasks_pending}</p>
+                    <p className="font-bold text-primary">{member.tasks_pending}</p>
                     <p className="text-xs text-[#001533]/50 dark:text-white/50">Pendentes</p>
                   </div>
                   <div className="text-center">
@@ -290,7 +290,7 @@ export default function ProdutividadePage() {
                       "h-2",
                       member.productivity_score >= 90 && "[&>div]:bg-emerald-500",
                       member.productivity_score >= 70 && member.productivity_score < 90 && "[&>div]:bg-blue-500",
-                      member.productivity_score < 70 && "[&>div]:bg-orange-500"
+                      member.productivity_score < 70 && "[&>div]:bg-primary"
                     )}
                   />
                 </div>

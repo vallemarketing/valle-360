@@ -199,7 +199,7 @@ export default function ComercialPage() {
       novo: { label: 'Novo Lead', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
       contato: { label: 'Em Contato', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' },
       qualificado: { label: 'Qualificado', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200' },
-      proposta: { label: 'Proposta', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200' },
+      proposta: { label: 'Proposta', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200' },
       negociacao: { label: 'Negociação', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200' },
       fechado: { label: 'Fechado', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' },
       perdido: { label: 'Perdido', color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200' },
@@ -211,7 +211,7 @@ export default function ComercialPage() {
   const getDealStageBadge = (stage: string) => {
     const variants = {
       proposta_enviada: { label: 'Proposta Enviada', color: 'bg-blue-100 text-blue-700' },
-      em_negociacao: { label: 'Em Negociação', color: 'bg-orange-100 text-orange-700' },
+      em_negociacao: { label: 'Em Negociação', color: 'bg-amber-100 text-amber-700' },
       aguardando_assinatura: { label: 'Aguardando Assinatura', color: 'bg-purple-100 text-purple-700' },
       fechado: { label: 'Fechado', color: 'bg-green-100 text-green-700' },
       cancelado: { label: 'Cancelado', color: 'bg-red-100 text-red-700' },
@@ -258,7 +258,7 @@ export default function ComercialPage() {
             Gestão de pipeline de vendas, leads e oportunidades
           </p>
         </div>
-        <Button className="bg-orange-600 hover:bg-orange-700">
+        <Button className="bg-primary hover:bg-[#1260b5]">
           <Plus className="w-4 h-4 mr-2" />
           Novo Lead
         </Button>
@@ -291,15 +291,15 @@ export default function ComercialPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-orange-50 dark:bg-orange-900/20 border-orange-200 hover:shadow-lg transition-shadow">
+        <Card className="bg-blue-50 dark:bg-blue-900/20 border-amber-200 hover:shadow-lg transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-orange-700 dark:text-orange-300 mb-1">Propostas Enviadas</p>
-                <p className="text-3xl font-bold text-orange-600">{metrics.proposalsSent}</p>
-                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Aguardando retorno</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mb-1">Propostas Enviadas</p>
+                <p className="text-3xl font-bold text-primary">{metrics.proposalsSent}</p>
+                <p className="text-xs text-primary dark:text-amber-400 mt-1">Aguardando retorno</p>
               </div>
-              <Mail className="w-10 h-10 text-orange-500" />
+              <Mail className="w-10 h-10 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -363,7 +363,7 @@ export default function ComercialPage() {
         <Button
           variant={selectedTab === 'pipeline' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('pipeline')}
-          className={selectedTab === 'pipeline' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'pipeline' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <Target className="w-4 h-4 mr-2" />
           Pipeline
@@ -371,7 +371,7 @@ export default function ComercialPage() {
         <Button
           variant={selectedTab === 'leads' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('leads')}
-          className={selectedTab === 'leads' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'leads' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <Users className="w-4 h-4 mr-2" />
           Leads ({leads.length})
@@ -379,7 +379,7 @@ export default function ComercialPage() {
         <Button
           variant={selectedTab === 'deals' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('deals')}
-          className={selectedTab === 'deals' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'deals' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <DollarSign className="w-4 h-4 mr-2" />
           Deals ({deals.length})
@@ -400,7 +400,7 @@ export default function ComercialPage() {
                 {[
                   { stage: 'novo', label: 'Novos', count: leads.filter(l => l.stage === 'novo').length, color: 'bg-gray-100' },
                   { stage: 'qualificado', label: 'Qualificados', count: leads.filter(l => l.stage === 'qualificado').length, color: 'bg-purple-100' },
-                  { stage: 'proposta', label: 'Propostas', count: leads.filter(l => l.stage === 'proposta').length, color: 'bg-orange-100' },
+                  { stage: 'proposta', label: 'Propostas', count: leads.filter(l => l.stage === 'proposta').length, color: 'bg-amber-100' },
                   { stage: 'negociacao', label: 'Negociação', count: leads.filter(l => l.stage === 'negociacao').length, color: 'bg-yellow-100' },
                   { stage: 'fechado', label: 'Fechados', count: leads.filter(l => l.stage === 'fechado').length, color: 'bg-green-100' },
                 ].map((stage) => (
@@ -427,15 +427,15 @@ export default function ComercialPage() {
             <CardContent>
               <div className="space-y-3">
                 {leads.filter(l => l.nextActionDate === '08/11/2025').map((lead) => (
-                  <div key={lead.id} className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200">
+                  <div key={lead.id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-amber-200">
                     <div className="flex items-center gap-3">
-                      <Clock className="w-5 h-5 text-orange-600" />
+                      <Clock className="w-5 h-5 text-primary" />
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">{lead.nextAction}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">{lead.name} - {lead.company}</p>
                       </div>
                     </div>
-                    <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
+                    <Button size="sm" className="bg-primary hover:bg-[#1260b5]">
                       Executar
                     </Button>
                   </div>
@@ -461,7 +461,7 @@ export default function ComercialPage() {
                   size="sm"
                   variant={selectedFilter === 'all' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('all')}
-                  className={selectedFilter === 'all' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'all' ? 'bg-primary' : ''}
                 >
                   Todos
                 </Button>
@@ -469,7 +469,7 @@ export default function ComercialPage() {
                   size="sm"
                   variant={selectedFilter === 'qualificado' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('qualificado')}
-                  className={selectedFilter === 'qualificado' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'qualificado' ? 'bg-primary' : ''}
                 >
                   Qualificados
                 </Button>
@@ -477,7 +477,7 @@ export default function ComercialPage() {
                   size="sm"
                   variant={selectedFilter === 'proposta' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('proposta')}
-                  className={selectedFilter === 'proposta' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'proposta' ? 'bg-primary' : ''}
                 >
                   Propostas
                 </Button>
@@ -491,7 +491,7 @@ export default function ComercialPage() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-start gap-3 flex-1">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-lg">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-bold text-lg">
                           {lead.name.charAt(0)}
                         </div>
                         <div className="flex-1">
@@ -551,7 +551,7 @@ export default function ComercialPage() {
                         <Mail className="w-3 h-3 mr-2" />
                         Email
                       </Button>
-                      <Button size="sm" className="flex-1 bg-orange-600 hover:bg-orange-700">
+                      <Button size="sm" className="flex-1 bg-primary hover:bg-[#1260b5]">
                         Atualizar
                       </Button>
                     </div>
@@ -647,7 +647,7 @@ export default function ComercialPage() {
                 <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-bold">
                         {seller.name.charAt(0)}
                       </div>
                       <div>

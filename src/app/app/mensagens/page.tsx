@@ -87,7 +87,7 @@ export default function MensagensPage() {
                 onClick={() => handleTabChange('groups')}
                 className={`flex-1 px-4 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                   activeTab === 'groups'
-                    ? 'border-b-2 border-orange-600 text-orange-600 bg-orange-50 dark:bg-orange-900/20'
+                    ? 'border-b-2 border-primary text-primary bg-blue-50 dark:bg-blue-900/20'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
@@ -98,7 +98,7 @@ export default function MensagensPage() {
                 onClick={() => handleTabChange('team')}
                 className={`flex-1 px-4 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                   activeTab === 'team'
-                    ? 'border-b-2 border-orange-600 text-orange-600 bg-orange-50 dark:bg-orange-900/20'
+                    ? 'border-b-2 border-primary text-primary bg-blue-50 dark:bg-blue-900/20'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
@@ -211,8 +211,8 @@ export default function MensagensPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-          <p className="text-sm text-orange-800 dark:text-orange-200">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+          <p className="text-sm text-amber-800 dark:text-amber-200">
             <strong>Indicadores em tempo real:</strong> Veja quem está online e digitando instantaneamente!
           </p>
         </div>

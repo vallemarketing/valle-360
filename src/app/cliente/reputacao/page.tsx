@@ -115,7 +115,7 @@ export default function ReputacaoPage() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center">
                 <Star className="w-7 h-7 text-white" />
               </div>
               <div>
@@ -195,7 +195,7 @@ export default function ReputacaoPage() {
                     <span className="font-medium text-gray-700 dark:text-gray-300">Google</span>
                   </div>
                   {overview.platforms.google.pendingReplies > 0 && (
-                    <span className="px-2 py-1 bg-orange-100 text-orange-600 rounded-full text-xs font-medium">
+                    <span className="px-2 py-1 bg-amber-100 text-primary rounded-full text-xs font-medium">
                       {overview.platforms.google.pendingReplies} pendente{overview.platforms.google.pendingReplies > 1 ? 's' : ''}
                     </span>
                   )}
@@ -249,7 +249,7 @@ export default function ReputacaoPage() {
                     overview.platforms.reclameAqui.reputation === 'otimo' && "bg-green-100 text-green-700",
                     overview.platforms.reclameAqui.reputation === 'bom' && "bg-blue-100 text-blue-700",
                     overview.platforms.reclameAqui.reputation === 'regular' && "bg-yellow-100 text-yellow-700",
-                    overview.platforms.reclameAqui.reputation === 'ruim' && "bg-orange-100 text-orange-700",
+                    overview.platforms.reclameAqui.reputation === 'ruim' && "bg-amber-100 text-amber-700",
                     overview.platforms.reclameAqui.reputation === 'nao_recomendado' && "bg-red-100 text-red-700"
                   )}>
                     {overview.platforms.reclameAqui.reputation.replace('_', ' ')}
@@ -270,7 +270,7 @@ export default function ReputacaoPage() {
                     <span className="font-medium text-gray-700 dark:text-gray-300">Redes Sociais</span>
                   </div>
                   {overview.platforms.social.alerts > 0 && (
-                    <span className="px-2 py-1 bg-orange-100 text-orange-600 rounded-full text-xs font-medium">
+                    <span className="px-2 py-1 bg-amber-100 text-primary rounded-full text-xs font-medium">
                       {overview.platforms.social.alerts} alerta{overview.platforms.social.alerts > 1 ? 's' : ''}
                     </span>
                   )}
@@ -347,7 +347,7 @@ export default function ReputacaoPage() {
                         className={cn(
                           "flex items-start gap-4 p-4 rounded-xl",
                           insight.type === 'action' && "bg-blue-50 border border-blue-200",
-                          insight.type === 'warning' && "bg-orange-50 border border-orange-200",
+                          insight.type === 'warning' && "bg-amber-50 border border-amber-200",
                           insight.type === 'opportunity' && "bg-green-50 border border-green-200",
                           insight.type === 'success' && "bg-emerald-50 border border-emerald-200"
                         )}
@@ -355,12 +355,12 @@ export default function ReputacaoPage() {
                         <div className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center",
                           insight.type === 'action' && "bg-blue-100",
-                          insight.type === 'warning' && "bg-orange-100",
+                          insight.type === 'warning' && "bg-amber-100",
                           insight.type === 'opportunity' && "bg-green-100",
                           insight.type === 'success' && "bg-emerald-100"
                         )}>
                           {insight.type === 'action' && <Target className="w-5 h-5 text-blue-600" />}
-                          {insight.type === 'warning' && <AlertTriangle className="w-5 h-5 text-orange-600" />}
+                          {insight.type === 'warning' && <AlertTriangle className="w-5 h-5 text-primary" />}
                           {insight.type === 'opportunity' && <TrendingUp className="w-5 h-5 text-green-600" />}
                           {insight.type === 'success' && <CheckCircle className="w-5 h-5 text-emerald-600" />}
                         </div>
@@ -407,7 +407,7 @@ export default function ReputacaoPage() {
                         className={cn(
                           "p-3 rounded-xl border cursor-pointer hover:shadow-sm transition-shadow",
                           review.needsAttention
-                            ? "border-orange-200 bg-orange-50"
+                            ? "border-amber-200 bg-amber-50"
                             : "border-gray-100 dark:border-gray-700"
                         )}
                         onClick={() => setSelectedReview(review)}
@@ -433,7 +433,7 @@ export default function ReputacaoPage() {
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-xs text-gray-400 capitalize">{review.platform}</span>
                           {review.needsAttention && !review.hasReply && (
-                            <span className="text-xs text-orange-600 font-medium">Responder</span>
+                            <span className="text-xs text-primary font-medium">Responder</span>
                           )}
                         </div>
                       </div>

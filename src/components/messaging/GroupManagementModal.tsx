@@ -408,7 +408,7 @@ export function GroupManagementModal({
               onClick={() => setActiveTab('members')}
               className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                 activeTab === 'members'
-                  ? 'border-b-2 border-orange-600 text-blue-600'
+                  ? 'border-b-2 border-primary text-blue-600'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
@@ -420,7 +420,7 @@ export function GroupManagementModal({
                   onClick={() => setActiveTab('add')}
                   className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                     activeTab === 'add'
-                      ? 'border-b-2 border-orange-600 text-blue-600'
+                      ? 'border-b-2 border-primary text-blue-600'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
@@ -430,7 +430,7 @@ export function GroupManagementModal({
                   onClick={() => setActiveTab('settings')}
                   className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                     activeTab === 'settings'
-                      ? 'border-b-2 border-orange-600 text-blue-600'
+                      ? 'border-b-2 border-primary text-blue-600'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
@@ -458,7 +458,7 @@ export function GroupManagementModal({
                           className="w-12 h-12 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-medium">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-medium">
                           {getInitials(member.full_name)}
                         </div>
                       )}
@@ -551,7 +551,7 @@ export function GroupManagementModal({
                             className="w-10 h-10 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-medium">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-medium">
                             {getInitials(user.full_name)}
                           </div>
                         )}
@@ -593,7 +593,7 @@ export function GroupManagementModal({
                         className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 dark:border-gray-700"
                       />
                     ) : (
-                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center border-4 border-gray-200 dark:border-gray-700">
+                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center border-4 border-gray-200 dark:border-gray-700">
                         <Users className="w-12 h-12 text-white" />
                       </div>
                     )}

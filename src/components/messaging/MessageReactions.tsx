@@ -156,7 +156,7 @@ export function MessageReactions({
                   disabled={isLoading}
                   className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm transition-all ${
                     hasUserReacted
-                      ? 'bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-500'
+                      ? 'bg-amber-100 dark:bg-amber-900/30 border-2 border-primary'
                       : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                   title={reaction.users.map((u) => u.full_name).join(', ')}
@@ -165,7 +165,7 @@ export function MessageReactions({
                   <span
                     className={`font-medium ${
                       hasUserReacted
-                        ? 'text-orange-700 dark:text-orange-300'
+                        ? 'text-amber-700 dark:text-amber-300'
                         : 'text-gray-700 dark:text-gray-300'
                     }`}
                   >

@@ -227,7 +227,7 @@ export default function FeatureFlagsPage() {
           </div>
 
           {pendingRequests.length > 0 && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-xl">
+            <div className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-700 rounded-xl">
               <Bell className="w-5 h-5" />
               <span className="font-medium">{pendingRequests.length} solicitações pendentes</span>
             </div>
@@ -254,7 +254,7 @@ export default function FeatureFlagsPage() {
               <tab.icon className="w-4 h-4" />
               {tab.label}
               {tab.badge && tab.badge > 0 && (
-                <span className="ml-1 px-2 py-0.5 text-xs bg-orange-500 text-white rounded-full">
+                <span className="ml-1 px-2 py-0.5 text-xs bg-primary text-white rounded-full">
                   {tab.badge}
                 </span>
               )}
@@ -495,8 +495,8 @@ export default function FeatureFlagsPage() {
                   <div key={request.id} className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
-                          <Clock className="w-6 h-6 text-orange-600" />
+                        <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                          <Clock className="w-6 h-6 text-primary" />
                         </div>
                         <div>
                           <h4 className="font-medium text-gray-800 dark:text-white">

@@ -492,7 +492,7 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
       change: -0.5,
       trend: 'down',
       icon: <Award className="w-6 h-6" />,
-      color: 'text-orange-600',
+      color: 'text-primary',
     },
   ];
 
@@ -873,7 +873,7 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
       case 'hot':
         return 'bg-red-500';
       case 'warm':
-        return 'bg-orange-500';
+        return 'bg-primary';
       default:
         return 'bg-blue-500';
     }
@@ -907,7 +907,7 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
             Exportar Relatório
           </Button>
           <Button 
-            className="bg-orange-600 hover:bg-orange-700"
+            className="bg-primary hover:bg-[#1260b5]"
             onClick={handleGenerateAnalysis}
             disabled={isGeneratingAnalysis}
           >
@@ -933,7 +933,7 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
             onClick={() => setActiveTab('overview')}
             className={`pb-3 px-1 text-sm font-medium transition-colors border-b-2 ${
               activeTab === 'overview'
-                ? 'border-orange-600 text-orange-600'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -943,7 +943,7 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
             onClick={() => setActiveTab('conversations')}
             className={`pb-3 px-1 text-sm font-medium transition-colors border-b-2 ${
               activeTab === 'conversations'
-                ? 'border-orange-600 text-orange-600'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -1427,9 +1427,9 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => handleQuickAction('relatorio')}
-              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-orange-500/30 transition-all text-left"
+              className="p-4 rounded-xl border-2 border-[#001533]/10 bg-white dark:bg-[#001533]/50 hover:border-primary/30 transition-all text-left"
             >
-              <FileText className="w-6 h-6 text-orange-500 mb-2" />
+              <FileText className="w-6 h-6 text-primary mb-2" />
               <p className="font-semibold text-sm">Gerar Relatório</p>
               <p className="text-xs text-muted-foreground">Mensal</p>
             </motion.button>

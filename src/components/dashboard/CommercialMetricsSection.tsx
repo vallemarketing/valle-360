@@ -221,19 +221,19 @@ export function CommercialMetricsSection({ clientName }: CommercialMetricsSectio
 
           {/* Pipeline Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-white">
+            <Card className="border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-white">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-valle-silver-600 mb-1">Valor em Pipeline</p>
-                    <p className="text-3xl font-bold text-orange-700">
+                    <p className="text-3xl font-bold text-amber-700">
                       R$ {(metrics.pipelineValue / 1000).toFixed(0)}K
                     </p>
                     <p className="text-xs text-valle-silver-600 mt-2">
                       {metrics.newContracts} contratos em negociação
                     </p>
                   </div>
-                  <Target className="w-12 h-12 text-orange-600" />
+                  <Target className="w-12 h-12 text-primary" />
                 </div>
               </CardContent>
             </Card>

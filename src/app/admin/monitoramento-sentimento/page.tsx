@@ -398,11 +398,11 @@ export default function SentimentMonitoringPage() {
                 </CardContent>
               </Card>
 
-              <Card className={stats.alerts.pending > 0 ? "border-orange-200 bg-orange-50" : ""}>
+              <Card className={stats.alerts.pending > 0 ? "border-amber-200 bg-amber-50" : ""}>
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${stats.alerts.pending > 0 ? 'bg-orange-100' : 'bg-gray-100'}`}>
-                      <Bell className={`w-6 h-6 ${stats.alerts.pending > 0 ? 'text-orange-600' : 'text-gray-600'}`} />
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${stats.alerts.pending > 0 ? 'bg-amber-100' : 'bg-gray-100'}`}>
+                      <Bell className={`w-6 h-6 ${stats.alerts.pending > 0 ? 'text-primary' : 'text-gray-600'}`} />
                     </div>
                     <div>
                       <p className="text-3xl font-bold">{stats.alerts.pending}</p>
@@ -501,14 +501,14 @@ export default function SentimentMonitoringPage() {
             {/* Alertas e Entidades */}
             <div className="grid grid-cols-2 gap-6">
               {/* Alertas Pendentes */}
-              <Card className="border-orange-200">
+              <Card className="border-amber-200">
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-orange-500" />
+                      <AlertTriangle className="w-5 h-5 text-primary" />
                       Alertas Pendentes
                     </span>
-                    <Badge variant="outline" className="border-orange-500 text-orange-500">
+                    <Badge variant="outline" className="border-primary text-primary">
                       {alerts.length}
                     </Badge>
                   </CardTitle>
@@ -528,7 +528,7 @@ export default function SentimentMonitoringPage() {
                           animate={{ opacity: 1, x: 0 }}
                           className={`p-4 rounded-xl border cursor-pointer hover:shadow-md transition-all ${
                             alert.severity === 'critical' ? 'border-red-300 bg-red-50' :
-                            alert.severity === 'high' ? 'border-orange-300 bg-orange-50' :
+                            alert.severity === 'high' ? 'border-amber-300 bg-amber-50' :
                             'border-gray-200 bg-white'
                           }`}
                           onClick={() => setSelectedAlert(alert)}
@@ -536,7 +536,7 @@ export default function SentimentMonitoringPage() {
                           <div className="flex items-start gap-3">
                             <div className={`w-2 h-2 rounded-full mt-2 ${
                               alert.severity === 'critical' ? 'bg-red-500' :
-                              alert.severity === 'high' ? 'bg-orange-500' :
+                              alert.severity === 'high' ? 'bg-primary' :
                               alert.severity === 'medium' ? 'bg-blue-500' :
                               'bg-gray-500'
                             }`} />
@@ -648,7 +648,7 @@ export default function SentimentMonitoringPage() {
                   <div className="flex items-start gap-3">
                     <div className={`w-3 h-3 rounded-full mt-1.5 ${
                       selectedAlert.severity === 'critical' ? 'bg-red-500' :
-                      selectedAlert.severity === 'high' ? 'bg-orange-500' :
+                      selectedAlert.severity === 'high' ? 'bg-primary' :
                       selectedAlert.severity === 'medium' ? 'bg-blue-500' :
                       'bg-gray-500'
                     }`} />
@@ -656,7 +656,7 @@ export default function SentimentMonitoringPage() {
                       <h2 className="text-xl font-bold">{selectedAlert.title}</h2>
                       <Badge className={`mt-1 ${
                         selectedAlert.severity === 'critical' ? 'bg-red-100 text-red-700' :
-                        selectedAlert.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                        selectedAlert.severity === 'high' ? 'bg-amber-100 text-amber-700' :
                         'bg-gray-100 text-gray-700'
                       }`}>
                         {selectedAlert.severity.toUpperCase()}

@@ -161,7 +161,7 @@ export default function GoalsTracker({
     if (progress >= 100) return 'from-green-500 to-emerald-500';
     if (progress >= 70) return 'from-blue-500 to-indigo-500';
     if (progress >= 50) return 'from-yellow-500 to-amber-500';
-    return 'from-red-500 to-orange-500';
+    return 'from-red-500 to-amber-500';
   };
 
   const formatValue = (goal: Goal, value: number): string => {
@@ -213,10 +213,10 @@ export default function GoalsTracker({
   return (
     <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b bg-gradient-to-r from-amber-50 to-orange-50">
+      <div className="px-5 py-4 border-b bg-gradient-to-r from-amber-50 to-amber-50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-500 flex items-center justify-center">
               <Target className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -370,7 +370,7 @@ export default function GoalsTracker({
 
       {/* Footer - AI Tip */}
       {goalsAtRisk > 0 && (
-        <div className="px-5 py-3 bg-gradient-to-r from-red-50 to-orange-50 border-t">
+        <div className="px-5 py-3 bg-gradient-to-r from-red-50 to-amber-50 border-t">
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
             <div>

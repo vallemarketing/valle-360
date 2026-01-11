@@ -168,7 +168,7 @@ export default function DesignerGraficoPage() {
       briefing: { label: 'Briefing', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
       em_producao: { label: 'Em Produção', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' },
       revisao_interna: { label: 'Revisão Interna', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200' },
-      aguardando_aprovacao: { label: 'Aguardando Aprovação', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200' },
+      aguardando_aprovacao: { label: 'Aguardando Aprovação', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200' },
       aprovado: { label: 'Aprovado', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' },
       rejeitado: { label: 'Rejeitado', color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200' },
       entregue: { label: 'Entregue', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-200' },
@@ -180,7 +180,7 @@ export default function DesignerGraficoPage() {
   const getPriorityBadge = (priority: string) => {
     const variants = {
       urgente: { label: 'URGENTE', color: 'bg-red-600 text-white' },
-      alta: { label: 'Alta', color: 'bg-orange-100 text-orange-700' },
+      alta: { label: 'Alta', color: 'bg-amber-100 text-amber-700' },
       media: { label: 'Média', color: 'bg-blue-100 text-blue-700' },
       baixa: { label: 'Baixa', color: 'bg-gray-100 text-gray-700' },
     };
@@ -233,7 +233,7 @@ export default function DesignerGraficoPage() {
             Gestão de briefings, produção e aprovações de peças gráficas
           </p>
         </div>
-        <Button className="bg-orange-600 hover:bg-orange-700">
+        <Button className="bg-primary hover:bg-[#1260b5]">
           <Plus className="w-4 h-4 mr-2" />
           Novo Projeto
         </Button>
@@ -253,15 +253,15 @@ export default function DesignerGraficoPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-orange-50 dark:bg-orange-900/20 border-orange-200 hover:shadow-lg transition-shadow">
+        <Card className="bg-blue-50 dark:bg-blue-900/20 border-amber-200 hover:shadow-lg transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-orange-700 dark:text-orange-300 mb-1">Aguardando Aprovação</p>
-                <p className="text-3xl font-bold text-orange-600">{pendingApprovals.length}</p>
-                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Do cliente</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mb-1">Aguardando Aprovação</p>
+                <p className="text-3xl font-bold text-primary">{pendingApprovals.length}</p>
+                <p className="text-xs text-primary dark:text-amber-400 mt-1">Do cliente</p>
               </div>
-              <Eye className="w-10 h-10 text-orange-500" />
+              <Eye className="w-10 h-10 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -297,7 +297,7 @@ export default function DesignerGraficoPage() {
         <Button
           variant={selectedTab === 'projects' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('projects')}
-          className={selectedTab === 'projects' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'projects' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <Layers className="w-4 h-4 mr-2" />
           Projetos ({projects.length})
@@ -305,7 +305,7 @@ export default function DesignerGraficoPage() {
         <Button
           variant={selectedTab === 'approvals' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('approvals')}
-          className={selectedTab === 'approvals' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'approvals' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <Eye className="w-4 h-4 mr-2" />
           Aprovações ({pendingApprovals.length})
@@ -313,7 +313,7 @@ export default function DesignerGraficoPage() {
         <Button
           variant={selectedTab === 'briefings' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('briefings')}
-          className={selectedTab === 'briefings' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'briefings' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <MessageSquare className="w-4 h-4 mr-2" />
           Briefings ({briefingsPending.length})
@@ -335,7 +335,7 @@ export default function DesignerGraficoPage() {
                   size="sm"
                   variant={selectedFilter === 'all' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('all')}
-                  className={selectedFilter === 'all' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'all' ? 'bg-primary' : ''}
                 >
                   Todos
                 </Button>
@@ -343,7 +343,7 @@ export default function DesignerGraficoPage() {
                   size="sm"
                   variant={selectedFilter === 'em_producao' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('em_producao')}
-                  className={selectedFilter === 'em_producao' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'em_producao' ? 'bg-primary' : ''}
                 >
                   Em Produção
                 </Button>
@@ -351,7 +351,7 @@ export default function DesignerGraficoPage() {
                   size="sm"
                   variant={selectedFilter === 'aguardando_aprovacao' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('aguardando_aprovacao')}
-                  className={selectedFilter === 'aguardando_aprovacao' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'aguardando_aprovacao' ? 'bg-primary' : ''}
                 >
                   Aguardando
                 </Button>
@@ -370,7 +370,7 @@ export default function DesignerGraficoPage() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-start gap-3 flex-1">
-                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white">
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white">
                           {getTypeIcon(project.type)}
                         </div>
                         <div className="flex-1">
@@ -418,7 +418,7 @@ export default function DesignerGraficoPage() {
                         <Upload className="w-3 h-3 mr-2" />
                         Upload Versão
                       </Button>
-                      <Button size="sm" className="flex-1 bg-orange-600 hover:bg-orange-700">
+                      <Button size="sm" className="flex-1 bg-primary hover:bg-[#1260b5]">
                         Atualizar Status
                       </Button>
                     </div>
@@ -431,16 +431,16 @@ export default function DesignerGraficoPage() {
       )}
 
       {selectedTab === 'approvals' && (
-        <Card className="border-2 border-orange-200">
+        <Card className="border-2 border-amber-200">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-orange-900 dark:text-orange-200">Aprovações Pendentes</CardTitle>
-                <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
+                <CardTitle className="text-amber-900 dark:text-amber-200">Aprovações Pendentes</CardTitle>
+                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
                   Peças aguardando feedback do cliente
                 </p>
               </div>
-              <Badge className="bg-orange-600 text-white text-lg px-3 py-1">
+              <Badge className="bg-primary text-white text-lg px-3 py-1">
                 {pendingApprovals.length}
               </Badge>
             </div>
@@ -491,7 +491,7 @@ export default function DesignerGraficoPage() {
                         </div>
                       </div>
                       {approval.status === 'pending' && (
-                        <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
+                        <Button size="sm" className="bg-primary hover:bg-[#1260b5]">
                           Ver Detalhes
                         </Button>
                       )}
@@ -585,13 +585,13 @@ export default function DesignerGraficoPage() {
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">156</p>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Aprovadas</p>
               </div>
-              <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg border border-orange-200">
-                <Download className="w-6 h-6 mx-auto mb-2 text-orange-600" />
+              <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-lg border border-amber-200">
+                <Download className="w-6 h-6 mx-auto mb-2 text-primary" />
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">3.2 GB</p>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Armazenamento</p>
               </div>
             </div>
-            <Button className="w-full mt-4 bg-orange-600 hover:bg-orange-700">
+            <Button className="w-full mt-4 bg-primary hover:bg-[#1260b5]">
               <Folder className="w-4 h-4 mr-2" />
               Acessar Banco de Artes
             </Button>

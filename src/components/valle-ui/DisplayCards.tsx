@@ -151,7 +151,7 @@ export function DisplayCards({ cards, layout = "stack" }: DisplayCardsProps) {
       titleClassName: "text-[#001533] dark:text-white",
       href: "/cliente/painel/setor",
       badge: "3 novas",
-      badgeColor: "bg-orange-500",
+      badgeColor: "bg-primary",
       className: layout === "stack" ? cn(
         "[grid-area:stack] translate-x-16 translate-y-10 hover:-translate-y-1",
         "before:absolute before:w-full before:h-full before:rounded-xl",

@@ -395,7 +395,7 @@ export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailM
             <Button variant="outline" onClick={() => setHandoffOpen(true)}>
               Encaminhar
             </Button>
-            <Button className="bg-orange-600 hover:bg-orange-700" onClick={() => setReturnOpen(true)}>
+            <Button className="bg-primary hover:bg-[#1260b5]" onClick={() => setReturnOpen(true)}>
               Enviar para Head
             </Button>
           </div>
@@ -534,7 +534,7 @@ export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailM
                 <Button variant="outline" onClick={() => setHandoffOpen(false)}>
                   Cancelar
                 </Button>
-                <Button className="bg-orange-600 hover:bg-orange-700" onClick={handleHandoff}>
+                <Button className="bg-primary hover:bg-[#1260b5]" onClick={handleHandoff}>
                   Encaminhar
                 </Button>
               </div>
@@ -559,7 +559,7 @@ export function CardDetailModal({ task, isOpen, onClose, onUpdate }: CardDetailM
                 <Button variant="outline" onClick={() => setReturnOpen(false)}>
                   Cancelar
                 </Button>
-                <Button className="bg-orange-600 hover:bg-orange-700" onClick={handleReturnToHead}>
+                <Button className="bg-primary hover:bg-[#1260b5]" onClick={handleReturnToHead}>
                   Enviar
                 </Button>
               </div>

@@ -124,7 +124,7 @@ export default function PainelPage() {
         description: "Notícias e tendências baseadas no seu setor/segmento",
         icon: Newspaper,
         href: "/cliente/painel/setor",
-        color: "from-orange-500 to-orange-600",
+        color: "from-amber-500 to-amber-600",
         stats: [
           { label: "Indústria", value: industry || "—" },
           { label: "Segmento", value: segment || "—" },

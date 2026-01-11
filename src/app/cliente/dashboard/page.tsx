@@ -187,7 +187,7 @@ export default function ClienteDashboard() {
         titleClassName: "text-[#001533] dark:text-white",
         href: "/cliente/painel/setor",
         badge: "Hoje",
-        badgeColor: "bg-orange-500",
+        badgeColor: "bg-primary",
       },
       {
         icon: <Target className="size-5 text-white" />,

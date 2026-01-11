@@ -179,7 +179,7 @@ export function PushNotificationManager() {
                       <div className="flex gap-3">
                         <div className={cn(
                           "size-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                          notification.type === "approval" && "bg-orange-100 text-orange-600",
+                          notification.type === "approval" && "bg-amber-100 text-primary",
                           notification.type === "meeting" && "bg-[#1672d6]/10 text-[#1672d6]",
                           notification.type === "payment" && "bg-emerald-100 text-emerald-600",
                           notification.type === "general" && "bg-gray-100 text-gray-600"

@@ -144,11 +144,11 @@ export function PinnedMessages({
   }
 
   return (
-    <div className="border-b bg-orange-50 dark:bg-orange-900/20">
+    <div className="border-b bg-blue-50 dark:bg-blue-900/20">
       <div className="p-3">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between text-sm font-medium text-orange-800 dark:text-orange-200 hover:text-orange-900 dark:hover:text-orange-100"
+          className="w-full flex items-center justify-between text-sm font-medium text-amber-800 dark:text-amber-200 hover:text-amber-900 dark:hover:text-amber-100"
         >
           <div className="flex items-center gap-2">
             <Pin className="w-4 h-4" />
@@ -185,7 +185,7 @@ export function PinnedMessages({
                       {pinned.message_body}
                     </p>
                     {pinned.note && (
-                      <p className="text-xs text-blue-600 dark:text-orange-400 mt-1 italic">
+                      <p className="text-xs text-blue-600 dark:text-amber-400 mt-1 italic">
                         Nota: {pinned.note}
                       </p>
                     )}

@@ -60,7 +60,7 @@ export function PushNotificationToggle({
   if (permission === 'denied') {
     if (variant === 'switch') {
       return (
-        <div className={cn('flex items-center gap-2 text-orange-500', className)}>
+        <div className={cn('flex items-center gap-2 text-primary', className)}>
           <AlertCircle className="w-4 h-4" />
           <span className="text-sm">Bloqueado</span>
         </div>
@@ -68,10 +68,10 @@ export function PushNotificationToggle({
     }
     
     return (
-      <Card className={cn('border-orange-500/30 bg-orange-500/5', className)}>
+      <Card className={cn('border-primary/30 bg-primary/5', className)}>
         <CardContent className="pt-4">
           <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-primary flex-shrink-0" />
             <div>
               <p className="font-medium text-sm">Notificações Bloqueadas</p>
               <p className="text-xs text-muted-foreground">

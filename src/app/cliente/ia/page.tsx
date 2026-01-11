@@ -19,7 +19,7 @@ const QUICK_PROMPTS = [
   { text: 'Quero uma análise geral da evolução da minha marca', icon: TrendingUp, color: 'from-valle-blue-500 to-valle-blue-600' },
   { text: 'Traga novidades do meu setor', icon: Target, color: 'from-green-500 to-green-600' },
   { text: 'Quero agendar uma reunião com a equipe que cuida da minha conta', icon: Calendar, color: 'from-purple-500 to-purple-600' },
-  { text: 'O que meus concorrentes estão fazendo?', icon: Users, color: 'from-orange-500 to-orange-600' },
+  { text: 'O que meus concorrentes estão fazendo?', icon: Users, color: 'from-amber-500 to-amber-600' },
 ]
 
 export default function ClienteIAPage() {

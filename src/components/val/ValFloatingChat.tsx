@@ -80,7 +80,7 @@ const DEFAULT_QUICK_ACTIONS = [
   { 
     icon: FileText, 
     text: "Gerar relatório",
-    color: "text-orange-600"
+    color: "text-primary"
   },
 ];
 

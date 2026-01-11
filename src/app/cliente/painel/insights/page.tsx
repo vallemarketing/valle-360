@@ -42,7 +42,7 @@ const typeConfig: Record<
 > = {
   oportunidade: { icon: Lightbulb, color: "text-emerald-600", bgColor: "bg-emerald-500", label: "Oportunidade" },
   melhoria: { icon: TrendingUp, color: "text-[#1672d6]", bgColor: "bg-[#1672d6]", label: "Melhoria" },
-  alerta: { icon: AlertTriangle, color: "text-orange-600", bgColor: "bg-orange-500", label: "Alerta" },
+  alerta: { icon: AlertTriangle, color: "text-primary", bgColor: "bg-primary", label: "Alerta" },
   tendencia: { icon: Zap, color: "text-purple-600", bgColor: "bg-purple-500", label: "Tendência" },
 };
 

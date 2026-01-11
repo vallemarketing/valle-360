@@ -122,7 +122,7 @@ export function SeenByIndicator({
                     className="w-6 h-6 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xs text-white">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-xs text-white">
                     {user.full_name[0]}
                   </div>
                 )}

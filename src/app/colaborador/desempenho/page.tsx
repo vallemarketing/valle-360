@@ -261,11 +261,11 @@ export default function DesempenhoPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Bem-Estar</h3>
-              <Award className="w-5 h-5 text-orange-500" />
+              <Award className="w-5 h-5 text-primary" />
             </div>
             <p className="text-4xl font-bold" style={{ color: 'var(--text-primary)' }}>{data?.wellbeingScore}</p>
             <div className="w-full rounded-full h-2 mt-3" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${data?.wellbeingScore}%` }} />
+              <div className="bg-primary h-2 rounded-full" style={{ width: `${data?.wellbeingScore}%` }} />
             </div>
           </motion.div>
         </div>
@@ -449,9 +449,9 @@ export default function DesempenhoPage() {
               style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-light)' }}
             >
               <h2 className="text-xl font-bold mb-6 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                <BarChart3 className="w-6 h-6 text-orange-500" />
+                <BarChart3 className="w-6 h-6 text-primary" />
                 Predição de Saída (IA)
-                <span className="ml-2 px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-700">Admin</span>
+                <span className="ml-2 px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-700">Admin</span>
               </h2>
               
               <div className="space-y-4">
@@ -485,9 +485,9 @@ export default function DesempenhoPage() {
                       <span style={{ color: 'var(--text-secondary)' }}>Bem-Estar</span>
                       <div className="flex items-center gap-2">
                         <div className="w-24 h-2 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-                          <div className="h-2 rounded-full bg-orange-500" style={{ width: `${data?.wellbeingScore}%` }} />
+                          <div className="h-2 rounded-full bg-primary" style={{ width: `${data?.wellbeingScore}%` }} />
                         </div>
-                        <span className="font-medium text-orange-600">{data?.wellbeingScore}%</span>
+                        <span className="font-medium text-primary">{data?.wellbeingScore}%</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-xs">

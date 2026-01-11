@@ -80,7 +80,7 @@ export default function AgendasPage() {
       client_meeting: 'bg-green-600',
       internal_meeting: 'bg-purple-600',
       recording: 'bg-red-600',
-      deadline: 'bg-orange-600',
+      deadline: 'bg-primary',
       other: 'bg-gray-600',
     };
     return colors[type] || 'bg-gray-600';

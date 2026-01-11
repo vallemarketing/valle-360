@@ -181,7 +181,7 @@ export default function PessoasPage() {
   const getPerformanceColor = (performance: number) => {
     if (performance >= 90) return 'text-green-600';
     if (performance >= 75) return 'text-blue-600';
-    if (performance >= 60) return 'text-orange-600';
+    if (performance >= 60) return 'text-primary';
     return 'text-red-600';
   };
 
@@ -195,7 +195,7 @@ export default function PessoasPage() {
         case 'bom desempenho':
           return { color: 'bg-gray-100 text-gray-700', IconComponent: TrendingUp };
         case 'atenção':
-          return { color: 'bg-orange-100 text-orange-700', IconComponent: AlertTriangle };
+          return { color: 'bg-amber-100 text-amber-700', IconComponent: AlertTriangle };
         case 'risco de desligamento':
           return { color: 'bg-red-100 text-red-700', IconComponent: TrendingDown };
         default:
@@ -215,7 +215,7 @@ export default function PessoasPage() {
   const getRiskColor = (risk: string) => {
     const colors = {
       low: 'text-green-600',
-      medium: 'text-orange-600',
+      medium: 'text-primary',
       high: 'text-red-600',
     };
     return colors[risk as keyof typeof colors];
@@ -230,7 +230,7 @@ export default function PessoasPage() {
             Visão completa da equipe com análise de IA
           </p>
         </div>
-        <Button className="bg-orange-600 hover:bg-orange-700">
+        <Button className="bg-primary hover:bg-[#1260b5]">
           <User className="w-4 h-4 mr-2" />
           Adicionar Colaborador
         </Button>
@@ -268,11 +268,11 @@ export default function PessoasPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Com Alertas</p>
-                <p className="text-2xl font-bold text-orange-600">
+                <p className="text-2xl font-bold text-primary">
                   {team.filter((m) => m.alerts > 0).length}
                 </p>
               </div>
-              <AlertTriangle className="w-8 h-8 text-orange-400" />
+              <AlertTriangle className="w-8 h-8 text-amber-400" />
             </div>
           </CardContent>
         </Card>
@@ -316,7 +316,7 @@ export default function PessoasPage() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4 flex-1">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-medium text-lg">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-medium text-lg">
                         {member.avatar}
                       </div>
                       <div className="flex-1">
@@ -369,7 +369,7 @@ export default function PessoasPage() {
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-600 dark:text-gray-400">Atrasos</p>
-                      <p className="text-lg font-bold text-orange-600">{member.delays}</p>
+                      <p className="text-lg font-bold text-primary">{member.delays}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-600 dark:text-gray-400">NPS</p>
@@ -396,7 +396,7 @@ export default function PessoasPage() {
           <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-medium text-2xl">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-medium text-2xl">
                   {selectedMember.avatar}
                 </div>
                 <div>

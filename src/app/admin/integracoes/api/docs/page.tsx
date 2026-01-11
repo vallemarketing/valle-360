@@ -578,7 +578,7 @@ function MethodBadge({ method }: { method: string }) {
     GET: 'bg-green-100 text-green-700',
     POST: 'bg-blue-100 text-blue-700',
     PUT: 'bg-yellow-100 text-yellow-700',
-    PATCH: 'bg-orange-100 text-orange-700',
+    PATCH: 'bg-amber-100 text-amber-700',
     DELETE: 'bg-red-100 text-red-700'
   };
 

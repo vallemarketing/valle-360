@@ -309,7 +309,7 @@ export default function AdminMetricasComerciais() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-valle-navy-700 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-orange-600" />
+                    <TrendingUp className="w-4 h-4 text-primary" />
                     Valor em Pipeline (R$)
                   </label>
                   <Input

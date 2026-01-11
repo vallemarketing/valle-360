@@ -16,9 +16,9 @@ export function ReplyToMessage({ replyingTo, onCancel }: ReplyToMessageProps) {
   if (!replyingTo) return null;
 
   return (
-    <div className="px-4 py-2 bg-gray-100 dark:bg-gray-800 border-l-4 border-orange-600 flex items-start justify-between gap-2">
+    <div className="px-4 py-2 bg-gray-100 dark:bg-gray-800 border-l-4 border-primary flex items-start justify-between gap-2">
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-blue-600 dark:text-orange-400 mb-1">
+        <p className="text-xs font-medium text-blue-600 dark:text-amber-400 mb-1">
           Respondendo a {replyingTo.sender_name || 'mensagem'}
         </p>
         <p className="text-sm text-gray-700 dark:text-gray-300 truncate">

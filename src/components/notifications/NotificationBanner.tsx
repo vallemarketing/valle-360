@@ -69,11 +69,11 @@ export function NotificationBanner({
       case 'low_budget':
         return {
           icon: Zap,
-          bg: 'var(--orange-50)',
-          border: 'var(--orange-200)',
-          iconColor: 'var(--orange-600)',
-          textColor: 'var(--orange-700)',
-          descColor: 'var(--orange-600)'
+          bg: 'var(--amber-50)',
+          border: 'var(--amber-200)',
+          iconColor: 'var(--amber-600)',
+          textColor: 'var(--amber-700)',
+          descColor: 'var(--amber-600)'
         }
       case 'approval':
         return {

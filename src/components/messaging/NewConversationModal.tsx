@@ -208,7 +208,7 @@ export function NewConversationModal({
                   onClick={() => setConversationType('direct')}
                   className={`p-3 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
                     conversationType === 'direct'
-                      ? 'border-orange-600 bg-orange-50 dark:bg-orange-900/20'
+                      ? 'border-primary bg-blue-50 dark:bg-blue-900/20'
                       : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
@@ -219,7 +219,7 @@ export function NewConversationModal({
                   onClick={() => setConversationType('group')}
                   className={`p-3 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
                     conversationType === 'group'
-                      ? 'border-orange-600 bg-orange-50 dark:bg-orange-900/20'
+                      ? 'border-primary bg-blue-50 dark:bg-blue-900/20'
                       : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
@@ -230,7 +230,7 @@ export function NewConversationModal({
                   onClick={() => setConversationType('client')}
                   className={`p-3 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
                     conversationType === 'client'
-                      ? 'border-orange-600 bg-orange-50 dark:bg-orange-900/20'
+                      ? 'border-primary bg-blue-50 dark:bg-blue-900/20'
                       : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
@@ -314,7 +314,7 @@ export function NewConversationModal({
                       }
                     }}
                     className={`w-full p-4 border-b hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                      selectedUsers.includes(user.id) ? 'bg-orange-50 dark:bg-orange-900/20' : ''
+                      selectedUsers.includes(user.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -325,7 +325,7 @@ export function NewConversationModal({
                           className="w-10 h-10 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-medium">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-medium">
                           {getInitials(user.full_name)}
                         </div>
                       )}

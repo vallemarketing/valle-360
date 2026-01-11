@@ -137,7 +137,7 @@ export default function AgendaPage() {
       case 'recording':
         return 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200';
       case 'company_event':
-        return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200';
+        return 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200';
       case 'deadline':
         return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200';
       default:
@@ -224,7 +224,7 @@ export default function AgendaPage() {
               Dia
             </Button>
           </div>
-          <Button className="bg-orange-600 hover:bg-orange-700 ml-2">
+          <Button className="bg-primary hover:bg-[#1260b5] ml-2">
             <Plus className="w-4 h-4 mr-2" />
             Novo Evento
           </Button>
@@ -337,7 +337,7 @@ export default function AgendaPage() {
                   Cancelar
                 </Button>
                 {event.meetingLink && (
-                  <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
+                  <Button size="sm" className="bg-primary hover:bg-[#1260b5]">
                     Entrar na Reunião
                   </Button>
                 )}

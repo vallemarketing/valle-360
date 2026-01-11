@@ -52,7 +52,7 @@ export function PodiumDisplay({
     switch (position) {
       case 1: return 'from-yellow-400 to-yellow-500';
       case 2: return 'from-gray-300 to-gray-400';
-      case 3: return 'from-orange-400 to-orange-500';
+      case 3: return 'from-amber-400 to-amber-500';
       default: return 'from-gray-200 to-gray-300';
     }
   };

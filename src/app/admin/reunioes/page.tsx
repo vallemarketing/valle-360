@@ -94,7 +94,7 @@ export default function ReunioesPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardContent className="p-6 text-center">
-            <Clock className="w-8 h-8 text-orange-600 mx-auto mb-2" />
+            <Clock className="w-8 h-8 text-primary mx-auto mb-2" />
             <p className="text-3xl font-bold text-valle-navy-900">{pendingRequests.length}</p>
             <p className="text-sm text-valle-silver-600">Pendentes</p>
           </CardContent>
@@ -130,7 +130,7 @@ export default function ReunioesPage() {
           ) : (
             <div className="space-y-3">
               {pendingRequests.map((request) => (
-                <div key={request.id} className="p-4 bg-valle-silver-50 rounded-lg border-l-4 border-orange-600">
+                <div key={request.id} className="p-4 bg-valle-silver-50 rounded-lg border-l-4 border-primary">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <h3 className="font-semibold text-valle-navy-900 mb-1">{request.title}</h3>

@@ -293,7 +293,7 @@ function TaskCard({
             <div className="flex items-center gap-2">
               {task.assignee_name && (
                 <div className="flex items-center gap-1">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xs text-white font-medium">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-xs text-white font-medium">
                     {task.assignee_name.charAt(0)}
                   </div>
                   <span>{task.assignee_name}</span>
@@ -525,7 +525,7 @@ function TaskModal({
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="submit" className="bg-orange-600 hover:bg-orange-700">
+              <Button type="submit" className="bg-primary hover:bg-[#1260b5]">
                 {task ? 'Salvar' : 'Criar'}
               </Button>
             </div>
@@ -1414,7 +1414,7 @@ export default function KanbanPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-gray-600 dark:text-gray-400">Carregando...</p>
         </div>
       </div>
@@ -1451,7 +1451,7 @@ export default function KanbanPage() {
         <div className="flex gap-2 items-center">
           <NotificationCenter onNotificationClick={handleNotificationTaskClick} />
           <Button
-            className="bg-orange-600 hover:bg-orange-700"
+            className="bg-primary hover:bg-[#1260b5]"
             onClick={() => handleNewTask(columns[0]?.id)}
             disabled={columns.length === 0}
           >

@@ -244,7 +244,7 @@ export default function ArquivosPage() {
   const getStatusBadge = (status: FileItem['status']) => {
     switch (status) {
       case 'pending_approval':
-        return <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wider">Em Aprovação</span>
+        return <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wider">Em Aprovação</span>
       case 'approved':
         return <span className="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wider">Aprovado</span>
       case 'rejected':

@@ -126,7 +126,7 @@ export default function HeadMarketingPage() {
       case 'good':
         return 'text-blue-600';
       default:
-        return 'text-orange-600';
+        return 'text-primary';
     }
   };
 
@@ -134,7 +134,7 @@ export default function HeadMarketingPage() {
     const variants = {
       excellent: { label: 'Excelente', color: 'bg-green-100 text-green-700' },
       good: { label: 'Bom', color: 'bg-blue-100 text-blue-700' },
-      average: { label: 'Regular', color: 'bg-orange-100 text-orange-700' },
+      average: { label: 'Regular', color: 'bg-amber-100 text-amber-700' },
     };
     const variant = variants[status as keyof typeof variants];
     return <Badge className={variant.color}>{variant.label}</Badge>;
@@ -160,7 +160,7 @@ export default function HeadMarketingPage() {
             size="sm"
             variant={selectedPeriod === 'week' ? 'default' : 'outline'}
             onClick={() => setSelectedPeriod('week')}
-            className={selectedPeriod === 'week' ? 'bg-orange-600' : ''}
+            className={selectedPeriod === 'week' ? 'bg-primary' : ''}
           >
             Semana
           </Button>
@@ -168,7 +168,7 @@ export default function HeadMarketingPage() {
             size="sm"
             variant={selectedPeriod === 'month' ? 'default' : 'outline'}
             onClick={() => setSelectedPeriod('month')}
-            className={selectedPeriod === 'month' ? 'bg-orange-600' : ''}
+            className={selectedPeriod === 'month' ? 'bg-primary' : ''}
           >
             Mês
           </Button>
@@ -176,7 +176,7 @@ export default function HeadMarketingPage() {
             size="sm"
             variant={selectedPeriod === 'quarter' ? 'default' : 'outline'}
             onClick={() => setSelectedPeriod('quarter')}
-            className={selectedPeriod === 'quarter' ? 'bg-orange-600' : ''}
+            className={selectedPeriod === 'quarter' ? 'bg-primary' : ''}
           >
             Trimestre
           </Button>
@@ -232,18 +232,18 @@ export default function HeadMarketingPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 hover:shadow-lg transition-shadow">
+        <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 border-amber-200 hover:shadow-lg transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-orange-700 dark:text-orange-300 mb-1">Conversão de Leads</p>
-                <p className="text-3xl font-bold text-orange-600">{metrics.commercial.conversion}%</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mb-1">Conversão de Leads</p>
+                <p className="text-3xl font-bold text-primary">{metrics.commercial.conversion}%</p>
                 <div className="flex items-center gap-1 mt-1">
-                  <ArrowUp className="w-3 h-3 text-orange-600" />
-                  <p className="text-xs text-orange-600 dark:text-orange-400">+5.2% este mês</p>
+                  <ArrowUp className="w-3 h-3 text-primary" />
+                  <p className="text-xs text-primary dark:text-amber-400">+5.2% este mês</p>
                 </div>
               </div>
-              <Target className="w-10 h-10 text-orange-500" />
+              <Target className="w-10 h-10 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -253,7 +253,7 @@ export default function HeadMarketingPage() {
         <Button
           variant={selectedView === 'overview' ? 'default' : 'ghost'}
           onClick={() => setSelectedView('overview')}
-          className={selectedView === 'overview' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedView === 'overview' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <PieChart className="w-4 h-4 mr-2" />
           Visão Geral
@@ -261,7 +261,7 @@ export default function HeadMarketingPage() {
         <Button
           variant={selectedView === 'team' ? 'default' : 'ghost'}
           onClick={() => setSelectedView('team')}
-          className={selectedView === 'team' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedView === 'team' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <Users className="w-4 h-4 mr-2" />
           Equipe
@@ -269,7 +269,7 @@ export default function HeadMarketingPage() {
         <Button
           variant={selectedView === 'clients' ? 'default' : 'ghost'}
           onClick={() => setSelectedView('clients')}
-          className={selectedView === 'clients' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedView === 'clients' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <Target className="w-4 h-4 mr-2" />
           Clientes
@@ -294,7 +294,7 @@ export default function HeadMarketingPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 dark:text-gray-400">Aguardando Aprovação</span>
-                    <Badge className="bg-orange-100 text-orange-700">{metrics.socialMedia.pendingApprovals}</Badge>
+                    <Badge className="bg-amber-100 text-amber-700">{metrics.socialMedia.pendingApprovals}</Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 dark:text-gray-400">Engajamento</span>
@@ -331,7 +331,7 @@ export default function HeadMarketingPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 dark:text-gray-400">Gravações Agendadas</span>
-                    <span className="text-lg font-bold text-orange-600">{metrics.video.recordings}</span>
+                    <span className="text-lg font-bold text-primary">{metrics.video.recordings}</span>
                   </div>
                 </div>
               </CardContent>
@@ -352,7 +352,7 @@ export default function HeadMarketingPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 dark:text-gray-400">Aguardando Aprovação</span>
-                    <Badge className="bg-orange-100 text-orange-700">{metrics.design.pendingApprovals}</Badge>
+                    <Badge className="bg-amber-100 text-amber-700">{metrics.design.pendingApprovals}</Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 dark:text-gray-400">Finalizados</span>
@@ -381,7 +381,7 @@ export default function HeadMarketingPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 dark:text-gray-400">Tickets Abertos</span>
-                    <Badge className="bg-orange-100 text-orange-700">{metrics.webDev.tickets}</Badge>
+                    <Badge className="bg-amber-100 text-amber-700">{metrics.webDev.tickets}</Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 dark:text-gray-400">Performance</span>
@@ -475,7 +475,7 @@ export default function HeadMarketingPage() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-lg">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white font-bold text-lg">
                           {member.name.charAt(0)}
                         </div>
                         <div className="flex-1">
@@ -502,7 +502,7 @@ export default function HeadMarketingPage() {
                     <div className="mt-3 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                       <div
                         className={`h-3 rounded-full ${
-                          member.performance >= 90 ? 'bg-green-600' : member.performance >= 80 ? 'bg-blue-600' : 'bg-orange-600'
+                          member.performance >= 90 ? 'bg-green-600' : member.performance >= 80 ? 'bg-blue-600' : 'bg-primary'
                         }`}
                         style={{ width: `${member.performance}%` }}
                       />
@@ -541,7 +541,7 @@ export default function HeadMarketingPage() {
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div
-                        className="bg-orange-600 h-2 rounded-full"
+                        className="bg-primary h-2 rounded-full"
                         style={{ width: `${item.percentage}%` }}
                       />
                     </div>

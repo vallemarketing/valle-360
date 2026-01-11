@@ -54,7 +54,7 @@ const stages: PipelineStage[] = [
   { id: 'new', label: 'Novos', icon: User, color: 'bg-gray-100 text-gray-600' },
   { id: 'screening', label: 'Triagem', icon: Search, color: 'bg-blue-100 text-blue-600' },
   { id: 'interview', label: 'Entrevista', icon: ClipboardCheck, color: 'bg-purple-100 text-purple-600' },
-  { id: 'tests', label: 'Testes', icon: FileText, color: 'bg-orange-100 text-orange-600' },
+  { id: 'tests', label: 'Testes', icon: FileText, color: 'bg-amber-100 text-primary' },
   { id: 'analysis', label: 'Análise', icon: Sparkles, color: 'bg-yellow-100 text-yellow-600' },
   { id: 'approved', label: 'Aprovados', icon: CheckCircle, color: 'bg-green-100 text-green-600' },
   { id: 'rejected', label: 'Reprovados', icon: XCircle, color: 'bg-red-100 text-red-600' }

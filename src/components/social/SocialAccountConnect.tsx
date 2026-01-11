@@ -36,7 +36,7 @@ const PLATFORMS = [
     name: 'Instagram',
     icon: <Instagram className="w-6 h-6" />,
     color: '#E4405F',
-    gradient: 'from-purple-500 via-pink-500 to-orange-400',
+    gradient: 'from-purple-500 via-pink-500 to-amber-400',
     permissions: ['Publicar posts', 'Agendar stories', 'Acessar métricas'],
     oauthUrl: '/api/oauth/instagram'
   },

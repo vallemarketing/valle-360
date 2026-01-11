@@ -110,7 +110,7 @@ export function ConversationAnalyticsDashboard() {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return 'bg-red-600 text-white';
-      case 'high': return 'bg-orange-500 text-white';
+      case 'high': return 'bg-primary text-white';
       case 'medium': return 'bg-yellow-500 text-black';
       default: return 'bg-blue-500 text-white';
     }
@@ -124,7 +124,7 @@ export function ConversationAnalyticsDashboard() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin text-orange-500" />
+        <RefreshCw className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -172,7 +172,7 @@ export function ConversationAnalyticsDashboard() {
               variant={period === p ? 'default' : 'outline'}
               size="sm"
               onClick={() => setPeriod(p)}
-              className={period === p ? 'bg-orange-600 hover:bg-orange-700' : ''}
+              className={period === p ? 'bg-primary hover:bg-[#1260b5]' : ''}
             >
               {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : '90 dias'}
             </Button>
@@ -243,7 +243,7 @@ export function ConversationAnalyticsDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-orange-500" />
+              <TrendingUp className="w-5 h-5 text-primary" />
               Tendência de Sentimento
             </CardTitle>
           </CardHeader>

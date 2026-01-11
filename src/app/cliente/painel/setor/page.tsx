@@ -88,7 +88,7 @@ export default function SetorPage() {
             >
               <ArrowLeft className="size-5 text-[#001533] dark:text-white" />
             </Link>
-            <div className="p-2 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600">
               <Newspaper className="size-5 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-[#001533] dark:text-white">Seu Setor</h1>

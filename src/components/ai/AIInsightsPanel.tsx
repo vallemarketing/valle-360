@@ -53,10 +53,10 @@ const priorityConfig = {
     badge: 'bg-red-500'
   },
   high: { 
-    bg: 'bg-orange-50 dark:bg-orange-900/20', 
-    border: 'border-orange-200 dark:border-orange-800',
-    text: 'text-orange-700 dark:text-orange-400',
-    badge: 'bg-orange-500'
+    bg: 'bg-blue-50 dark:bg-blue-900/20', 
+    border: 'border-amber-200 dark:border-amber-800',
+    text: 'text-amber-700 dark:text-amber-400',
+    badge: 'bg-primary'
   },
   medium: { 
     bg: 'bg-yellow-50 dark:bg-yellow-900/20', 

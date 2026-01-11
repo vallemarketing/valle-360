@@ -269,7 +269,7 @@ export default function AdvancedToolsPage() {
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-gray-600 mb-1">ROI</p>
-                    <p className="text-3xl font-bold text-orange-600">{roiResults.roi.toFixed(0)}%</p>
+                    <p className="text-3xl font-bold text-primary">{roiResults.roi.toFixed(0)}%</p>
                   </div>
                 </div>
               )}
@@ -414,7 +414,7 @@ export default function AdvancedToolsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {urgencyTactics.map((tactic) => (
-              <Card key={tactic.id} className="border-l-4 border-l-orange-500">
+              <Card key={tactic.id} className="border-l-4 border-l-amber-500">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{tactic.tactic_name}</CardTitle>
@@ -430,12 +430,12 @@ export default function AdvancedToolsPage() {
                 <CardContent>
                   <p className="text-sm text-gray-600 mb-4">{tactic.description}</p>
                   
-                  <div className="bg-orange-50 p-3 rounded-lg">
-                    <p className="text-sm font-semibold text-orange-900 mb-2">Mensagem Template:</p>
-                    <p className="text-sm text-orange-800">{tactic.urgency_message_template}</p>
+                  <div className="bg-amber-50 p-3 rounded-lg">
+                    <p className="text-sm font-semibold text-amber-900 mb-2">Mensagem Template:</p>
+                    <p className="text-sm text-amber-800">{tactic.urgency_message_template}</p>
                   </div>
 
-                  <button className="w-full mt-4 px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
+                  <button className="w-full mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-[#1260b5]">
                     Aplicar Tática
                   </button>
                 </CardContent>
@@ -549,7 +549,7 @@ export default function AdvancedToolsPage() {
                       <h4 className="font-semibold mb-3">🎁 Catálogo de Recompensas</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {program.client_reward_catalog.map((reward: any) => (
-                          <div key={reward.id} className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+                          <div key={reward.id} className="p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg border border-yellow-200">
                             <div className="flex items-start justify-between mb-2">
                               <h5 className="font-semibold text-sm">{reward.reward_name}</h5>
                               <Badge className="bg-yellow-600">{reward.points_cost} pts</Badge>

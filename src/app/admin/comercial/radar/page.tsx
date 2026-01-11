@@ -156,7 +156,7 @@ export default function SalesRadarPage() {
           </div>
           <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200 text-center">
             <p className="text-xs text-gray-500 font-medium uppercase">Contratos em Risco</p>
-            <p className="text-xl font-bold text-orange-600">
+            <p className="text-xl font-bold text-primary">
               {expiring.length + riskyClients.length}
             </p>
           </div>
@@ -170,9 +170,9 @@ export default function SalesRadarPage() {
         <div className="lg:col-span-1 space-y-8">
           
           {/* Widget 1: Renovações */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-orange-100">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-amber-100">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
-              <Clock className="w-5 h-5 text-orange-500" />
+              <Clock className="w-5 h-5 text-primary" />
               Renovações Próximas
             </h2>
             
@@ -191,7 +191,7 @@ export default function SalesRadarPage() {
                     className={`p-4 rounded-xl border-l-4 ${
                       contract.urgency_level === 'critical' 
                         ? 'bg-red-50 border-red-500' 
-                        : 'bg-orange-50 border-orange-400'
+                        : 'bg-amber-50 border-amber-400'
                     }`}
                   >
                     <div className="flex justify-between items-start mb-2">
@@ -202,7 +202,7 @@ export default function SalesRadarPage() {
                       <span className={`text-xs font-bold px-2 py-1 rounded-full ${
                          contract.urgency_level === 'critical' 
                          ? 'bg-red-100 text-red-700'
-                         : 'bg-orange-100 text-orange-700'
+                         : 'bg-amber-100 text-amber-700'
                       }`}>
                         {contract.days_remaining} dias
                       </span>
@@ -247,7 +247,7 @@ export default function SalesRadarPage() {
                         <div className="flex items-center gap-2 mt-1">
                            <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
                              <div 
-                               className={`h-full ${client.health_score < 40 ? 'bg-red-500' : 'bg-orange-500'}`} 
+                               className={`h-full ${client.health_score < 40 ? 'bg-red-500' : 'bg-primary'}`} 
                                style={{ width: `${client.health_score}%` }}
                              />
                            </div>

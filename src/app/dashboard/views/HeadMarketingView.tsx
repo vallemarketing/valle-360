@@ -167,7 +167,7 @@ export function HeadMarketingView() {
                 <div
                   className={`
                     w-10 h-10 rounded-full flex items-center justify-center font-bold text-white
-                    ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-600' : 'bg-blue-500'}
+                    ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-primary' : 'bg-blue-500'}
                   `}
                 >
                   {index + 1}
@@ -198,7 +198,7 @@ export function HeadMarketingView() {
             {[65, 75, 85, 70, 90, 95].map((height, i) => (
               <div key={i} className="flex-1 flex flex-col items-center">
                 <div
-                  className="w-full bg-gradient-to-t from-orange-500 to-orange-300 rounded-t"
+                  className="w-full bg-gradient-to-t from-amber-500 to-amber-300 rounded-t"
                   style={{ height: `${height}%` }}
                 />
                 <span className="text-xs mt-2 text-gray-600">

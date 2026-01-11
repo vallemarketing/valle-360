@@ -333,7 +333,7 @@ export default function ConfiguracoesPage() {
             className="p-6 rounded-2xl border border-gray-200 bg-white shadow-sm"
           >
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-orange-100 text-blue-600">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-100 text-blue-600">
                 <Bell className="w-5 h-5" />
               </div>
               <div>

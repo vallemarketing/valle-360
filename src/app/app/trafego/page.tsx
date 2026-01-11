@@ -70,7 +70,7 @@ export default function TrafegoPage() {
           </div>
 
           {/* Indicador do Dashboard Selecionado */}
-          <div className="mt-6 p-4 bg-gradient-to-r from-orange-50 to-pink-50 dark:from-orange-900/20 dark:to-pink-900/20 rounded-lg border-2 border-orange-300 dark:border-orange-600">
+          <div className="mt-6 p-4 bg-gradient-to-r from-amber-50 to-pink-50 dark:from-amber-900/20 dark:to-pink-900/20 rounded-lg border-2 border-amber-300 dark:border-primary">
             <div className="flex items-center gap-3">
               <div
                 className="w-6 h-6 rounded-full shadow-lg"

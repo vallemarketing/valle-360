@@ -167,17 +167,17 @@ export default function CreditosPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 p-4 rounded-xl bg-orange-500/10 border border-orange-500/30"
+          className="flex items-center gap-3 p-4 rounded-xl bg-primary/10 border border-primary/30"
         >
-          <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0" />
+          <AlertCircle className="w-5 h-5 text-primary flex-shrink-0" />
           <div className="flex-1">
-            <p className="font-medium text-orange-700 dark:text-orange-300">Saldo Baixo</p>
-            <p className="text-sm text-orange-600/70 dark:text-orange-300/70">
+            <p className="font-medium text-amber-700 dark:text-amber-300">Saldo Baixo</p>
+            <p className="text-sm text-primary/70 dark:text-amber-300/70">
               Seu saldo está abaixo de R$ 5.000. Considere adicionar créditos.
             </p>
           </div>
           <Button 
-            className="bg-orange-500 hover:bg-orange-600 text-white"
+            className="bg-primary hover:bg-primary text-white"
             onClick={() => setShowAddModal(true)}
           >
             Adicionar Agora

@@ -648,7 +648,7 @@ function AdminKanbanContent() {
                                     <span className={cn(
                                       'px-2 py-1 rounded text-xs font-medium',
                                       card.priority === 'urgent' ? 'bg-red-100 text-red-700' :
-                                      card.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                                      card.priority === 'high' ? 'bg-amber-100 text-amber-700' :
                                       card.priority === 'medium' ? 'bg-blue-100 text-blue-700' :
                                       'bg-gray-100 text-gray-700'
                                     )}>
@@ -724,7 +724,7 @@ function AdminKanbanContent() {
                       <span className={cn(
                         'px-2 py-1 rounded text-xs font-medium',
                         card.priority === 'urgent' ? 'bg-red-100 text-red-700' :
-                        card.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                        card.priority === 'high' ? 'bg-amber-100 text-amber-700' :
                         card.priority === 'medium' ? 'bg-blue-100 text-blue-700' :
                         'bg-gray-100 text-gray-700'
                       )}>

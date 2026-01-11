@@ -108,7 +108,7 @@ export default function ArquivosPage() {
       image: <Image className="w-6 h-6 text-blue-600" />,
       video: <Video className="w-6 h-6 text-purple-600" />,
       document: <FileText className="w-6 h-6 text-red-600" />,
-      zip: <File className="w-6 h-6 text-orange-600" />,
+      zip: <File className="w-6 h-6 text-primary" />,
     };
     return icons[type];
   };
@@ -118,7 +118,7 @@ export default function ArquivosPage() {
       image: 'from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20',
       video: 'from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20',
       document: 'from-red-50 to-red-100 dark:from-red-950/20 dark:to-red-900/20',
-      zip: 'from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/20',
+      zip: 'from-amber-50 to-amber-100 dark:from-amber-950/20 dark:to-amber-900/20',
     };
     return colors[type];
   };
@@ -132,7 +132,7 @@ export default function ArquivosPage() {
             Compartilhe referências e materiais com a equipe
           </p>
         </div>
-        <Button className="bg-orange-600 hover:bg-orange-700">
+        <Button className="bg-primary hover:bg-[#1260b5]">
           <Upload className="w-4 h-4 mr-2" />
           Upload
         </Button>
@@ -146,8 +146,8 @@ export default function ArquivosPage() {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-12 text-center hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all cursor-pointer group">
-            <Upload className="w-12 h-12 text-gray-400 group-hover:text-orange-600 mx-auto mb-4 transition-colors" />
+          <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-12 text-center hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-all cursor-pointer group">
+            <Upload className="w-12 h-12 text-gray-400 group-hover:text-primary mx-auto mb-4 transition-colors" />
             <p className="text-gray-900 dark:text-white font-medium mb-1">
               Arraste arquivos aqui ou clique para selecionar
             </p>
@@ -167,7 +167,7 @@ export default function ArquivosPage() {
                 onClick={() => setViewMode('grid')}
                 className={`p-2 rounded-lg transition-colors ${
                   viewMode === 'grid'
-                    ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-600'
+                    ? 'bg-amber-100 dark:bg-amber-900/20 text-primary'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                 }`}
               >
@@ -177,7 +177,7 @@ export default function ArquivosPage() {
                 onClick={() => setViewMode('list')}
                 className={`p-2 rounded-lg transition-colors ${
                   viewMode === 'list'
-                    ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-600'
+                    ? 'bg-amber-100 dark:bg-amber-900/20 text-primary'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                 }`}
               >
@@ -201,7 +201,7 @@ export default function ArquivosPage() {
                 variant={filter === 'all' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('all')}
-                className={filter === 'all' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+                className={filter === 'all' ? 'bg-primary hover:bg-[#1260b5]' : ''}
               >
                 Todos
               </Button>
@@ -209,7 +209,7 @@ export default function ArquivosPage() {
                 variant={filter === 'image' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('image')}
-                className={filter === 'image' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+                className={filter === 'image' ? 'bg-primary hover:bg-[#1260b5]' : ''}
               >
                 Imagens
               </Button>
@@ -217,7 +217,7 @@ export default function ArquivosPage() {
                 variant={filter === 'video' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('video')}
-                className={filter === 'video' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+                className={filter === 'video' ? 'bg-primary hover:bg-[#1260b5]' : ''}
               >
                 Vídeos
               </Button>
@@ -225,7 +225,7 @@ export default function ArquivosPage() {
                 variant={filter === 'document' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('document')}
-                className={filter === 'document' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+                className={filter === 'document' ? 'bg-primary hover:bg-[#1260b5]' : ''}
               >
                 Documentos
               </Button>
@@ -282,7 +282,7 @@ export default function ArquivosPage() {
               {filteredFiles.map((file) => (
                 <div
                   key={file.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700 transition-all"
+                  className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-primary transition-all"
                 >
                   <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div

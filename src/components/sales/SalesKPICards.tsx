@@ -52,7 +52,7 @@ const DEFAULT_KPIS: SalesKPI[] = [
     value: '23.189',
     icon: <FileText className="w-6 h-6" />,
     color: '#F59E0B',
-    gradient: 'from-amber-500 to-orange-600'
+    gradient: 'from-amber-500 to-amber-600'
   },
   {
     id: '5',

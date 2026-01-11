@@ -42,8 +42,8 @@ const STATUS_CONFIG = {
   em_progresso: { 
     label: 'Em Produção', 
     color: '#f97316', 
-    bgColor: 'bg-orange-50', 
-    textColor: 'text-orange-700',
+    bgColor: 'bg-amber-50', 
+    textColor: 'text-amber-700',
     icon: TrendingUp,
     progress: 25
   },
@@ -76,7 +76,7 @@ const STATUS_CONFIG = {
 const PRIORITY_CONFIG = {
   low: { label: 'Baixa', color: 'bg-gray-100 text-gray-600' },
   medium: { label: 'Média', color: 'bg-blue-100 text-blue-600' },
-  high: { label: 'Alta', color: 'bg-orange-100 text-orange-600' },
+  high: { label: 'Alta', color: 'bg-amber-100 text-primary' },
   urgent: { label: 'Urgente', color: 'bg-red-100 text-red-600' }
 }
 
@@ -215,7 +215,7 @@ export default function ClienteProducaoPage() {
           </div>
           <div className="bg-card rounded-xl p-4 border border-border">
             <p className="text-sm text-muted-foreground">Em Andamento</p>
-            <p className="text-2xl font-bold text-orange-600">{stats.active}</p>
+            <p className="text-2xl font-bold text-primary">{stats.active}</p>
           </div>
           <div className="bg-card rounded-xl p-4 border border-border">
             <p className="text-sm text-muted-foreground">Concluídos</p>
@@ -268,7 +268,7 @@ export default function ClienteProducaoPage() {
                   ? demand.approvalOverdue
                     ? { text: 'Aprovação atrasada', cls: 'bg-red-100 text-red-700' }
                     : demand.approvalRisk
-                      ? { text: 'Aprovação em risco', cls: 'bg-orange-100 text-orange-700' }
+                      ? { text: 'Aprovação em risco', cls: 'bg-amber-100 text-amber-700' }
                       : { text: 'Aguardando sua aprovação', cls: 'bg-emerald-100 text-emerald-700' }
                   : null
 
@@ -339,7 +339,7 @@ export default function ClienteProducaoPage() {
                           <div className={cn(
                             "flex items-center gap-1",
                             isOverdue ? "text-red-600" : 
-                            daysUntilDue !== null && daysUntilDue <= 2 ? "text-orange-600" : 
+                            daysUntilDue !== null && daysUntilDue <= 2 ? "text-primary" : 
                             "text-gray-500"
                           )}>
                             <Calendar className="w-4 h-4" />
@@ -534,7 +534,7 @@ export default function ClienteProducaoPage() {
                 <div className={cn(
                   "p-4 rounded-xl border",
                   selectedDemand.approvalOverdue ? "bg-red-50 border-red-200" :
-                  selectedDemand.approvalRisk ? "bg-orange-50 border-orange-200" :
+                  selectedDemand.approvalRisk ? "bg-amber-50 border-amber-200" :
                   "bg-emerald-50 border-emerald-200"
                 )}>
                   <div className="flex items-center justify-between gap-3">
@@ -549,7 +549,7 @@ export default function ClienteProducaoPage() {
                       className={cn(
                         "px-4 py-2 rounded-lg font-medium text-white",
                         selectedDemand.approvalOverdue ? "bg-red-600 hover:bg-red-700" :
-                        selectedDemand.approvalRisk ? "bg-orange-600 hover:bg-orange-700" :
+                        selectedDemand.approvalRisk ? "bg-primary hover:bg-[#1260b5]" :
                         "bg-emerald-600 hover:bg-emerald-700"
                       )}
                     >

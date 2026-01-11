@@ -81,7 +81,7 @@ export default function SolicitacoesMaterialPage() {
     const config: Record<string, { color: string; label: string }> = {
       low: { color: 'bg-gray-100 text-gray-600', label: 'Baixa' },
       medium: { color: 'bg-blue-100 text-blue-600', label: 'Média' },
-      high: { color: 'bg-orange-100 text-orange-600', label: 'Alta' },
+      high: { color: 'bg-amber-100 text-primary', label: 'Alta' },
       urgent: { color: 'bg-red-100 text-red-600', label: 'Urgente' }
     };
     const c = config[priority] || config.low;

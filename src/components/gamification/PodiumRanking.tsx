@@ -63,13 +63,13 @@ export const PodiumRanking: React.FC<PodiumRankingProps> = ({ users, title = 'Ra
                   className={`object-cover rounded-full border-4 ${
                     isFirst ? 'w-16 h-16 border-yellow-400' : 
                     isSecond ? 'w-14 h-14 border-gray-300' : 
-                    'w-12 h-12 border-orange-300'
+                    'w-12 h-12 border-amber-300'
                   }`}
                 />
                 <div className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
                     isFirst ? 'bg-yellow-400' : 
                     isSecond ? 'bg-gray-400' : 
-                    'bg-orange-400'
+                    'bg-amber-400'
                 }`}>
                   {user.position}
                 </div>
@@ -79,7 +79,7 @@ export const PodiumRanking: React.FC<PodiumRankingProps> = ({ users, title = 'Ra
               <div className={`w-20 ${height} rounded-t-xl flex flex-col justify-end items-center pb-4 ${
                   isFirst ? 'bg-gradient-to-t from-yellow-100 to-yellow-50' : 
                   isSecond ? 'bg-gradient-to-t from-gray-100 to-gray-50' : 
-                  'bg-gradient-to-t from-orange-100 to-orange-50'
+                  'bg-gradient-to-t from-amber-100 to-amber-50'
               }`}>
                 <span className="font-bold text-gray-800 text-sm truncate w-full text-center px-1">
                   {user.name.split(' ')[0]}

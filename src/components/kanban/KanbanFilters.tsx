@@ -158,12 +158,12 @@ export function KanbanFilters({ onFiltersChange, availableTags }: KanbanFiltersP
         <Button
           variant="outline"
           onClick={() => setIsOpen(!isOpen)}
-          className={`${hasActiveFilters() ? 'border-orange-600 text-orange-600' : ''}`}
+          className={`${hasActiveFilters() ? 'border-primary text-primary' : ''}`}
         >
           <Filter className="w-4 h-4 mr-2" />
           Filtros
           {hasActiveFilters() && (
-            <Badge className="ml-2 bg-orange-600 text-white">{getActiveFiltersCount()}</Badge>
+            <Badge className="ml-2 bg-primary text-white">{getActiveFiltersCount()}</Badge>
           )}
         </Button>
 
@@ -208,7 +208,7 @@ export function KanbanFilters({ onFiltersChange, availableTags }: KanbanFiltersP
                         type="checkbox"
                         checked={filters.assignees.includes(user.id)}
                         onChange={() => toggleAssignee(user.id)}
-                        className="rounded text-orange-600 focus:ring-orange-500"
+                        className="rounded text-primary focus:ring-primary"
                       />
                       <span className="text-sm text-gray-900 dark:text-white">{user.full_name}</span>
                     </label>
@@ -231,7 +231,7 @@ export function KanbanFilters({ onFiltersChange, availableTags }: KanbanFiltersP
                         onClick={() => toggleTag(tag)}
                         className={`px-3 py-1 rounded-full text-sm transition-colors ${
                           filters.tags.includes(tag)
-                            ? 'bg-orange-600 text-white'
+                            ? 'bg-primary text-white'
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                         }`}
                       >
@@ -254,7 +254,7 @@ export function KanbanFilters({ onFiltersChange, availableTags }: KanbanFiltersP
                       onClick={() => togglePriority(priority.value)}
                       className={`p-2 rounded-lg border text-sm font-medium transition-colors ${
                         filters.priorities.includes(priority.value)
-                          ? 'border-orange-600 bg-orange-50 dark:bg-orange-900/20'
+                          ? 'border-primary bg-blue-50 dark:bg-blue-900/20'
                           : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
@@ -280,7 +280,7 @@ export function KanbanFilters({ onFiltersChange, availableTags }: KanbanFiltersP
                         name="dueDate"
                         checked={filters.dueDateFilter === option.value}
                         onChange={() => setDueDateFilter(option.value as KanbanFiltersState['dueDateFilter'])}
-                        className="text-orange-600 focus:ring-orange-500"
+                        className="text-primary focus:ring-primary"
                       />
                       <span className="text-sm text-gray-900 dark:text-white">{option.label}</span>
                     </label>
@@ -299,7 +299,7 @@ export function KanbanFilters({ onFiltersChange, availableTags }: KanbanFiltersP
               </Button>
               <Button
                 onClick={() => setIsOpen(false)}
-                className="flex-1 bg-orange-600 hover:bg-orange-700"
+                className="flex-1 bg-primary hover:bg-[#1260b5]"
               >
                 Aplicar
               </Button>

@@ -155,7 +155,7 @@ const SocialStep = ({ onComplete, data, setData }: { onComplete: () => void; dat
   const [connected, setConnected] = useState<string[]>([]);
 
   const socialNetworks = [
-    { id: "instagram", name: "Instagram", color: "bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500" },
+    { id: "instagram", name: "Instagram", color: "bg-gradient-to-br from-purple-500 via-pink-500 to-amber-500" },
     { id: "facebook", name: "Facebook", color: "bg-[#1877f2]" },
     { id: "linkedin", name: "LinkedIn", color: "bg-[#0a66c2]" },
   ];

@@ -206,12 +206,12 @@ export function ForwardMessageModal({
                 {selectedDestinations.map((dest) => (
                   <span
                     key={`${dest.type}-${dest.id}`}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-xs"
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-xs"
                   >
                     {dest.name}
                     <button
                       onClick={() => toggleDestination(dest.id, dest.type, dest.name)}
-                      className="hover:bg-orange-200 dark:hover:bg-orange-800 rounded-full p-0.5"
+                      className="hover:bg-primary200 dark:hover:bg-amber-800 rounded-full p-0.5"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -250,7 +250,7 @@ export function ForwardMessageModal({
                         onClick={() => toggleDestination(group.id, 'group', group.name)}
                         className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
                           isSelected
-                            ? 'bg-orange-100 dark:bg-orange-900/30'
+                            ? 'bg-amber-100 dark:bg-amber-900/30'
                             : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                         }`}
                       >
@@ -295,7 +295,7 @@ export function ForwardMessageModal({
                         }
                         className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
                           isSelected
-                            ? 'bg-orange-100 dark:bg-orange-900/30'
+                            ? 'bg-amber-100 dark:bg-amber-900/30'
                             : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                         }`}
                       >

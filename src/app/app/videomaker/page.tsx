@@ -174,7 +174,7 @@ export default function VideoMakerPage() {
       planejamento: { label: 'Planejamento', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
       gravacao: { label: 'Em Gravação', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200' },
       edicao: { label: 'Em Edição', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' },
-      revisao: { label: 'Em Revisão', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200' },
+      revisao: { label: 'Em Revisão', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200' },
       finalizado: { label: 'Finalizado', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' },
       entregue: { label: 'Entregue', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-200' },
     };
@@ -219,7 +219,7 @@ export default function VideoMakerPage() {
             Gestão completa de projetos e solicitações de gravação
           </p>
         </div>
-        <Button className="bg-orange-600 hover:bg-orange-700">
+        <Button className="bg-primary hover:bg-[#1260b5]">
           <Plus className="w-4 h-4 mr-2" />
           Novo Projeto
         </Button>
@@ -239,15 +239,15 @@ export default function VideoMakerPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-orange-50 dark:bg-orange-900/20 border-orange-200 hover:shadow-lg transition-shadow">
+        <Card className="bg-blue-50 dark:bg-blue-900/20 border-amber-200 hover:shadow-lg transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-orange-700 dark:text-orange-300 mb-1">Gravações Pendentes</p>
-                <p className="text-3xl font-bold text-orange-600">{pendingRecordingsCount}</p>
-                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Aguardando confirmação</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mb-1">Gravações Pendentes</p>
+                <p className="text-3xl font-bold text-primary">{pendingRecordingsCount}</p>
+                <p className="text-xs text-primary dark:text-amber-400 mt-1">Aguardando confirmação</p>
               </div>
-              <Calendar className="w-10 h-10 text-orange-500" />
+              <Calendar className="w-10 h-10 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -295,7 +295,7 @@ export default function VideoMakerPage() {
                 size="sm"
                 variant={selectedFilter === 'all' ? 'default' : 'outline'}
                 onClick={() => setSelectedFilter('all')}
-                className={selectedFilter === 'all' ? 'bg-orange-600' : ''}
+                className={selectedFilter === 'all' ? 'bg-primary' : ''}
               >
                 Todos
               </Button>
@@ -303,7 +303,7 @@ export default function VideoMakerPage() {
                 size="sm"
                 variant={selectedFilter === 'planejamento' ? 'default' : 'outline'}
                 onClick={() => setSelectedFilter('planejamento')}
-                className={selectedFilter === 'planejamento' ? 'bg-orange-600' : ''}
+                className={selectedFilter === 'planejamento' ? 'bg-primary' : ''}
               >
                 Planejamento
               </Button>
@@ -311,7 +311,7 @@ export default function VideoMakerPage() {
                 size="sm"
                 variant={selectedFilter === 'edicao' ? 'default' : 'outline'}
                 onClick={() => setSelectedFilter('edicao')}
-                className={selectedFilter === 'edicao' ? 'bg-orange-600' : ''}
+                className={selectedFilter === 'edicao' ? 'bg-primary' : ''}
               >
                 Em Edição
               </Button>
@@ -319,7 +319,7 @@ export default function VideoMakerPage() {
                 size="sm"
                 variant={selectedFilter === 'revisao' ? 'default' : 'outline'}
                 onClick={() => setSelectedFilter('revisao')}
-                className={selectedFilter === 'revisao' ? 'bg-orange-600' : ''}
+                className={selectedFilter === 'revisao' ? 'bg-primary' : ''}
               >
                 Em Revisão
               </Button>
@@ -338,7 +338,7 @@ export default function VideoMakerPage() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-start gap-3 flex-1">
-                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white">
                         {getTypeIcon(project.type)}
                       </div>
                       <div className="flex-1">
@@ -400,7 +400,7 @@ export default function VideoMakerPage() {
                               : project.progress > 75
                               ? 'bg-blue-600'
                               : project.progress > 50
-                              ? 'bg-orange-600'
+                              ? 'bg-primary'
                               : 'bg-yellow-600'
                           }`}
                           style={{ width: `${project.progress}%` }}
@@ -416,7 +416,7 @@ export default function VideoMakerPage() {
                         <Upload className="w-3 h-3 mr-2" />
                         Upload Arquivo
                       </Button>
-                      <Button size="sm" className="flex-1 bg-orange-600 hover:bg-orange-700">
+                      <Button size="sm" className="flex-1 bg-primary hover:bg-[#1260b5]">
                         <Edit3 className="w-3 h-3 mr-2" />
                         Atualizar Status
                       </Button>
@@ -429,12 +429,12 @@ export default function VideoMakerPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-2 border-orange-200">
+      <Card className="border-2 border-amber-200">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-orange-900 dark:text-orange-200">Solicitações de Gravação</CardTitle>
-              <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
+              <CardTitle className="text-amber-900 dark:text-amber-200">Solicitações de Gravação</CardTitle>
+              <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
                 Gravações agendadas e pendentes de confirmação
               </p>
             </div>
@@ -495,7 +495,7 @@ export default function VideoMakerPage() {
                         </>
                       )}
                       {request.status === 'confirmed' && (
-                        <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
+                        <Button size="sm" className="bg-primary hover:bg-[#1260b5]">
                           Ver Detalhes
                         </Button>
                       )}
@@ -533,13 +533,13 @@ export default function VideoMakerPage() {
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">8</p>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Finalizados</p>
               </div>
-              <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg border border-orange-200">
-                <HardDrive className="w-6 h-6 mx-auto mb-2 text-orange-600" />
+              <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-lg border border-amber-200">
+                <HardDrive className="w-6 h-6 mx-auto mb-2 text-primary" />
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">156 GB</p>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Armazenamento</p>
               </div>
             </div>
-            <Button className="w-full mt-4 bg-orange-600 hover:bg-orange-700">
+            <Button className="w-full mt-4 bg-primary hover:bg-[#1260b5]">
               <Folder className="w-4 h-4 mr-2" />
               Acessar Biblioteca Completa
             </Button>

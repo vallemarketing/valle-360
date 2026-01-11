@@ -110,7 +110,7 @@ export default function ClientApprovals() {
             (() => {
               const risk = !item.overdue && isRisk(item.due_at);
               const statusLabel = item.overdue ? 'Atrasado' : risk ? 'Em risco' : 'Dentro do prazo';
-              const statusCls = item.overdue ? 'text-red-600' : risk ? 'text-orange-600' : 'text-emerald-700';
+              const statusCls = item.overdue ? 'text-red-600' : risk ? 'text-primary' : 'text-emerald-700';
               return (
             <motion.div
               key={item.id}

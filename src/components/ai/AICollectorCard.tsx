@@ -21,7 +21,7 @@ interface AICollectorCardProps {
 }
 
 const CATEGORY_CONFIG: Record<string, { icon: any; color: string; bgColor: string; label: string }> = {
-  tasks: { icon: Clock, color: 'text-orange-600', bgColor: 'bg-orange-100', label: 'Tarefas' },
+  tasks: { icon: Clock, color: 'text-primary', bgColor: 'bg-amber-100', label: 'Tarefas' },
   meetings: { icon: Calendar, color: 'text-blue-600', bgColor: 'bg-blue-100', label: 'Reuniões' },
   metrics: { icon: Target, color: 'text-purple-600', bgColor: 'bg-purple-100', label: 'Métricas' },
   sales: { icon: Users, color: 'text-green-600', bgColor: 'bg-green-100', label: 'Vendas' },
@@ -33,7 +33,7 @@ const CATEGORY_CONFIG: Record<string, { icon: any; color: string; bgColor: strin
 const SEVERITY_CONFIG: Record<string, { color: string; bgColor: string; borderColor: string; pulse: boolean }> = {
   info: { color: 'text-blue-700', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', pulse: false },
   warning: { color: 'text-yellow-700', bgColor: 'bg-yellow-50', borderColor: 'border-yellow-200', pulse: false },
-  urgent: { color: 'text-orange-700', bgColor: 'bg-orange-50', borderColor: 'border-orange-300', pulse: true },
+  urgent: { color: 'text-amber-700', bgColor: 'bg-amber-50', borderColor: 'border-amber-300', pulse: true },
   critical: { color: 'text-red-700', bgColor: 'bg-red-50', borderColor: 'border-red-300', pulse: true },
 };
 
@@ -129,7 +129,7 @@ export default function AICollectorCard({
       {/* Header */}
       <div className={cn(
         "px-5 py-4 border-b",
-        criticalCount > 0 ? "bg-gradient-to-r from-red-50 to-orange-50" : "bg-gradient-to-r from-amber-50 to-yellow-50"
+        criticalCount > 0 ? "bg-gradient-to-r from-red-50 to-amber-50" : "bg-gradient-to-r from-amber-50 to-yellow-50"
       )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -172,7 +172,7 @@ export default function AICollectorCard({
               </span>
             )}
             {urgentCount > 0 && (
-              <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">
+              <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-full">
                 {urgentCount} urgente{urgentCount > 1 ? 's' : ''}
               </span>
             )}
@@ -308,7 +308,7 @@ export function AICollectorBadge({ alerts }: { alerts: AIAlert[] }) {
     <div className={cn(
       "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold",
       criticalCount > 0 ? "bg-red-100 text-red-700 animate-pulse" :
-      urgentCount > 0 ? "bg-orange-100 text-orange-700" :
+      urgentCount > 0 ? "bg-amber-100 text-amber-700" :
       "bg-yellow-100 text-yellow-700"
     )}>
       <AlertTriangle className="w-3 h-3" />

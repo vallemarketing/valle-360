@@ -211,14 +211,14 @@ export function PaymentCheckoutModal({ invoice, onClose }: PaymentCheckoutModalP
                       </div>
 
                       {/* Timer */}
-                      <Card className="border border-orange-200 bg-orange-50">
+                      <Card className="border border-amber-200 bg-amber-50">
                         <CardContent className="p-4 flex items-center gap-3">
-                          <Clock className="w-5 h-5 text-orange-600" />
+                          <Clock className="w-5 h-5 text-primary" />
                           <div>
-                            <p className="text-sm font-semibold text-orange-800">
+                            <p className="text-sm font-semibold text-amber-800">
                               Este PIX expira em 30 minutos
                             </p>
-                            <p className="text-xs text-orange-700">
+                            <p className="text-xs text-amber-700">
                               Após o pagamento, a confirmação é automática
                             </p>
                           </div>

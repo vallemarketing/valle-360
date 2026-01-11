@@ -173,7 +173,7 @@ export function SocialMediaView() {
                 className={`
                   min-h-[80px] p-2 border rounded-lg
                   ${date.toDateString() === new Date().toDateString()
-                    ? 'bg-orange-50 border-orange-300 dark:bg-orange-950'
+                    ? 'bg-amber-50 border-amber-300 dark:bg-amber-950'
                     : 'bg-white dark:bg-gray-900'
                   }
                 `}

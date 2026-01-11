@@ -51,7 +51,7 @@ const BRIEFING_TYPES = [
   { value: 'video', label: 'Vídeo', icon: Video, color: 'text-red-500' },
   { value: 'arte', label: 'Arte/Design', icon: Palette, color: 'text-pink-500' },
   { value: 'site', label: 'Site/Landing Page', icon: Globe, color: 'text-green-500' },
-  { value: 'outro', label: 'Outro', icon: Sparkles, color: 'text-orange-500' },
+  { value: 'outro', label: 'Outro', icon: Sparkles, color: 'text-primary' },
 ];
 
 export default function BriefingPage() {

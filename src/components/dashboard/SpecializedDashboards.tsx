@@ -181,7 +181,7 @@ export const SocialMediaDashboard = ({ config }: { config: any }) => {
                     </div>
                   </div>
                   <span className={`text-xs px-2 py-1 rounded-full ${
-                    post.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                    post.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
                   }`}>
                     {post.status === 'approved' ? 'Aprovado' : 'Pendente'}
                   </span>
@@ -408,7 +408,7 @@ export const TrafegoDashboard = ({ config }: { config: any }) => {
           className="p-6 rounded-xl shadow-sm bg-white border border-gray-100"
         >
           <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-800">
-            <AlertCircle className="w-5 h-5 text-orange-500" />
+            <AlertCircle className="w-5 h-5 text-primary" />
             Alertas de Orçamento
           </h3>
           <div className="space-y-3">
@@ -520,7 +520,7 @@ export const VideoMakerDashboard = ({ config }: { config: any }) => {
                 </div>
                 <span className={`text-xs px-2 py-1 rounded-full ${
                   project.status === 'editing' ? 'bg-blue-100 text-blue-700' :
-                  project.status === 'rendering' ? 'bg-orange-100 text-orange-700' :
+                  project.status === 'rendering' ? 'bg-amber-100 text-amber-700' :
                   'bg-purple-100 text-purple-700'
                 }`}>
                   {project.status === 'editing' ? 'Editando' : project.status === 'rendering' ? 'Renderizando' : 'Gravando'}
@@ -763,7 +763,7 @@ export const ComercialDashboard = ({ config }: { config: any }) => {
         className="p-6 rounded-xl shadow-sm bg-white border border-gray-100"
       >
         <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-800">
-          <BarChart3 className="w-5 h-5 text-orange-500" />
+          <BarChart3 className="w-5 h-5 text-primary" />
           Funil de Vendas
         </h3>
         <div className="grid grid-cols-4 gap-4">
@@ -930,7 +930,7 @@ export const FinanceiroDashboard = ({ config }: { config: any }) => {
           className="p-6 rounded-xl shadow-sm bg-white border border-gray-100"
         >
           <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-800">
-            <Receipt className="w-5 h-5 text-orange-500" />
+            <Receipt className="w-5 h-5 text-primary" />
             Cobranças Pendentes
           </h3>
           <div className="space-y-3">
@@ -946,7 +946,7 @@ export const FinanceiroDashboard = ({ config }: { config: any }) => {
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-gray-800">{payment.amount}</p>
-                    <span className={`text-xs ${payment.status === 'overdue' ? 'text-red-600' : 'text-orange-600'}`}>
+                    <span className={`text-xs ${payment.status === 'overdue' ? 'text-red-600' : 'text-primary'}`}>
                       {payment.status === 'overdue' ? 'Em atraso' : 'Pendente'}
                     </span>
                   </div>
@@ -1070,7 +1070,7 @@ export const RHDashboard = ({ config }: { config: any }) => {
           className="p-6 rounded-xl shadow-sm bg-white border border-gray-100"
         >
           <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-800">
-            <Bell className="w-5 h-5 text-orange-500" />
+            <Bell className="w-5 h-5 text-primary" />
             Solicitações Pendentes
           </h3>
           <div className="space-y-3">

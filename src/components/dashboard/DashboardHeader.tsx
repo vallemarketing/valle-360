@@ -49,7 +49,7 @@ export function DashboardHeader({
         {/* Logo e Role Selector */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center">
               <span className="text-white font-bold text-sm">V</span>
             </div>
             <span className="font-bold text-lg hidden sm:inline">Valle 360</span>

@@ -222,7 +222,7 @@ export default function WebDesignerPage() {
       planejamento: { label: 'Planejamento', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
       desenvolvimento: { label: 'Desenvolvimento', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' },
       revisao: { label: 'Revisão', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200' },
-      testes: { label: 'Em Testes', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200' },
+      testes: { label: 'Em Testes', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200' },
       homologacao: { label: 'Homologação', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200' },
       producao: { label: 'Produção', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' },
       manutencao: { label: 'Manutenção', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-200' },
@@ -234,7 +234,7 @@ export default function WebDesignerPage() {
   const getPriorityBadge = (priority: string) => {
     const variants = {
       urgente: { label: 'URGENTE', color: 'bg-red-600 text-white' },
-      alta: { label: 'Alta', color: 'bg-orange-100 text-orange-700' },
+      alta: { label: 'Alta', color: 'bg-amber-100 text-amber-700' },
       media: { label: 'Média', color: 'bg-blue-100 text-blue-700' },
       baixa: { label: 'Baixa', color: 'bg-gray-100 text-gray-700' },
     };
@@ -290,7 +290,7 @@ export default function WebDesignerPage() {
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return 'text-green-600';
-    if (score >= 70) return 'text-orange-600';
+    if (score >= 70) return 'text-primary';
     return 'text-red-600';
   };
 
@@ -303,7 +303,7 @@ export default function WebDesignerPage() {
             Gestão de projetos web, tickets e performance de sites
           </p>
         </div>
-        <Button className="bg-orange-600 hover:bg-orange-700">
+        <Button className="bg-primary hover:bg-[#1260b5]">
           <Plus className="w-4 h-4 mr-2" />
           Novo Projeto
         </Button>
@@ -336,15 +336,15 @@ export default function WebDesignerPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-orange-50 dark:bg-orange-900/20 border-orange-200 hover:shadow-lg transition-shadow">
+        <Card className="bg-blue-50 dark:bg-blue-900/20 border-amber-200 hover:shadow-lg transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-orange-700 dark:text-orange-300 mb-1">Tickets Abertos</p>
-                <p className="text-3xl font-bold text-orange-600">{openTickets.length}</p>
-                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Manutenção</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mb-1">Tickets Abertos</p>
+                <p className="text-3xl font-bold text-primary">{openTickets.length}</p>
+                <p className="text-xs text-primary dark:text-amber-400 mt-1">Manutenção</p>
               </div>
-              <Wrench className="w-10 h-10 text-orange-500" />
+              <Wrench className="w-10 h-10 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -369,7 +369,7 @@ export default function WebDesignerPage() {
         <Button
           variant={selectedTab === 'projects' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('projects')}
-          className={selectedTab === 'projects' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'projects' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <Globe className="w-4 h-4 mr-2" />
           Projetos ({projects.length})
@@ -377,7 +377,7 @@ export default function WebDesignerPage() {
         <Button
           variant={selectedTab === 'tickets' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('tickets')}
-          className={selectedTab === 'tickets' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'tickets' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <Wrench className="w-4 h-4 mr-2" />
           Tickets ({openTickets.length})
@@ -385,7 +385,7 @@ export default function WebDesignerPage() {
         <Button
           variant={selectedTab === 'performance' ? 'default' : 'ghost'}
           onClick={() => setSelectedTab('performance')}
-          className={selectedTab === 'performance' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          className={selectedTab === 'performance' ? 'bg-primary hover:bg-[#1260b5]' : ''}
         >
           <Activity className="w-4 h-4 mr-2" />
           Performance
@@ -407,7 +407,7 @@ export default function WebDesignerPage() {
                   size="sm"
                   variant={selectedFilter === 'all' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('all')}
-                  className={selectedFilter === 'all' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'all' ? 'bg-primary' : ''}
                 >
                   Todos
                 </Button>
@@ -415,7 +415,7 @@ export default function WebDesignerPage() {
                   size="sm"
                   variant={selectedFilter === 'desenvolvimento' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('desenvolvimento')}
-                  className={selectedFilter === 'desenvolvimento' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'desenvolvimento' ? 'bg-primary' : ''}
                 >
                   Desenvolvimento
                 </Button>
@@ -423,7 +423,7 @@ export default function WebDesignerPage() {
                   size="sm"
                   variant={selectedFilter === 'testes' ? 'default' : 'outline'}
                   onClick={() => setSelectedFilter('testes')}
-                  className={selectedFilter === 'testes' ? 'bg-orange-600' : ''}
+                  className={selectedFilter === 'testes' ? 'bg-primary' : ''}
                 >
                   Testes
                 </Button>
@@ -442,7 +442,7 @@ export default function WebDesignerPage() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-start gap-3 flex-1">
-                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white">
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#1672d6] to-[#001533] flex items-center justify-center text-white">
                           {getTypeIcon(project.type)}
                         </div>
                         <div className="flex-1">
@@ -504,7 +504,7 @@ export default function WebDesignerPage() {
                               : project.progress > 75
                               ? 'bg-blue-600'
                               : project.progress > 50
-                              ? 'bg-orange-600'
+                              ? 'bg-primary'
                               : 'bg-yellow-600'
                           }`}
                           style={{ width: `${project.progress}%` }}
@@ -520,16 +520,16 @@ export default function WebDesignerPage() {
       )}
 
       {selectedTab === 'tickets' && (
-        <Card className="border-2 border-orange-200">
+        <Card className="border-2 border-amber-200">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-orange-900 dark:text-orange-200">Tickets de Manutenção</CardTitle>
-                <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
+                <CardTitle className="text-amber-900 dark:text-amber-200">Tickets de Manutenção</CardTitle>
+                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
                   Bugs, melhorias e solicitações de suporte
                 </p>
               </div>
-              <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
+              <Button size="sm" className="bg-primary hover:bg-[#1260b5]">
                 <Plus className="w-4 h-4 mr-2" />
                 Novo Ticket
               </Button>
@@ -646,9 +646,9 @@ export default function WebDesignerPage() {
                         </p>
                         <p className="text-xs text-gray-600 dark:text-gray-400">Acessibilidade</p>
                       </div>
-                      <div className="text-center p-3 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg border border-orange-200">
-                        <CheckCircle className="w-5 h-5 mx-auto mb-1 text-orange-600" />
-                        <p className="text-lg font-bold text-orange-600">
+                      <div className="text-center p-3 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-lg border border-amber-200">
+                        <CheckCircle className="w-5 h-5 mx-auto mb-1 text-primary" />
+                        <p className="text-lg font-bold text-primary">
                           {metric.uptime}%
                         </p>
                         <p className="text-xs text-gray-600 dark:text-gray-400">Uptime</p>
@@ -690,14 +690,14 @@ export default function WebDesignerPage() {
                 <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${
-                      deploy.status === 'success' ? 'bg-green-600' : 'bg-orange-600 animate-pulse'
+                      deploy.status === 'success' ? 'bg-green-600' : 'bg-primary animate-pulse'
                     }`} />
                     <div>
                       <p className="font-medium text-sm text-gray-900 dark:text-white">{deploy.site}</p>
                       <p className="text-xs text-gray-600 dark:text-gray-400">{deploy.time} • {deploy.branch}</p>
                     </div>
                   </div>
-                  <Badge className={deploy.status === 'success' ? 'bg-green-600' : 'bg-orange-600'}>
+                  <Badge className={deploy.status === 'success' ? 'bg-green-600' : 'bg-primary'}>
                     {deploy.status === 'success' ? 'Live' : 'Building'}
                   </Badge>
                 </div>
