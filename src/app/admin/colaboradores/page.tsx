@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Plus, Mail, Phone, Award, Calendar, MoreVertical, X, TrendingUp, Target, Clock, Star, AlertTriangle, CheckCircle, ChevronRight, Sparkles, Copy } from 'lucide-react'
+import { Search, Plus, Mail, Phone, Award, Calendar, MoreVertical, X, TrendingUp, Target, Clock, Star, AlertTriangle, CheckCircle, ChevronRight, Sparkles, Copy, Edit, Trash2, Eye, Power, PowerOff, User, RefreshCw } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +37,7 @@ interface Employee {
 }
 
 export default function EmployeesListPage() {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterDepartment, setFilterDepartment] = useState('all')
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
@@ -44,10 +46,96 @@ export default function EmployeesListPage() {
   const [testEmployees, setTestEmployees] = useState<{ email: string; password: string; type?: 'employee' | 'client' }[] | null>(null)
   const [testEmployeesWarnings, setTestEmployeesWarnings] = useState<{ email: string; warning: string }[] | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  
+  // Estados para menu de ações
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null)
+  const [deletingEmployee, setDeletingEmployee] = useState(false)
+  const [resendingEmail, setResendingEmail] = useState<string | null>(null)
 
   const handleViewDetails = (emp: Employee) => {
     setSelectedEmployee(emp)
     setShowModal(true)
+  }
+  
+  const handleEditEmployee = (emp: Employee) => {
+    router.push(`/admin/colaboradores/${emp.id}/editar`)
+    setOpenMenuId(null)
+  }
+  
+  const handleDeleteClick = (emp: Employee) => {
+    setEmployeeToDelete(emp)
+    setShowDeleteModal(true)
+    setOpenMenuId(null)
+  }
+  
+  const handleDeleteEmployee = async () => {
+    if (!employeeToDelete) return
+    
+    try {
+      setDeletingEmployee(true)
+      const authHeaders = await getAuthHeaders()
+      const res = await fetch(`/api/admin/employees/${employeeToDelete.id}`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      })
+      
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Falha ao excluir colaborador')
+      
+      toast.success('Colaborador excluído com sucesso!')
+      setShowDeleteModal(false)
+      setEmployeeToDelete(null)
+      await loadEmployeesReal()
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao excluir colaborador')
+    } finally {
+      setDeletingEmployee(false)
+    }
+  }
+  
+  const handleToggleStatus = async (emp: Employee) => {
+    try {
+      const newStatus = emp.status === 'active' ? 'inactive' : 'active'
+      const authHeaders = await getAuthHeaders()
+      const res = await fetch(`/api/admin/employees/${emp.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Falha ao atualizar status')
+      
+      toast.success(`Colaborador ${newStatus === 'active' ? 'ativado' : 'desativado'} com sucesso!`)
+      setOpenMenuId(null)
+      await loadEmployeesReal()
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao atualizar status')
+    }
+  }
+  
+  const handleResendWelcomeEmail = async (emp: Employee) => {
+    try {
+      setResendingEmail(emp.id)
+      const authHeaders = await getAuthHeaders()
+      const res = await fetch('/api/admin/resend-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ employeeId: emp.id }),
+      })
+      
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Falha ao reenviar email')
+      
+      toast.success('Email de boas-vindas reenviado com sucesso!')
+      setOpenMenuId(null)
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao reenviar email')
+    } finally {
+      setResendingEmail(null)
+    }
   }
 
   // Lista real (via /api/admin/employees)
@@ -600,12 +688,116 @@ export default function EmployeesListPage() {
                       <ChevronRight className="w-4 h-4" />
                     </motion.button>
 
-                    <button
-                      className="p-2 rounded-lg hover:bg-opacity-50"
-                      style={{ backgroundColor: 'var(--bg-tertiary)' }}
-                    >
-                      <MoreVertical className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
-                    </button>
+                    {/* Menu de Ações */}
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setOpenMenuId(openMenuId === employee.id ? null : employee.id)
+                        }}
+                        className="p-2 rounded-lg hover:bg-opacity-50 transition-colors"
+                        style={{ backgroundColor: 'var(--bg-tertiary)' }}
+                      >
+                        <MoreVertical className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+                      </button>
+                      
+                      {/* Dropdown Menu */}
+                      <AnimatePresence>
+                        {openMenuId === employee.id && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                            className="absolute right-0 top-12 z-50 w-56 rounded-xl shadow-xl border overflow-hidden"
+                            style={{ 
+                              backgroundColor: 'var(--bg-primary)',
+                              borderColor: 'var(--border-primary)'
+                            }}
+                          >
+                            <div className="py-2">
+                              {/* Ver Detalhes */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleViewDetails(employee)
+                                  setOpenMenuId(null)
+                                }}
+                                className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                              >
+                                <Eye className="w-4 h-4 text-blue-500" />
+                                <span style={{ color: 'var(--text-primary)' }}>Ver Detalhes</span>
+                              </button>
+                              
+                              {/* Editar */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleEditEmployee(employee)
+                                }}
+                                className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                              >
+                                <Edit className="w-4 h-4 text-amber-500" />
+                                <span style={{ color: 'var(--text-primary)' }}>Editar Colaborador</span>
+                              </button>
+                              
+                              {/* Reenviar Email */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleResendWelcomeEmail(employee)
+                                }}
+                                disabled={resendingEmail === employee.id}
+                                className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                              >
+                                {resendingEmail === employee.id ? (
+                                  <RefreshCw className="w-4 h-4 text-green-500 animate-spin" />
+                                ) : (
+                                  <Mail className="w-4 h-4 text-green-500" />
+                                )}
+                                <span style={{ color: 'var(--text-primary)' }}>
+                                  {resendingEmail === employee.id ? 'Enviando...' : 'Reenviar Credenciais'}
+                                </span>
+                              </button>
+                              
+                              <div className="my-2 border-t" style={{ borderColor: 'var(--border-primary)' }} />
+                              
+                              {/* Ativar/Desativar */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleToggleStatus(employee)
+                                }}
+                                className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                              >
+                                {employee.status === 'active' ? (
+                                  <>
+                                    <PowerOff className="w-4 h-4 text-orange-500" />
+                                    <span style={{ color: 'var(--text-primary)' }}>Desativar Colaborador</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Power className="w-4 h-4 text-green-500" />
+                                    <span style={{ color: 'var(--text-primary)' }}>Ativar Colaborador</span>
+                                  </>
+                                )}
+                              </button>
+                              
+                              {/* Excluir */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteClick(employee)
+                                }}
+                                className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                <span>Excluir Colaborador</span>
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -775,6 +967,107 @@ export default function EmployeesListPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* Modal de Confirmação de Exclusão */}
+      <AnimatePresence>
+        {showDeleteModal && employeeToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4"
+            onClick={() => {
+              if (!deletingEmployee) {
+                setShowDeleteModal(false)
+                setEmployeeToDelete(null)
+              }
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+              style={{ backgroundColor: 'var(--bg-primary)' }}
+            >
+              {/* Header */}
+              <div className="p-6 border-b" style={{ borderColor: 'var(--border-primary)' }}>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                    <Trash2 className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                      Excluir Colaborador
+                    </h3>
+                    <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                      Esta ação não pode ser desfeita
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Body */}
+              <div className="p-6">
+                <p style={{ color: 'var(--text-secondary)' }}>
+                  Tem certeza que deseja excluir o colaborador{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>{employeeToDelete.fullName}</strong>?
+                </p>
+                <p className="mt-2 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  Todos os dados associados a este colaborador serão removidos permanentemente, incluindo:
+                </p>
+                <ul className="mt-2 text-sm space-y-1" style={{ color: 'var(--text-tertiary)' }}>
+                  <li>• Histórico de tarefas no Kanban</li>
+                  <li>• Mensagens e conversas</li>
+                  <li>• Atribuições de clientes</li>
+                  <li>• Registro de performance</li>
+                </ul>
+              </div>
+              
+              {/* Footer */}
+              <div className="p-6 border-t flex gap-3" style={{ borderColor: 'var(--border-primary)' }}>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowDeleteModal(false)
+                    setEmployeeToDelete(null)
+                  }}
+                  disabled={deletingEmployee}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleDeleteEmployee}
+                  disabled={deletingEmployee}
+                >
+                  {deletingEmployee ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Excluindo...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Excluir Colaborador
+                    </>
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Overlay para fechar menus ao clicar fora */}
+      {openMenuId && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setOpenMenuId(null)}
+        />
+      )}
     </div>
   )
 }
