@@ -141,7 +141,18 @@ export const POINT_ACTIONS = {
 export type PointAction = keyof typeof POINT_ACTIONS;
 
 // Função compatível com API antiga
-export function getLevelInfo(points: number): { level: number; tier: string; currentLevel: Level; nextLevel: Level | null; progress: number; pointsNeeded: number } {
+export function getLevelInfo(points: number): { 
+  level: number; 
+  tier: string; 
+  currentLevel: Level; 
+  nextLevel: Level | null; 
+  progress: number; 
+  pointsNeeded: number;
+  color: string;
+  pointsForNext: number;
+  icon: string;
+  bgGradient: string;
+} {
   const currentLevel = getLevelByPoints(points);
   const nextLevel = getNextLevel(currentLevel);
   const progressData = getProgressToNextLevel(points);
@@ -155,6 +166,10 @@ export function getLevelInfo(points: number): { level: number; tier: string; cur
     currentLevel,
     nextLevel,
     progress: progressData.progress,
-    pointsNeeded: progressData.pointsNeeded
+    pointsNeeded: progressData.pointsNeeded,
+    color: currentLevel.color,
+    pointsForNext: nextLevel ? nextLevel.minPoints : currentLevel.maxPoints,
+    icon: currentLevel.icon,
+    bgGradient: currentLevel.bgGradient
   };
 }

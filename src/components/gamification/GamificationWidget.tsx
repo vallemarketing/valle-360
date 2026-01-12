@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Trophy, TrendingUp, Star, Award, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { getLevelInfo, getProgressToNextLevel } from '@/lib/gamification/levels'
+import { getLevelInfo } from '@/lib/gamification/levels'
 
 interface GamificationWidgetProps {
   className?: string
@@ -57,7 +57,6 @@ export function GamificationWidget({ className }: GamificationWidgetProps) {
   }
 
   const levelInfo = getLevelInfo(points)
-  const progress = getProgressToNextLevel(points)
 
   return (
     <motion.div
@@ -114,7 +113,7 @@ export function GamificationWidget({ className }: GamificationWidgetProps) {
         <div className="flex items-center justify-between mb-2 text-sm">
           <span style={{ color: 'var(--text-secondary)' }}>Próximo nível</span>
           <span style={{ color: 'var(--text-tertiary)' }}>
-            {Math.round(progress)}%
+            {Math.round(levelInfo.progress)}%
           </span>
         </div>
         <div 
@@ -123,14 +122,14 @@ export function GamificationWidget({ className }: GamificationWidgetProps) {
         >
           <motion.div
             initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
+            animate={{ width: `${levelInfo.progress}%` }}
             transition={{ duration: 1, ease: "easeOut" }}
             className="h-full rounded-full"
             style={{ backgroundColor: levelInfo.color }}
           />
         </div>
         <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
-          {levelInfo.pointsForNext - points} pontos restantes
+          {levelInfo.pointsNeeded} pontos restantes
         </p>
       </div>
 
