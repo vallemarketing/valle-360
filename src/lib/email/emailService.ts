@@ -4,11 +4,13 @@
  * Ordem de tentativa:
  * 1. SendGrid (se configurado)
  * 2. Resend (se configurado)
- * 3. SMTP direto (Nodemailer - se configurado)
- * 4. Retorna credenciais para exibição manual
+ * 3. Gmail API (se configurado com refresh token)
+ * 4. SMTP direto (Nodemailer - se configurado)
+ * 5. Retorna credenciais para exibição manual
  */
 
 import nodemailer from 'nodemailer';
+import { google } from 'googleapis';
 
 export interface EmailPayload {
   to: string;
@@ -140,6 +142,82 @@ async function sendViaResend(payload: EmailPayload): Promise<EmailResult> {
 }
 
 // ============================================
+// GMAIL API (OAuth2)
+// ============================================
+async function sendViaGmailAPI(payload: EmailPayload): Promise<EmailResult> {
+  const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+  const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN || '').trim();
+  const gmailUser = (process.env.GMAIL_USER || '').trim();
+
+  if (!clientId || !clientSecret || !refreshToken || !gmailUser) {
+    console.log('⚠️ [Gmail API] Não configurado (faltam credenciais)');
+    return { success: false, message: 'Gmail API não configurado', error: 'GMAIL_NOT_CONFIGURED' };
+  }
+
+  try {
+    console.log(`📧 [Gmail API] Configurando OAuth2...`);
+    console.log(`📧 [Gmail API] User: ${gmailUser}`);
+
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+    // Obter access token
+    const { token } = await oauth2Client.getAccessToken();
+    if (!token) {
+      console.error('❌ [Gmail API] Não foi possível obter access token');
+      return { success: false, message: 'Erro ao obter access token', error: 'NO_ACCESS_TOKEN' };
+    }
+
+    console.log(`📧 [Gmail API] Access token obtido!`);
+
+    // Criar o email em formato RFC 2822
+    const fromName = payload.from?.name || 'Valle 360';
+    const fromEmail = payload.from?.email || gmailUser;
+    
+    const emailLines = [
+      `From: "${fromName}" <${fromEmail}>`,
+      `To: ${payload.to}`,
+      `Subject: =?UTF-8?B?${Buffer.from(payload.subject).toString('base64')}?=`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/html; charset=UTF-8',
+      '',
+      payload.html,
+    ];
+    
+    const email = emailLines.join('\r\n');
+    const encodedEmail = Buffer.from(email)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    // Enviar via Gmail API
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    
+    console.log(`📧 [Gmail API] Enviando para: ${payload.to}`);
+    
+    const response = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: encodedEmail,
+      },
+    });
+
+    if (response.data.id) {
+      console.log(`✅ [Gmail API] Email enviado! ID: ${response.data.id}`);
+      return { success: true, provider: 'sendgrid', message: 'Email enviado via Gmail API' };
+    }
+
+    console.error('❌ [Gmail API] Resposta sem ID:', response.data);
+    return { success: false, message: 'Gmail API não retornou ID', error: JSON.stringify(response.data) };
+  } catch (error: any) {
+    console.error('❌ [Gmail API] Erro:', error.message);
+    return { success: false, message: 'Erro Gmail API', error: error.message };
+  }
+}
+
+// ============================================
 // SMTP (Nodemailer)
 // ============================================
 async function sendViaSMTP(payload: EmailPayload): Promise<EmailResult> {
@@ -211,7 +289,7 @@ export async function sendEmailWithFallback(
   const attempts: string[] = [];
 
   // 1. Tenta SendGrid
-  console.log('🔄 [1/3] Tentando SendGrid...');
+  console.log('🔄 [1/4] Tentando SendGrid...');
   const sendgridResult = await sendViaSendGrid(payload);
   attempts.push(`SendGrid: ${sendgridResult.success ? '✅' : '❌'} ${sendgridResult.message}`);
   if (sendgridResult.success) {
@@ -220,7 +298,7 @@ export async function sendEmailWithFallback(
   }
 
   // 2. Tenta Resend
-  console.log('🔄 [2/3] Tentando Resend...');
+  console.log('🔄 [2/4] Tentando Resend...');
   const resendResult = await sendViaResend(payload);
   attempts.push(`Resend: ${resendResult.success ? '✅' : '❌'} ${resendResult.message}`);
   if (resendResult.success) {
@@ -228,8 +306,17 @@ export async function sendEmailWithFallback(
     return resendResult;
   }
 
-  // 3. Tenta SMTP
-  console.log('🔄 [3/3] Tentando SMTP...');
+  // 3. Tenta Gmail API
+  console.log('🔄 [3/4] Tentando Gmail API...');
+  const gmailResult = await sendViaGmailAPI(payload);
+  attempts.push(`Gmail: ${gmailResult.success ? '✅' : '❌'} ${gmailResult.message}`);
+  if (gmailResult.success) {
+    console.log('✅ Email enviado via Gmail API!\n');
+    return gmailResult;
+  }
+
+  // 4. Tenta SMTP
+  console.log('🔄 [4/4] Tentando SMTP...');
   const smtpResult = await sendViaSMTP(payload);
   attempts.push(`SMTP: ${smtpResult.success ? '✅' : '❌'} ${smtpResult.message}`);
   if (smtpResult.success) {
