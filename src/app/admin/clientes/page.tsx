@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Search, Plus, Filter, MoreVertical, Mail, Phone, Globe, 
   MapPin, TrendingUp, Calendar, X, Eye, Settings, Edit, 
-  Power, PowerOff, Check, AlertTriangle, Building2, User,
+  Power, PowerOff, Check, AlertTriangle, Building2, User, Users,
   Sparkles, ToggleLeft, ToggleRight, FileText, ChevronRight
 } from 'lucide-react'
 import Link from 'next/link'
