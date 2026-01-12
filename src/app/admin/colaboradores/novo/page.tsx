@@ -13,6 +13,7 @@ export default function NovoColaboradorPage() {
   const [loading, setLoading] = useState(false)
   const [emailGerado, setEmailGerado] = useState('')
   const [emailConflito, setEmailConflito] = useState(false)
+  const [emailModoManual, setEmailModoManual] = useState(false)
   
   const [formData, setFormData] = useState({
     // Dados Pessoais
@@ -70,9 +71,9 @@ export default function NovoColaboradorPage() {
     { id: 'videomaker', nome: 'Videomaker', icon: '🎥' },
   ]
 
-  // Gerar email automaticamente
+  // Gerar email automaticamente (apenas no modo automático)
   useEffect(() => {
-    if (formData.nome && formData.sobrenome) {
+    if (!emailModoManual && formData.nome && formData.sobrenome) {
       const emailBase = `${formData.nome.toLowerCase().trim()}.${formData.sobrenome.toLowerCase().trim()}@valle360.com.br`
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '') // Remove acentos
@@ -82,7 +83,7 @@ export default function NovoColaboradorPage() {
       handleInputChange('email', emailBase)
       verificarEmailDisponivel(emailBase)
     }
-  }, [formData.nome, formData.sobrenome])
+  }, [formData.nome, formData.sobrenome, emailModoManual])
 
   const verificarEmailDisponivel = async (email: string) => {
     if (email) {
@@ -423,33 +424,77 @@ export default function NovoColaboradorPage() {
               </div>
             </div>
 
-            {/* Email Corporativo Gerado Automaticamente */}
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Email Corporativo (Gerado Automaticamente)
-              </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  value={emailGerado}
-                  onChange={(e) => {
-                    setEmailGerado(e.target.value)
-                    handleInputChange('email', e.target.value)
-                    verificarEmailDisponivel(e.target.value)
-                  }}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                    emailConflito ? 'border-red-500 bg-red-50' : 'bg-gray-50'
-                  }`}
-                  required
-                />
-                {emailConflito && (
-                  <p className="text-red-600 text-sm mt-1">
-                    ⚠️ Este email já está em uso. Edite manualmente para resolver o conflito.
-                  </p>
-                )}
+            {/* Email Corporativo - Automático ou Manual */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-700">
+                  Email Corporativo
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">
+                    {emailModoManual ? 'Manual' : 'Automático'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmailModoManual(!emailModoManual)
+                      if (!emailModoManual) {
+                        // Limpando para digitar manualmente
+                        setEmailGerado('')
+                        handleInputChange('email', '')
+                      }
+                    }}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                      emailModoManual ? 'bg-[#1672d6]' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                        emailModoManual ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                O email é gerado automaticamente baseado no nome e sobrenome
+              
+              {emailModoManual ? (
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => {
+                      handleInputChange('email', e.target.value)
+                      verificarEmailDisponivel(e.target.value)
+                    }}
+                    placeholder="Digite o email existente (ex: joao@valle360.com.br)"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#1672d6] ${
+                      emailConflito ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
+                    required
+                  />
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                    <Mail className="w-5 h-5 text-gray-400" />
+                    <span className="text-gray-600 flex-1">
+                      {emailGerado || 'Preencha nome e sobrenome para gerar'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {emailConflito && (
+                <p className="text-red-600 text-sm flex items-center gap-1">
+                  ⚠️ Este email já está em uso no sistema
+                </p>
+              )}
+              
+              <p className="text-xs text-gray-500">
+                {emailModoManual 
+                  ? '💡 Use para colaboradores que já possuem email @valle360.com.br'
+                  : '💡 O email será gerado: nome.sobrenome@valle360.com.br'
+                }
               </p>
             </div>
 
