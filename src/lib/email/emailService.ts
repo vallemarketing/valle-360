@@ -40,10 +40,12 @@ export interface EmailResult {
 // ============================================
 async function sendViaSMTP(payload: EmailPayload): Promise<EmailResult> {
   const smtpHost = (process.env.SMTP_HOST || '').trim();
-  const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
+  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
   const smtpUser = (process.env.SMTP_USER || '').trim();
   const smtpPass = (process.env.SMTP_PASSWORD || process.env.SMTP_PASS || '').trim();
-  const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
+  
+  // Porta 465 = SSL direto, Porta 587 = STARTTLS
+  const smtpSecure = smtpPort === 465;
 
   if (!smtpHost || !smtpUser || !smtpPass) {
     console.log('⚠️ [SMTP] Não configurado');
@@ -58,10 +60,10 @@ async function sendViaSMTP(payload: EmailPayload): Promise<EmailResult> {
     console.log(`📧 [SMTP] User: ${smtpUser}`);
     console.log(`📧 [SMTP] Enviando para: ${payload.to}`);
 
-    const transporter = nodemailer.createTransport({
+    // Configuração diferente para porta 587 (STARTTLS) vs 465 (SSL)
+    const transportConfig: any = {
       host: smtpHost,
       port: smtpPort,
-      secure: smtpSecure,
       auth: {
         user: smtpUser,
         pass: smtpPass,
@@ -69,7 +71,16 @@ async function sendViaSMTP(payload: EmailPayload): Promise<EmailResult> {
       tls: {
         rejectUnauthorized: false,
       },
-    });
+    };
+
+    if (smtpPort === 465) {
+      transportConfig.secure = true;
+    } else {
+      transportConfig.secure = false;
+      transportConfig.requireTLS = true;
+    }
+
+    const transporter = nodemailer.createTransport(transportConfig);
 
     const info = await transporter.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
