@@ -70,6 +70,12 @@ ON social_metrics_snapshots(client_id, snapshot_date, platform);
 ALTER TABLE client_timeline_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE social_metrics_snapshots ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Clients can view own timeline" ON client_timeline_events;
+DROP POLICY IF EXISTS "Admins can manage timeline" ON client_timeline_events;
+DROP POLICY IF EXISTS "Clients can view own snapshots" ON social_metrics_snapshots;
+DROP POLICY IF EXISTS "Admins can manage snapshots" ON social_metrics_snapshots;
+
 -- Policies para timeline
 CREATE POLICY "Clients can view own timeline" ON client_timeline_events
 FOR SELECT USING (

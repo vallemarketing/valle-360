@@ -36,6 +36,7 @@ interface MessageActionsProps {
   onForward: (messageId: string) => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  isSuperAdmin?: boolean;
 }
 
 export function MessageActions({
@@ -46,6 +47,7 @@ export function MessageActions({
   onForward,
   onEdit,
   onDelete,
+  isSuperAdmin = false,
 }: MessageActionsProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -54,6 +56,7 @@ export function MessageActions({
   const [isLoading, setIsLoading] = useState(false);
 
   const isOwnMessage = message.from_user_id === currentUserId;
+  const canDelete = isOwnMessage || isSuperAdmin; // Super Admin pode deletar qualquer mensagem
   const canEdit = isOwnMessage && !message.is_deleted;
   const messageAge = Date.now() - new Date(message.created_at).getTime();
   const canEditTime = messageAge < 15 * 60 * 1000; // 15 minutos
@@ -157,7 +160,7 @@ export function MessageActions({
               </button>
             )}
 
-            {isOwnMessage && (
+            {canDelete && (
               <button
                 onClick={() => {
                   setShowDeleteModal(true);
@@ -166,7 +169,7 @@ export function MessageActions({
                 className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-red-600"
               >
                 <Trash2 className="w-4 h-4" />
-                Excluir
+                {isSuperAdmin && !isOwnMessage ? 'Excluir (Admin)' : 'Excluir'}
               </button>
             )}
           </div>
@@ -237,7 +240,7 @@ export function MessageActions({
                   Excluir para mim
                 </Button>
 
-                {isOwnMessage && (
+                {(isOwnMessage || isSuperAdmin) && (
                   <Button
                     variant="outline"
                     onClick={() => handleDelete('for_everyone')}

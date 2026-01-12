@@ -87,6 +87,11 @@ ALTER TABLE client_points_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE client_redeemed_rewards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE client_referrals ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Clients can view own points history" ON client_points_history;
+DROP POLICY IF EXISTS "Clients can view own rewards" ON client_redeemed_rewards;
+DROP POLICY IF EXISTS "Clients can view own referrals" ON client_referrals;
+
 -- Policies para histórico de pontos
 CREATE POLICY "Clients can view own points history" ON client_points_history
 FOR SELECT USING (

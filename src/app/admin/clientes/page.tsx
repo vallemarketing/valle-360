@@ -494,6 +494,16 @@ function ClientActionMenu({
               <span className="text-gray-700 dark:text-gray-200">Gerenciar Serviços</span>
             </button>
 
+            <Link href={`/admin/clientes/${client.id}/equipe`}>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <Users className="w-4 h-4 text-green-500" />
+                <span className="text-gray-700 dark:text-gray-200">Gerenciar Equipe</span>
+              </button>
+            </Link>
+
             <button
               onClick={() => { onEdit(); setIsOpen(false); }}
               className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"

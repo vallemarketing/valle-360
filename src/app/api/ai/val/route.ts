@@ -208,14 +208,47 @@ export async function POST(request: NextRequest) {
         competitors: competitorsList
       };
     } else {
-      // Colaborador genérico
-      const [myTasksData] = await Promise.all([
-        supabase.from('tasks').select('*').eq('assigned_to', user.id).in('status', ['pending', 'in_progress']).limit(10)
+      // Colaborador genérico - inclui contexto do Kanban para sugestões
+      const [myTasksData, kanbanTasksData] = await Promise.all([
+        supabase.from('tasks').select('*').eq('assigned_to', user.id).in('status', ['pending', 'in_progress']).limit(10),
+        supabase.from('kanban_tasks')
+          .select('id, title, priority, due_date, status, column_id, kanban_columns!inner(name, stage_key)')
+          .eq('assigned_to', user.id)
+          .not('status', 'eq', 'done')
+          .order('priority', { ascending: false })
+          .order('due_date', { ascending: true, nullsFirst: false })
+          .limit(15)
       ]);
+
+      // Processar tarefas do kanban para sugestões
+      const kanbanTasks = (kanbanTasksData.data || []).map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        priority: t.priority,
+        dueDate: t.due_date,
+        status: t.status,
+        column: (t.kanban_columns as any)?.name,
+        stage: (t.kanban_columns as any)?.stage_key
+      }));
+
+      // Identificar tarefa mais urgente
+      const urgentTask = kanbanTasks.find((t: any) => 
+        t.priority === 'critical' || t.priority === 'high' || 
+        (t.dueDate && new Date(t.dueDate) <= new Date(Date.now() + 24 * 60 * 60 * 1000))
+      );
 
       businessContext = {
         ...businessContext,
-        myPendingTasks: myTasksData.data?.length || 0
+        myPendingTasks: myTasksData.data?.length || 0,
+        kanbanTasks: kanbanTasks.slice(0, 5),
+        totalKanbanTasks: kanbanTasks.length,
+        urgentTask: urgentTask ? {
+          title: urgentTask.title,
+          priority: urgentTask.priority,
+          dueDate: urgentTask.dueDate,
+          column: urgentTask.column
+        } : null,
+        suggestedNextTask: urgentTask?.title || kanbanTasks[0]?.title || null
       };
     }
 

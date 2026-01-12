@@ -84,6 +84,13 @@ const DEFAULT_QUICK_ACTIONS = [
   },
 ];
 
+// Ação especial para colaboradores - sugestão de próxima tarefa
+const KANBAN_QUICK_ACTION = {
+  icon: Target,
+  text: "Qual minha próxima tarefa?",
+  color: "text-primary"
+};
+
 export function ValFloatingChat({ userName = "Cliente" }: ValFloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);

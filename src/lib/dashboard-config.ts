@@ -77,7 +77,7 @@ export const DASHBOARD_ROLES: Record<string, DashboardConfig> = {
     role: "comercial",
     title: "Comercial",
     widgets: ["sales-pipeline", "conversion-rate", "ranking"],
-    primaryColor: "bg-orange-500",
+    primaryColor: "bg-sky-500",
     icon: Users
   },
   admin: {
