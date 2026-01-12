@@ -4,65 +4,23 @@ import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
-// GET - Obter detalhes de um colaborador específico
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { employeeId: string } }
-) {
-  const gate = await requireAdmin(request);
-  if (!gate.ok) return gate.res;
-
-  const { employeeId } = params;
-  const db = getSupabaseAdmin();
-
-  try {
-    // Buscar dados do employee
-    const { data: employee, error: empError } = await db
-      .from('employees')
-      .select('*')
-      .eq('user_id', employeeId)
-      .single();
-
-    if (empError || !employee) {
-      return NextResponse.json(
-        { error: 'Colaborador não encontrado' },
-        { status: 404 }
-      );
-    }
-
-    // Buscar dados do usuário
-    const { data: user } = await db
-      .from('users')
-      .select('*')
-      .eq('id', employeeId)
-      .single();
-
-    return NextResponse.json({
-      employee: {
-        ...employee,
-        user,
-      },
-    });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Erro ao buscar colaborador' },
-      { status: 500 }
-    );
-  }
-}
-
-// Função auxiliar para deletar email do cPanel
+// ============================================
+// FUNÇÃO: Deletar email do cPanel
+// ============================================
 async function deleteCpanelEmail(email: string): Promise<{ success: boolean; message: string }> {
+  const cpanelUser = process.env.CPANEL_USER;
+  const cpanelPassword = process.env.CPANEL_PASSWORD;
+  const cpanelDomain = process.env.CPANEL_DOMAIN;
+
+  console.log(`🗑️ Tentando deletar email do cPanel: ${email}`);
+  console.log(`📋 cPanel configurado: ${!!cpanelUser && !!cpanelPassword && !!cpanelDomain}`);
+
+  if (!cpanelUser || !cpanelPassword || !cpanelDomain) {
+    console.warn('⚠️ Credenciais do cPanel não configuradas');
+    return { success: false, message: 'cPanel não configurado' };
+  }
+
   try {
-    const cpanelUser = process.env.CPANEL_USER;
-    const cpanelPassword = process.env.CPANEL_PASSWORD;
-    const cpanelDomain = process.env.CPANEL_DOMAIN;
-
-    if (!cpanelUser || !cpanelPassword || !cpanelDomain) {
-      console.warn('⚠️ Credenciais do cPanel não configuradas - pulando exclusão de email');
-      return { success: true, message: 'cPanel não configurado, email não deletado' };
-    }
-
     const [username, domain] = email.split('@');
     if (!username || !domain) {
       return { success: false, message: 'Email inválido' };
@@ -77,50 +35,64 @@ async function deleteCpanelEmail(email: string): Promise<{ success: boolean; mes
     }
     baseUrl = baseUrl.replace(/\/+$/, '');
 
+    // Garantir que tem a porta 2083
+    if (!baseUrl.includes(':2083') && !baseUrl.includes(':2087')) {
+      baseUrl = baseUrl.replace(/:\d+$/, '') + ':2083';
+    }
+
     const apiUrl = `${baseUrl}/execute/Email/delete_pop?email=${encodeURIComponent(username)}&domain=${encodeURIComponent(domain)}`;
 
-    console.log(`🗑️ Deletando email do cPanel: ${email}`);
+    console.log(`🔗 URL cPanel: ${apiUrl}`);
 
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
-        'Content-Type': 'application/json'
       }
     });
 
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      console.warn('⚠️ cPanel retornou resposta não-JSON');
-      return { success: false, message: 'cPanel retornou resposta inválida' };
+    const contentType = response.headers.get('content-type') || '';
+    const responseText = await response.text();
+    
+    console.log(`📥 cPanel response status: ${response.status}`);
+    console.log(`📥 cPanel response type: ${contentType}`);
+    console.log(`📥 cPanel response: ${responseText.substring(0, 500)}`);
+
+    // Se não for JSON, retorna erro
+    if (!contentType.includes('application/json')) {
+      console.error('❌ cPanel retornou HTML (provavelmente URL incorreta ou auth falhou)');
+      return { success: false, message: 'cPanel retornou HTML - verifique CPANEL_DOMAIN' };
     }
 
-    const data = await response.json();
+    const data = JSON.parse(responseText);
 
-    if (data.result?.status === 1 || data.status === 1) {
+    if (data.status === 1 || data.result?.status === 1) {
       console.log(`✅ Email deletado do cPanel: ${email}`);
       return { success: true, message: 'Email deletado do cPanel' };
     } else {
-      const errors = data.result?.errors || data.errors || [];
-      const emailNotExists = errors.some((e: string) => 
-        e.toLowerCase().includes('does not exist')
-      );
+      const errors = data.errors || data.result?.errors || [];
+      const errorMsg = Array.isArray(errors) ? errors.join(', ') : String(errors);
       
-      if (emailNotExists) {
-        return { success: true, message: 'Email já não existe no cPanel' };
+      // Se o email não existe, considerar como sucesso
+      if (errorMsg.toLowerCase().includes('does not exist') || 
+          errorMsg.toLowerCase().includes('not found')) {
+        console.log(`ℹ️ Email já não existe no cPanel: ${email}`);
+        return { success: true, message: 'Email não existe no cPanel' };
       }
 
-      console.error('❌ Erro ao deletar email do cPanel:', errors);
-      return { success: false, message: errors.join(', ') };
+      console.error('❌ Erro ao deletar email do cPanel:', errorMsg);
+      return { success: false, message: errorMsg || 'Erro desconhecido' };
     }
   } catch (error: any) {
-    console.error('Erro ao deletar email do cPanel:', error);
+    console.error('❌ Exceção ao deletar email do cPanel:', error);
     return { success: false, message: error.message };
   }
 }
 
-// DELETE - Excluir um colaborador
-export async function DELETE(
+// ============================================
+// GET - Obter detalhes de um colaborador
+// ============================================
+export async function GET(
   request: NextRequest,
   { params }: { params: { employeeId: string } }
 ) {
@@ -131,103 +103,230 @@ export async function DELETE(
   const db = getSupabaseAdmin();
 
   try {
-    // Primeiro, verificar se o colaborador existe
-    const { data: employee, error: checkError } = await db
+    const { data: employee, error: empError } = await db
+      .from('employees')
+      .select('*')
+      .eq('user_id', employeeId)
+      .single();
+
+    if (empError || !employee) {
+      return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
+    }
+
+    const { data: user } = await db
+      .from('users')
+      .select('*')
+      .eq('id', employeeId)
+      .single();
+
+    return NextResponse.json({ employee: { ...employee, user } });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// ============================================
+// DELETE - Excluir colaborador COMPLETAMENTE
+// ============================================
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { employeeId: string } }
+) {
+  const gate = await requireAdmin(request);
+  if (!gate.ok) return gate.res;
+
+  const { employeeId } = params;
+  const db = getSupabaseAdmin();
+
+  console.log(`\n${'='.repeat(50)}`);
+  console.log(`🗑️ INICIANDO EXCLUSÃO DO COLABORADOR: ${employeeId}`);
+  console.log(`${'='.repeat(50)}\n`);
+
+  const deletionLog: string[] = [];
+  let userEmail = '';
+
+  try {
+    // 1. BUSCAR DADOS DO COLABORADOR
+    console.log('📋 1. Buscando dados do colaborador...');
+    
+    const { data: employee, error: empError } = await db
       .from('employees')
       .select('id, user_id, first_name, last_name')
       .eq('user_id', employeeId)
       .single();
 
-    if (checkError || !employee) {
-      return NextResponse.json(
-        { error: 'Colaborador não encontrado' },
-        { status: 404 }
-      );
+    if (empError || !employee) {
+      // Tentar buscar por id em vez de user_id
+      const { data: emp2 } = await db
+        .from('employees')
+        .select('id, user_id, first_name, last_name')
+        .eq('id', employeeId)
+        .single();
+      
+      if (!emp2) {
+        console.log('❌ Colaborador não encontrado');
+        return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
+      }
     }
 
-    // Buscar email do usuário para deletar do cPanel
-    let userEmail = '';
-    const { data: user } = await db
+    const userId = employee?.user_id || employeeId;
+    deletionLog.push(`Colaborador encontrado: ${employee?.first_name} ${employee?.last_name}`);
+
+    // 2. BUSCAR EMAIL DO USUÁRIO (de múltiplas fontes)
+    console.log('📧 2. Buscando email do usuário...');
+    
+    // Tentar da tabela users
+    const { data: userData } = await db
       .from('users')
       .select('email')
-      .eq('id', employeeId)
+      .eq('id', userId)
       .single();
     
-    if (user?.email) {
-      userEmail = user.email;
+    if (userData?.email) {
+      userEmail = userData.email;
+      console.log(`   Email encontrado (users): ${userEmail}`);
+    }
+    
+    // Se não encontrou, tentar do user_profiles
+    if (!userEmail) {
+      const { data: profileData } = await db
+        .from('user_profiles')
+        .select('email')
+        .eq('user_id', userId)
+        .single();
+      
+      if (profileData?.email) {
+        userEmail = profileData.email;
+        console.log(`   Email encontrado (user_profiles): ${userEmail}`);
+      }
     }
 
-    // Deletar email do cPanel (se configurado)
-    let cpanelResult = { success: true, message: '' };
+    // Se não encontrou, tentar do auth
+    if (!userEmail) {
+      try {
+        const { data: authUser } = await db.auth.admin.getUserById(userId);
+        if (authUser?.user?.email) {
+          userEmail = authUser.user.email;
+          console.log(`   Email encontrado (auth): ${userEmail}`);
+        }
+      } catch (e) {
+        console.log('   Não foi possível buscar do auth');
+      }
+    }
+
+    deletionLog.push(`Email: ${userEmail || 'não encontrado'}`);
+
+    // 3. DELETAR EMAIL DO CPANEL
     if (userEmail && userEmail.includes('@')) {
-      cpanelResult = await deleteCpanelEmail(userEmail);
-      console.log(`📧 cPanel delete result: ${cpanelResult.message}`);
+      console.log('🗑️ 3. Deletando email do cPanel...');
+      const cpanelResult = await deleteCpanelEmail(userEmail);
+      deletionLog.push(`cPanel: ${cpanelResult.message}`);
+      console.log(`   Resultado: ${cpanelResult.message}`);
+    } else {
+      console.log('⚠️ 3. Email não encontrado, pulando cPanel');
+      deletionLog.push('cPanel: pulado (sem email)');
     }
 
-    // Deletar atribuições de clientes
-    await db
+    // 4. DELETAR REGISTROS DO BANCO (em ordem de dependência)
+    console.log('🗃️ 4. Deletando registros do banco...');
+
+    // 4.1 Deletar atribuições de clientes
+    const { error: assignError } = await db
       .from('employee_client_assignments')
       .delete()
-      .eq('employee_id', employeeId);
+      .eq('employee_id', userId);
+    
+    if (!assignError) {
+      deletionLog.push('employee_client_assignments: deletado');
+      console.log('   ✅ employee_client_assignments deletado');
+    }
 
-    // Deletar registro do employee
-    const { error: deleteEmpError } = await db
+    // 4.2 Deletar mensagens (opcional - pode manter histórico)
+    // await db.from('messages').delete().eq('sender_id', userId);
+
+    // 4.3 Deletar da tabela employees
+    const { error: empDelError } = await db
       .from('employees')
       .delete()
-      .eq('user_id', employeeId);
-
-    if (deleteEmpError) {
-      console.error('Erro ao deletar employee:', deleteEmpError);
+      .eq('user_id', userId);
+    
+    if (!empDelError) {
+      deletionLog.push('employees: deletado');
+      console.log('   ✅ employees deletado');
+    } else {
+      console.error('   ❌ Erro ao deletar employees:', empDelError);
     }
 
-    // Atualizar user_profiles para marcar como inativo (soft delete)
-    await db
+    // 4.4 Deletar do user_profiles
+    const { error: profileError } = await db
       .from('user_profiles')
-      .update({ 
-        is_active: false,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', employeeId);
-
-    // Atualizar users para marcar como deletado
-    await db
-      .from('users')
-      .update({ 
-        account_status: 'deleted',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', employeeId);
-
-    // Deletar o usuário do Auth (hard delete)
-    try {
-      const { error: authError } = await db.auth.admin.deleteUser(employeeId);
-      if (authError) {
-        console.warn('Aviso: Não foi possível deletar usuário do Auth:', authError.message);
-      }
-    } catch (authErr) {
-      console.warn('Aviso: Erro ao tentar deletar do Auth:', authErr);
+      .delete()
+      .eq('user_id', userId);
+    
+    if (!profileError) {
+      deletionLog.push('user_profiles: deletado');
+      console.log('   ✅ user_profiles deletado');
+    } else {
+      console.error('   ❌ Erro ao deletar user_profiles:', profileError);
     }
+
+    // 4.5 Deletar da tabela users (se existir)
+    const { error: usersError } = await db
+      .from('users')
+      .delete()
+      .eq('id', userId);
+    
+    if (!usersError) {
+      deletionLog.push('users: deletado');
+      console.log('   ✅ users deletado');
+    } else {
+      console.error('   ❌ Erro ao deletar users:', usersError);
+    }
+
+    // 5. DELETAR DO SUPABASE AUTH (hard delete)
+    console.log('🔐 5. Deletando do Supabase Auth...');
+    try {
+      const { error: authError } = await db.auth.admin.deleteUser(userId);
+      if (!authError) {
+        deletionLog.push('auth.users: deletado');
+        console.log('   ✅ auth.users deletado');
+      } else {
+        deletionLog.push(`auth.users: erro - ${authError.message}`);
+        console.error('   ❌ Erro ao deletar auth:', authError.message);
+      }
+    } catch (authErr: any) {
+      deletionLog.push(`auth.users: exceção - ${authErr.message}`);
+      console.error('   ❌ Exceção ao deletar auth:', authErr.message);
+    }
+
+    console.log(`\n${'='.repeat(50)}`);
+    console.log(`✅ EXCLUSÃO FINALIZADA`);
+    console.log(`${'='.repeat(50)}\n`);
 
     return NextResponse.json({
       success: true,
-      message: 'Colaborador excluído com sucesso',
+      message: 'Colaborador excluído completamente',
       deleted: {
-        name: `${employee.first_name} ${employee.last_name}`,
-        id: employeeId,
+        id: userId,
+        name: `${employee?.first_name || ''} ${employee?.last_name || ''}`.trim(),
         email: userEmail,
       },
-      cpanel: cpanelResult,
+      log: deletionLog,
     });
+
   } catch (error: any) {
-    console.error('Erro ao excluir colaborador:', error);
-    return NextResponse.json(
-      { error: error.message || 'Erro ao excluir colaborador' },
-      { status: 500 }
-    );
+    console.error('❌ ERRO FATAL na exclusão:', error);
+    return NextResponse.json({
+      success: false,
+      error: error.message,
+      log: deletionLog,
+    }, { status: 500 });
   }
 }
 
+// ============================================
 // PATCH - Atualizar dados do colaborador
+// ============================================
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { employeeId: string } }
@@ -240,9 +339,8 @@ export async function PATCH(
   const body = await request.json();
 
   try {
-    // Atualizar employee
     if (body.first_name || body.last_name || body.areas || body.whatsapp) {
-      const { error: empError } = await db
+      await db
         .from('employees')
         .update({
           ...(body.first_name && { first_name: body.first_name }),
@@ -252,11 +350,8 @@ export async function PATCH(
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', employeeId);
-
-      if (empError) throw empError;
     }
 
-    // Atualizar user_profiles
     if (body.full_name || body.phone) {
       await db
         .from('user_profiles')
@@ -268,15 +363,8 @@ export async function PATCH(
         .eq('user_id', employeeId);
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Colaborador atualizado com sucesso',
-    });
+    return NextResponse.json({ success: true, message: 'Colaborador atualizado' });
   } catch (error: any) {
-    console.error('Erro ao atualizar colaborador:', error);
-    return NextResponse.json(
-      { error: error.message || 'Erro ao atualizar colaborador' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -2,10 +2,13 @@
  * Serviço Unificado de Email com Sistema de Fallback
  * 
  * Ordem de tentativa:
- * 1. SendGrid (principal)
- * 2. Resend (fallback)
- * 3. Retorna credenciais para exibição manual
+ * 1. SendGrid (se configurado)
+ * 2. Resend (se configurado)
+ * 3. SMTP direto (Nodemailer - se configurado)
+ * 4. Retorna credenciais para exibição manual
  */
+
+import nodemailer from 'nodemailer';
 
 export interface EmailPayload {
   to: string;
@@ -19,7 +22,7 @@ export interface EmailPayload {
 
 export interface EmailResult {
   success: boolean;
-  provider?: 'sendgrid' | 'resend' | 'manual';
+  provider?: 'sendgrid' | 'resend' | 'smtp' | 'manual';
   message: string;
   error?: string;
   fallbackMode?: boolean;
@@ -38,12 +41,16 @@ async function sendViaSendGrid(payload: EmailPayload): Promise<EmailResult> {
   const apiKey = (process.env.SENDGRID_API_KEY || '').trim();
   
   if (!apiKey) {
+    console.log('⚠️ [SendGrid] API Key não configurada');
     return { success: false, message: 'SendGrid não configurado', error: 'API_KEY_MISSING' };
   }
 
   try {
     const fromEmail = payload.from?.email || process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br';
     const fromName = payload.from?.name || process.env.SENDGRID_FROM_NAME || 'Valle 360';
+
+    console.log(`📧 [SendGrid] Enviando para: ${payload.to}`);
+    console.log(`📧 [SendGrid] De: ${fromName} <${fromEmail}>`);
 
     const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -59,21 +66,23 @@ async function sendViaSendGrid(payload: EmailPayload): Promise<EmailResult> {
       }),
     });
 
+    console.log(`📧 [SendGrid] Status: ${response.status}`);
+
     if (response.status === 202 || response.ok) {
-      console.log(`✅ [SendGrid] Email enviado para: ${payload.to}`);
+      console.log(`✅ [SendGrid] Email enviado com sucesso!`);
       return { success: true, provider: 'sendgrid', message: 'Email enviado via SendGrid' };
     }
 
     const errorText = await response.text();
-    console.error(`❌ [SendGrid] Erro ${response.status}:`, errorText);
+    console.error(`❌ [SendGrid] Erro: ${errorText}`);
     return { 
       success: false, 
-      message: `SendGrid retornou status ${response.status}`,
+      message: `SendGrid erro ${response.status}`,
       error: errorText 
     };
   } catch (error: any) {
-    console.error('❌ [SendGrid] Exceção:', error);
-    return { success: false, message: 'Erro ao enviar via SendGrid', error: error.message };
+    console.error('❌ [SendGrid] Exceção:', error.message);
+    return { success: false, message: 'Erro SendGrid', error: error.message };
   }
 }
 
@@ -84,12 +93,17 @@ async function sendViaResend(payload: EmailPayload): Promise<EmailResult> {
   const apiKey = (process.env.RESEND_API_KEY || '').trim();
   
   if (!apiKey) {
+    console.log('⚠️ [Resend] API Key não configurada');
     return { success: false, message: 'Resend não configurado', error: 'API_KEY_MISSING' };
   }
 
   try {
+    // Resend requer domínio verificado. Por padrão usa onboarding@resend.dev
     const fromEmail = payload.from?.email || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
     const fromName = payload.from?.name || process.env.RESEND_FROM_NAME || 'Valle 360';
+
+    console.log(`📧 [Resend] Enviando para: ${payload.to}`);
+    console.log(`📧 [Resend] De: ${fromName} <${fromEmail}>`);
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -106,21 +120,75 @@ async function sendViaResend(payload: EmailPayload): Promise<EmailResult> {
     });
 
     const data = await response.json();
+    console.log(`📧 [Resend] Response:`, data);
 
     if (response.ok && data.id) {
-      console.log(`✅ [Resend] Email enviado para: ${payload.to} (ID: ${data.id})`);
+      console.log(`✅ [Resend] Email enviado! ID: ${data.id}`);
       return { success: true, provider: 'resend', message: 'Email enviado via Resend' };
     }
 
     console.error('❌ [Resend] Erro:', data);
     return { 
       success: false, 
-      message: data.message || 'Erro no Resend',
+      message: data.message || 'Erro Resend',
       error: JSON.stringify(data) 
     };
   } catch (error: any) {
-    console.error('❌ [Resend] Exceção:', error);
-    return { success: false, message: 'Erro ao enviar via Resend', error: error.message };
+    console.error('❌ [Resend] Exceção:', error.message);
+    return { success: false, message: 'Erro Resend', error: error.message };
+  }
+}
+
+// ============================================
+// SMTP (Nodemailer)
+// ============================================
+async function sendViaSMTP(payload: EmailPayload): Promise<EmailResult> {
+  const smtpHost = (process.env.SMTP_HOST || '').trim();
+  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+  const smtpUser = (process.env.SMTP_USER || '').trim();
+  const smtpPass = (process.env.SMTP_PASSWORD || process.env.SMTP_PASS || '').trim();
+  const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
+
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    console.log('⚠️ [SMTP] Não configurado');
+    return { success: false, message: 'SMTP não configurado', error: 'SMTP_NOT_CONFIGURED' };
+  }
+
+  try {
+    const fromEmail = payload.from?.email || smtpUser;
+    const fromName = payload.from?.name || 'Valle 360';
+
+    console.log(`📧 [SMTP] Configurando transporter...`);
+    console.log(`📧 [SMTP] Host: ${smtpHost}:${smtpPort} (secure: ${smtpSecure})`);
+    console.log(`📧 [SMTP] User: ${smtpUser}`);
+
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+      tls: {
+        rejectUnauthorized: false, // Aceita certificados auto-assinados
+      },
+    });
+
+    console.log(`📧 [SMTP] Enviando para: ${payload.to}`);
+
+    const info = await transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: payload.to,
+      subject: payload.subject,
+      html: payload.html,
+    });
+
+    console.log(`✅ [SMTP] Email enviado! MessageId: ${info.messageId}`);
+    return { success: true, provider: 'smtp', message: 'Email enviado via SMTP' };
+  } catch (error: any) {
+    console.error('❌ [SMTP] Erro:', error.message);
+    return { success: false, message: 'Erro SMTP', error: error.message };
   }
 }
 
@@ -134,26 +202,44 @@ export async function sendEmailWithFallback(
     senha: string;
   }
 ): Promise<EmailResult> {
-  console.log(`📧 Iniciando envio de email para: ${payload.to}`);
+  console.log(`\n${'='.repeat(50)}`);
+  console.log(`📧 INICIANDO ENVIO DE EMAIL`);
+  console.log(`📧 Para: ${payload.to}`);
+  console.log(`📧 Assunto: ${payload.subject}`);
+  console.log(`${'='.repeat(50)}\n`);
+
+  const attempts: string[] = [];
 
   // 1. Tenta SendGrid
-  console.log('🔄 Tentando SendGrid...');
+  console.log('🔄 [1/3] Tentando SendGrid...');
   const sendgridResult = await sendViaSendGrid(payload);
+  attempts.push(`SendGrid: ${sendgridResult.success ? '✅' : '❌'} ${sendgridResult.message}`);
   if (sendgridResult.success) {
+    console.log('✅ Email enviado via SendGrid!\n');
     return sendgridResult;
   }
-  console.log(`⚠️ SendGrid falhou: ${sendgridResult.message}`);
 
   // 2. Tenta Resend
-  console.log('🔄 Tentando Resend...');
+  console.log('🔄 [2/3] Tentando Resend...');
   const resendResult = await sendViaResend(payload);
+  attempts.push(`Resend: ${resendResult.success ? '✅' : '❌'} ${resendResult.message}`);
   if (resendResult.success) {
+    console.log('✅ Email enviado via Resend!\n');
     return resendResult;
   }
-  console.log(`⚠️ Resend falhou: ${resendResult.message}`);
 
-  // 3. Fallback: Retorna credenciais para exibição manual
-  console.log('📋 Ativando modo fallback manual...');
+  // 3. Tenta SMTP
+  console.log('🔄 [3/3] Tentando SMTP...');
+  const smtpResult = await sendViaSMTP(payload);
+  attempts.push(`SMTP: ${smtpResult.success ? '✅' : '❌'} ${smtpResult.message}`);
+  if (smtpResult.success) {
+    console.log('✅ Email enviado via SMTP!\n');
+    return smtpResult;
+  }
+
+  // 4. Fallback: Retorna credenciais para exibição manual
+  console.log('❌ Todos os métodos falharam. Ativando modo fallback.\n');
+  console.log('Tentativas:', attempts.join(' | '));
   
   const webmailUrl = process.env.WEBMAIL_URL || 'https://webmail.vallegroup.com.br/';
   const loginUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.valle360.com.br/login';
@@ -162,14 +248,14 @@ export async function sendEmailWithFallback(
     success: false,
     fallbackMode: true,
     provider: 'manual',
-    message: 'Não foi possível enviar email. Use as credenciais abaixo para enviar manualmente.',
+    message: 'Nenhum provedor de email funcionou. Use as credenciais para envio manual.',
     credentials: credentials ? {
       email: credentials.email,
       senha: credentials.senha,
       webmailUrl,
       loginUrl,
     } : undefined,
-    error: `SendGrid: ${sendgridResult.error || sendgridResult.message} | Resend: ${resendResult.error || resendResult.message}`,
+    error: attempts.join(' | '),
   };
 }
 
