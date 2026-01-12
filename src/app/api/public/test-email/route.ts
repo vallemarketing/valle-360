@@ -58,6 +58,73 @@ export async function GET(request: NextRequest) {
     console.log(`${'='.repeat(60)}\n`);
 
     try {
+      // Testar cada provedor individualmente para diagnóstico
+      const diagnostics: any = {};
+      
+      // Teste SendGrid
+      try {
+        const sgKey = process.env.SENDGRID_API_KEY?.substring(0, 15) + '...';
+        const sgFrom = process.env.SENDGRID_FROM_EMAIL || 'não definido';
+        const sgResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            personalizations: [{ to: [{ email }] }],
+            from: { email: sgFrom || 'noreply@valle360.com.br', name: 'Valle 360 Teste' },
+            subject: 'Teste SendGrid',
+            content: [{ type: 'text/html', value: '<p>Teste</p>' }],
+          }),
+        });
+        const sgText = await sgResponse.text();
+        diagnostics.sendgrid = {
+          status: sgResponse.status,
+          ok: sgResponse.ok,
+          fromEmail: sgFrom,
+          response: sgText.substring(0, 200),
+        };
+      } catch (e: any) {
+        diagnostics.sendgrid = { error: e.message };
+      }
+      
+      // Teste Resend
+      try {
+        const resendResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'Valle 360 <onboarding@resend.dev>',
+            to: [email],
+            subject: 'Teste Resend',
+            html: '<p>Teste via Resend</p>',
+          }),
+        });
+        const resendData = await resendResponse.json();
+        diagnostics.resend = {
+          status: resendResponse.status,
+          ok: resendResponse.ok,
+          data: resendData,
+        };
+      } catch (e: any) {
+        diagnostics.resend = { error: e.message };
+      }
+
+      // Se algum funcionou, retorna sucesso
+      if (diagnostics.sendgrid?.ok || diagnostics.resend?.ok) {
+        return NextResponse.json({
+          success: true,
+          message: diagnostics.sendgrid?.ok ? 'Email enviado via SendGrid!' : 'Email enviado via Resend!',
+          provider: diagnostics.sendgrid?.ok ? 'sendgrid' : 'resend',
+          diagnostics,
+          emailDestino: email,
+        });
+      }
+
       const result = await sendEmailWithFallback({
         to: email,
         subject: '🧪 Teste Valle 360 - Email Funcionando!',
@@ -100,6 +167,7 @@ export async function GET(request: NextRequest) {
         message: result.message,
         provider: result.provider,
         fallbackMode: result.fallbackMode,
+        diagnostics,
         configs,
         activeProviders,
         emailDestino: email,
