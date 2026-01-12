@@ -34,19 +34,51 @@ export async function POST(request: NextRequest) {
 
     const db = getSupabaseAdmin();
 
-    // Buscar dados do colaborador
-    const { data: employee, error: empError } = await db
+    // Buscar dados do colaborador - tentar por user_id primeiro, depois por id
+    let employee: any = null;
+    
+    // Tentar buscar por user_id
+    const { data: empByUserId } = await db
       .from('employees')
-      .select('id, user_id, full_name, email, phone')
-      .eq('id', employeeId)
+      .select('id, user_id, first_name, last_name, email, whatsapp')
+      .eq('user_id', employeeId)
       .single();
+    
+    if (empByUserId) {
+      employee = empByUserId;
+    } else {
+      // Tentar buscar por id do employee
+      const { data: empById } = await db
+        .from('employees')
+        .select('id, user_id, first_name, last_name, email, whatsapp')
+        .eq('id', employeeId)
+        .single();
+      
+      if (empById) {
+        employee = empById;
+      }
+    }
 
-    if (empError || !employee) {
+    if (!employee) {
       return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
     }
 
-    const emailCorporativo = employee.email;
-    const nome = employee.full_name?.split(' ')[0] || 'Colaborador';
+    // Buscar email corporativo do users
+    let emailCorporativo = employee.email;
+    if (!emailCorporativo && employee.user_id) {
+      const { data: user } = await db
+        .from('users')
+        .select('email')
+        .eq('id', employee.user_id)
+        .single();
+      emailCorporativo = user?.email;
+    }
+    
+    if (!emailCorporativo) {
+      return NextResponse.json({ error: 'Email corporativo não encontrado' }, { status: 400 });
+    }
+
+    const nome = employee.first_name || 'Colaborador';
 
     // Se foi fornecida nova senha, atualizar no auth
     let senhaFinal = novaSenha;

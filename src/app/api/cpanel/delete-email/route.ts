@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const cookieStore = cookies()
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-    // Somente admin (provisionamento de mailbox)
+    // Somente admin
     const { data: authData } = await supabase.auth.getUser()
     if (!authData.user?.id) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
@@ -30,11 +30,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Acesso negado (admin)' }, { status: 403 })
     }
 
-    const { email, password } = await request.json()
+    const { email } = await request.json()
 
-    if (!email || !password) {
+    if (!email) {
       return NextResponse.json(
-        { error: 'Email e senha são obrigatórios' },
+        { error: 'Email é obrigatório' },
         { status: 400 }
       )
     }
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Credenciais do cPanel (configurar no .env.local)
+    // Credenciais do cPanel
     const cpanelUser = process.env.CPANEL_USER
     const cpanelPassword = process.env.CPANEL_PASSWORD
     const cpanelDomain = process.env.CPANEL_DOMAIN
@@ -58,8 +58,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           success: false, 
-          message: 'Credenciais do cPanel não configuradas. Configure CPANEL_USER, CPANEL_PASSWORD e CPANEL_DOMAIN (ex.: https://SEU_HOST:2083).',
-          email 
+          message: 'Credenciais do cPanel não configuradas',
+          email,
+          skipped: true
         },
         { status: 200 }
       )
@@ -68,14 +69,13 @@ export async function POST(request: NextRequest) {
     // Criar Basic Auth
     const basicAuth = Buffer.from(`${cpanelUser}:${cpanelPassword}`).toString('base64')
 
-    // Construir URL da API do cPanel (UAPI)
+    // Construir URL da API do cPanel (UAPI) para deletar email
     const baseUrl = normalizeCpanelBaseUrl(cpanelDomain)
-    const apiUrl = `${baseUrl}/execute/Email/add_pop?email=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&domain=${encodeURIComponent(domain)}&quota=500`
+    const apiUrl = `${baseUrl}/execute/Email/delete_pop?email=${encodeURIComponent(username)}&domain=${encodeURIComponent(domain)}`
+
+    console.log(`🗑️ Tentando deletar email no cPanel: ${email}`)
 
     // Fazer requisição para o cPanel
-    console.log(`📧 Tentando criar email no cPanel: ${email}`)
-    console.log(`🔗 URL: ${apiUrl.replace(/password=[^&]+/, 'password=***')}`)
-    
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
@@ -88,61 +88,57 @@ export async function POST(request: NextRequest) {
     const contentType = response.headers.get('content-type')
     if (!contentType || !contentType.includes('application/json')) {
       const text = await response.text()
-      console.error('❌ cPanel retornou HTML ao invés de JSON:', text.substring(0, 300))
+      console.error('❌ cPanel retornou HTML ao invés de JSON:', text.substring(0, 200))
       return NextResponse.json({
         success: false,
-        message: 'cPanel retornou resposta inválida (HTML). Verifique a configuração.',
-        hint: 'CPANEL_DOMAIN deve ser a URL completa com porta, ex: https://seu-servidor.com:2083',
-        details: 'A resposta do servidor não é JSON. Isso pode indicar URL incorreta ou problema de autenticação.',
-        email
-      }, { status: 500 })
+        message: 'cPanel retornou resposta inválida. Verifique CPANEL_DOMAIN.',
+        hint: 'CPANEL_DOMAIN deve ser algo como: https://seu-servidor.com:2083',
+        email,
+        skipped: true
+      }, { status: 200 })
     }
 
     const data = await response.json()
 
     if (data.result?.status === 1 || data.status === 1) {
-      console.log(`✅ Email criado no cPanel: ${email}`)
+      console.log(`✅ Email deletado do cPanel: ${email}`)
       return NextResponse.json({
         success: true,
-        message: 'Email criado com sucesso no cPanel',
-        email,
-        data: data.result?.data || data.data
+        message: 'Email deletado com sucesso do cPanel',
+        email
       })
     } else {
-      const errors = data.result?.errors || data.errors || ['Erro desconhecido']
-      console.error('❌ Erro ao criar email no cPanel:', errors)
-      
-      // Verificar se é erro de email já existente
-      const emailExists = errors.some((e: string) => 
-        e.toLowerCase().includes('already exists') || 
-        e.toLowerCase().includes('já existe')
+      // Se o email não existe, considerar como sucesso
+      const errors = data.result?.errors || data.errors || []
+      const emailNotExists = errors.some((e: string) => 
+        e.toLowerCase().includes('does not exist') || 
+        e.toLowerCase().includes('não existe')
       )
       
-      if (emailExists) {
-        console.log(`ℹ️ Email já existe no cPanel: ${email}`)
+      if (emailNotExists) {
+        console.log(`ℹ️ Email já não existe no cPanel: ${email}`)
         return NextResponse.json({
           success: true,
-          message: 'Email já existe no cPanel',
-          email,
-          alreadyExists: true
+          message: 'Email não existe no cPanel (já foi removido)',
+          email
         })
       }
-      
+
+      console.error('❌ Erro ao deletar email no cPanel:', errors)
       return NextResponse.json({
         success: false,
-        message: 'Erro ao criar email no cPanel',
-        errors
+        message: 'Erro ao deletar email no cPanel',
+        errors,
+        email
       }, { status: 400 })
     }
 
   } catch (error: any) {
-    console.error('Erro na API de criação de email:', error)
+    console.error('Erro na API de exclusão de email:', error)
     return NextResponse.json({
       success: false,
-      error: error.message || 'Erro desconhecido'
+      error: error.message || 'Erro desconhecido',
+      skipped: true
     }, { status: 500 })
   }
 }
-
-
-

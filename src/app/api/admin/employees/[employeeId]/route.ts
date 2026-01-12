@@ -51,6 +51,74 @@ export async function GET(
   }
 }
 
+// Função auxiliar para deletar email do cPanel
+async function deleteCpanelEmail(email: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const cpanelUser = process.env.CPANEL_USER;
+    const cpanelPassword = process.env.CPANEL_PASSWORD;
+    const cpanelDomain = process.env.CPANEL_DOMAIN;
+
+    if (!cpanelUser || !cpanelPassword || !cpanelDomain) {
+      console.warn('⚠️ Credenciais do cPanel não configuradas - pulando exclusão de email');
+      return { success: true, message: 'cPanel não configurado, email não deletado' };
+    }
+
+    const [username, domain] = email.split('@');
+    if (!username || !domain) {
+      return { success: false, message: 'Email inválido' };
+    }
+
+    const basicAuth = Buffer.from(`${cpanelUser}:${cpanelPassword}`).toString('base64');
+    
+    // Normalizar URL do cPanel
+    let baseUrl = cpanelDomain.trim();
+    if (!/^https?:\/\//i.test(baseUrl)) {
+      baseUrl = `https://${baseUrl}`;
+    }
+    baseUrl = baseUrl.replace(/\/+$/, '');
+
+    const apiUrl = `${baseUrl}/execute/Email/delete_pop?email=${encodeURIComponent(username)}&domain=${encodeURIComponent(domain)}`;
+
+    console.log(`🗑️ Deletando email do cPanel: ${email}`);
+
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${basicAuth}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.warn('⚠️ cPanel retornou resposta não-JSON');
+      return { success: false, message: 'cPanel retornou resposta inválida' };
+    }
+
+    const data = await response.json();
+
+    if (data.result?.status === 1 || data.status === 1) {
+      console.log(`✅ Email deletado do cPanel: ${email}`);
+      return { success: true, message: 'Email deletado do cPanel' };
+    } else {
+      const errors = data.result?.errors || data.errors || [];
+      const emailNotExists = errors.some((e: string) => 
+        e.toLowerCase().includes('does not exist')
+      );
+      
+      if (emailNotExists) {
+        return { success: true, message: 'Email já não existe no cPanel' };
+      }
+
+      console.error('❌ Erro ao deletar email do cPanel:', errors);
+      return { success: false, message: errors.join(', ') };
+    }
+  } catch (error: any) {
+    console.error('Erro ao deletar email do cPanel:', error);
+    return { success: false, message: error.message };
+  }
+}
+
 // DELETE - Excluir um colaborador
 export async function DELETE(
   request: NextRequest,
@@ -75,6 +143,25 @@ export async function DELETE(
         { error: 'Colaborador não encontrado' },
         { status: 404 }
       );
+    }
+
+    // Buscar email do usuário para deletar do cPanel
+    let userEmail = '';
+    const { data: user } = await db
+      .from('users')
+      .select('email')
+      .eq('id', employeeId)
+      .single();
+    
+    if (user?.email) {
+      userEmail = user.email;
+    }
+
+    // Deletar email do cPanel (se configurado)
+    let cpanelResult = { success: true, message: '' };
+    if (userEmail && userEmail.includes('@')) {
+      cpanelResult = await deleteCpanelEmail(userEmail);
+      console.log(`📧 cPanel delete result: ${cpanelResult.message}`);
     }
 
     // Deletar atribuições de clientes
@@ -102,7 +189,7 @@ export async function DELETE(
       })
       .eq('user_id', employeeId);
 
-    // Atualizar users para marcar como inativo
+    // Atualizar users para marcar como deletado
     await db
       .from('users')
       .update({ 
@@ -111,8 +198,7 @@ export async function DELETE(
       })
       .eq('id', employeeId);
 
-    // Opcionalmente, deletar o usuário do Auth (hard delete)
-    // Isso é mais agressivo e impede o usuário de fazer login novamente
+    // Deletar o usuário do Auth (hard delete)
     try {
       const { error: authError } = await db.auth.admin.deleteUser(employeeId);
       if (authError) {
@@ -128,7 +214,9 @@ export async function DELETE(
       deleted: {
         name: `${employee.first_name} ${employee.last_name}`,
         id: employeeId,
+        email: userEmail,
       },
+      cpanel: cpanelResult,
     });
   } catch (error: any) {
     console.error('Erro ao excluir colaborador:', error);
