@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Plus, Mail, Phone, Award, Calendar, MoreVertical, X, TrendingUp, Target, Clock, Star, AlertTriangle, CheckCircle, ChevronRight, Sparkles, Copy, Edit, Trash2, Eye, Power, PowerOff, User, RefreshCw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { CredentialsModal } from '@/components/admin/CredentialsModal'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -53,6 +54,16 @@ export default function EmployeesListPage() {
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null)
   const [deletingEmployee, setDeletingEmployee] = useState(false)
   const [resendingEmail, setResendingEmail] = useState<string | null>(null)
+  
+  // Estados para modal de credenciais
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false)
+  const [credenciaisInfo, setCredenciaisInfo] = useState<{
+    email: string
+    senha: string
+    nome: string
+    emailEnviado: boolean
+    provider?: string
+  } | null>(null)
 
   const handleViewDetails = (emp: Employee) => {
     setSelectedEmployee(emp)
@@ -123,13 +134,40 @@ export default function EmployeesListPage() {
       const res = await fetch('/api/admin/resend-welcome', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify({ employeeId: emp.id }),
+        body: JSON.stringify({ employeeId: emp.id, tipo: 'colaborador' }),
       })
       
       const data = await res.json().catch(() => null)
-      if (!res.ok) throw new Error(data?.error || 'Falha ao reenviar email')
       
-      toast.success('Email de boas-vindas reenviado com sucesso!')
+      if (data?.success) {
+        // Email enviado com sucesso
+        toast.success(`Credenciais enviadas via ${data.provider || 'email'}!`)
+        
+        // Mostrar modal com as credenciais (mesmo com sucesso, útil para copiar)
+        if (data.credentials) {
+          setCredenciaisInfo({
+            email: data.credentials.email,
+            senha: data.credentials.senha,
+            nome: emp.fullName,
+            emailEnviado: true,
+            provider: data.provider,
+          })
+          setShowCredentialsModal(true)
+        }
+      } else if (data?.fallbackMode || data?.credentials) {
+        // Email não enviado - modo fallback
+        toast.warning('Email não enviado. Use o modal para copiar as credenciais.')
+        setCredenciaisInfo({
+          email: data.credentials.email,
+          senha: data.credentials.senha,
+          nome: emp.fullName,
+          emailEnviado: false,
+        })
+        setShowCredentialsModal(true)
+      } else {
+        throw new Error(data?.error || 'Falha ao reenviar email')
+      }
+      
       setOpenMenuId(null)
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao reenviar email')
@@ -1066,6 +1104,27 @@ export default function EmployeesListPage() {
         <div 
           className="fixed inset-0 z-40" 
           onClick={() => setOpenMenuId(null)}
+        />
+      )}
+      
+      {/* Modal de Credenciais */}
+      {credenciaisInfo && (
+        <CredentialsModal
+          isOpen={showCredentialsModal}
+          onClose={() => {
+            setShowCredentialsModal(false)
+            setCredenciaisInfo(null)
+          }}
+          credentials={{
+            email: credenciaisInfo.email,
+            senha: credenciaisInfo.senha,
+            webmailUrl: 'https://webmail.vallegroup.com.br/',
+            loginUrl: typeof window !== 'undefined' ? `${window.location.origin}/login` : '/login',
+          }}
+          nome={credenciaisInfo.nome}
+          tipo="colaborador"
+          emailEnviado={credenciaisInfo.emailEnviado}
+          provider={credenciaisInfo.provider}
         />
       )}
     </div>

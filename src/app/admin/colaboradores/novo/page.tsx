@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, Send, User, Mail, Phone, MapPin, Briefcase, Shield, Calendar, DollarSign, Building } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
+import { CredentialsModal } from '@/components/admin/CredentialsModal'
 
 export default function NovoColaboradorPage() {
   const router = useRouter()
@@ -14,6 +15,16 @@ export default function NovoColaboradorPage() {
   const [emailGerado, setEmailGerado] = useState('')
   const [emailConflito, setEmailConflito] = useState(false)
   const [emailModoManual, setEmailModoManual] = useState(false)
+  
+  // Estado para modal de credenciais
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false)
+  const [credenciaisInfo, setCredenciaisInfo] = useState<{
+    email: string
+    senha: string
+    nome: string
+    emailEnviado: boolean
+    provider?: string
+  } | null>(null)
   
   const [formData, setFormData] = useState({
     // Dados Pessoais
@@ -198,6 +209,10 @@ export default function NovoColaboradorPage() {
     `
 
     // Enviar email para o email PESSOAL do colaborador
+    let emailEnviado = false
+    let emailProvider = ''
+    let fallbackCredentials = null
+    
     try {
       const response = await fetch('/api/send-welcome-email', {
         method: 'POST',
@@ -208,16 +223,30 @@ export default function NovoColaboradorPage() {
           nome: formData.nome,
           senha,
           areasTexto,
+          tipo: 'colaborador',
           loginUrl: `${window.location.origin}/login`
         })
       })
 
-      if (!response.ok) {
-        console.error('Erro ao enviar email de boas-vindas')
+      const result = await response.json()
+      
+      if (result.success) {
+        emailEnviado = true
+        emailProvider = result.provider || 'email'
+        console.log(`✅ Email de boas-vindas enviado via ${emailProvider}`)
+      } else if (result.fallbackMode) {
+        // Email não foi enviado - guardar credenciais para exibir
+        fallbackCredentials = result.credentials
+        console.warn('⚠️ Email não enviado - modo fallback ativado')
+      } else {
+        console.error('❌ Erro ao enviar email:', result.error)
       }
     } catch (error) {
       console.error('Erro ao enviar email:', error)
     }
+    
+    // Retornar info para o handleSubmit tratar
+    return { emailEnviado, emailProvider, fallbackCredentials }
 
     // Registrar envio no log (opcional - não bloqueia se falhar)
     try {
@@ -339,11 +368,11 @@ export default function NovoColaboradorPage() {
       }
 
       // 3. Enviar boas-vindas para o EMAIL PESSOAL
-      await enviarBoasVindas(result.employeeId, formData.email, formData.email_pessoal, senhaProvisoria, formData.areas_atuacao)
+      const emailResult = await enviarBoasVindas(result.employeeId, formData.email, formData.email_pessoal, senhaProvisoria, formData.areas_atuacao)
 
       // 4. Mostrar mensagem de sucesso
       toast.success('Colaborador criado com sucesso!');
-      toast.message(`Credenciais enviadas para: ${formData.email_pessoal}`);
+      
       if (mailboxCreated) {
         toast.success('Mailbox criada no cPanel.');
       } else {
@@ -354,8 +383,22 @@ export default function NovoColaboradorPage() {
         );
       }
 
-      // 5. Redirecionar
-      router.push('/admin/colaboradores?success=colaborador_criado')
+      // 5. Verificar resultado do email
+      if (emailResult?.emailEnviado) {
+        toast.success(`Credenciais enviadas para: ${formData.email_pessoal}`);
+        // Redirecionar após sucesso
+        router.push('/admin/colaboradores?success=colaborador_criado')
+      } else {
+        // Email não foi enviado - mostrar modal com credenciais
+        setCredenciaisInfo({
+          email: formData.email,
+          senha: senhaProvisoria,
+          nome: formData.nome,
+          emailEnviado: false,
+        })
+        setShowCredentialsModal(true)
+        toast.warning('Email não enviado automaticamente. Use o modal para copiar as credenciais.')
+      }
 
     } catch (error: any) {
       console.error('Erro ao criar colaborador:', error)
@@ -767,6 +810,28 @@ export default function NovoColaboradorPage() {
           </button>
         </div>
       </form>
+      
+      {/* Modal de Credenciais - exibe quando email não foi enviado */}
+      {credenciaisInfo && (
+        <CredentialsModal
+          isOpen={showCredentialsModal}
+          onClose={() => {
+            setShowCredentialsModal(false)
+            // Redirecionar após fechar o modal
+            router.push('/admin/colaboradores?success=colaborador_criado')
+          }}
+          credentials={{
+            email: credenciaisInfo.email,
+            senha: credenciaisInfo.senha,
+            webmailUrl: 'https://webmail.vallegroup.com.br/',
+            loginUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/login`,
+          }}
+          nome={credenciaisInfo.nome}
+          tipo="colaborador"
+          emailEnviado={credenciaisInfo.emailEnviado}
+          provider={credenciaisInfo.provider}
+        />
+      )}
     </div>
   )
 }
