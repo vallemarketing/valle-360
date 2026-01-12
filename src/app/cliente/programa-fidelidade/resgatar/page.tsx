@@ -312,7 +312,7 @@ export default function RewardsRedemptionPage() {
                     {/* Badges */}
                     <div className="absolute top-2 right-2 flex gap-1">
                       {reward.is_limited && (
-                        <Badge variant="destructive" className="text-xs">
+                        <Badge variant="danger" className="text-xs">
                           <Clock className="w-3 h-3 mr-1" />
                           Limitado
                         </Badge>
