@@ -24,7 +24,7 @@ async function handleSocialMetricsCron(request: NextRequest) {
   const today = isoDateUTC(new Date());
   const nowIso = new Date().toISOString();
 
-  // Busca contas conectadas (Meta/Instagram) com tokens
+  // Busca contas conectadas (Meta/Instagram) com tokens - tabela legada
   const { data: rows, error } = await admin
     .from('social_connected_accounts')
     .select(
@@ -43,9 +43,18 @@ async function handleSocialMetricsCron(request: NextRequest) {
     .in('platform', ['instagram', 'facebook'])
     .limit(2000);
 
+  // Também busca da nova tabela client_social_connections (OAuth Meta)
+  const { data: newConnRows } = await admin
+    .from('client_social_connections')
+    .select('*')
+    .in('platform', ['instagram', 'facebook'])
+    .eq('is_active', true)
+    .limit(2000);
+
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
 
-  const accounts = (rows || []).map((r: any) => {
+  // Mapear contas da tabela legada
+  const accountsLegacy = (rows || []).map((r: any) => {
     const sec = Array.isArray(r?.social_connected_account_secrets)
       ? r.social_connected_account_secrets[0]
       : r.social_connected_account_secrets;
@@ -57,7 +66,29 @@ async function handleSocialMetricsCron(request: NextRequest) {
       status: String(r.status || 'active'),
       token: sec?.access_token ? String(sec.access_token) : '',
       expires_at: sec?.expires_at ? String(sec.expires_at) : null,
+      source: 'legacy' as const,
     };
+  });
+
+  // Mapear contas da nova tabela (OAuth Meta)
+  const accountsNew = (newConnRows || []).map((r: any) => ({
+    id: String(r.id || r.account_id),
+    client_id: String(r.client_id),
+    platform: String(r.platform),
+    external_account_id: String(r.account_id),
+    status: 'active',
+    token: r.access_token ? String(r.access_token) : '',
+    expires_at: r.token_expires_at ? String(r.token_expires_at) : null,
+    source: 'oauth' as const,
+  }));
+
+  // Combinar contas (evitar duplicatas por account_id + platform)
+  const seenKeys = new Set<string>();
+  const accounts = [...accountsNew, ...accountsLegacy].filter((a) => {
+    const key = `${a.platform}:${a.external_account_id}`;
+    if (seenKeys.has(key)) return false;
+    seenKeys.add(key);
+    return true;
   });
 
   let processed = 0;
