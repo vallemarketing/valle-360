@@ -1,20 +1,30 @@
 /**
- * Serviço de Email via mailto (abertura do app de email)
- * Todas as ações de email retornam um link mailto com subject/body.
+ * Serviço Unificado de Email com Sistema de Fallback
+ * 
+ * Ordem de tentativa:
+ * 1. SMTP (cPanel - prioridade)
+ * 2. Resend
+ * 3. Gmail API
+ * 4. Mailto (manual)
  */
+
+import nodemailer from 'nodemailer';
+import { google } from 'googleapis';
 
 export interface EmailPayload {
   to: string;
   subject: string;
-  body: string;
+  html?: string;
+  text?: string;
 }
 
 export interface EmailResult {
   success: boolean;
-  provider?: 'mailto';
+  provider?: 'smtp' | 'resend' | 'gmail' | 'mailto';
   message: string;
   error?: string;
   mailtoUrl?: string;
+  fallbackMode?: boolean;
   credentials?: {
     email: string;
     senha: string;
@@ -23,35 +33,195 @@ export interface EmailResult {
   };
 }
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, '').trim();
+}
+
 function buildMailtoUrl(payload: EmailPayload): string {
   const to = payload.to || '';
   const subject = encodeURIComponent(payload.subject || '');
-  const body = encodeURIComponent(payload.body || '');
+  const bodySource = payload.text || (payload.html ? stripHtml(payload.html) : '');
+  const body = encodeURIComponent(bodySource || '');
   return `mailto:${to}?subject=${subject}&body=${body}`;
 }
 
 // ============================================
-// FUNÇÃO PRINCIPAL (MAILTO)
+// SMTP (Nodemailer - cPanel)
+// ============================================
+async function sendViaSMTP(payload: EmailPayload): Promise<EmailResult> {
+  const smtpHost = (process.env.SMTP_HOST || '').trim();
+  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+  const smtpUser = (process.env.SMTP_USER || '').trim();
+  const smtpPass = (process.env.SMTP_PASSWORD || process.env.SMTP_PASS || '').trim();
+  
+  const smtpSecure = smtpPort === 465;
+
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    return { success: false, message: 'SMTP não configurado', error: 'SMTP_NOT_CONFIGURED' };
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: { user: smtpUser, pass: smtpPass },
+      tls: { rejectUnauthorized: false },
+      requireTLS: !smtpSecure,
+    });
+
+    await transporter.sendMail({
+      from: `"Valle 360" <${smtpUser}>`,
+      to: payload.to,
+      subject: payload.subject,
+      html: payload.html || undefined,
+      text: payload.text || undefined,
+    });
+
+    return { success: true, provider: 'smtp', message: 'Email enviado via SMTP' };
+  } catch (error: any) {
+    return { success: false, message: 'Erro SMTP', error: error.message };
+  }
+}
+
+// ============================================
+// RESEND
+// ============================================
+async function sendViaResend(payload: EmailPayload): Promise<EmailResult> {
+  const apiKey = (process.env.RESEND_API_KEY || '').trim();
+  
+  if (!apiKey) {
+    return { success: false, message: 'Resend não configurado', error: 'RESEND_NOT_CONFIGURED' };
+  }
+
+  try {
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@valle360.com.br';
+    const fromName = process.env.RESEND_FROM_NAME || 'Valle 360';
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `${fromName} <${fromEmail}>`,
+        to: [payload.to],
+        subject: payload.subject,
+        html: payload.html || undefined,
+        text: payload.text || undefined,
+      }),
+    });
+
+    const data = await response.json();
+    if (response.ok && data.id) {
+      return { success: true, provider: 'resend', message: 'Email enviado via Resend' };
+    }
+
+    return { success: false, message: data.message || 'Erro Resend', error: JSON.stringify(data) };
+  } catch (error: any) {
+    return { success: false, message: 'Erro Resend', error: error.message };
+  }
+}
+
+// ============================================
+// GMAIL API (OAuth2)
+// ============================================
+async function sendViaGmailAPI(payload: EmailPayload): Promise<EmailResult> {
+  const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+  const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN || '').trim();
+  const gmailUser = (process.env.GMAIL_USER || '').trim();
+
+  if (!clientId || !clientSecret || !refreshToken || !gmailUser) {
+    return { success: false, message: 'Gmail API não configurado', error: 'GMAIL_NOT_CONFIGURED' };
+  }
+
+  try {
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+    const { token } = await oauth2Client.getAccessToken();
+    if (!token) {
+      return { success: false, message: 'Erro ao obter access token', error: 'NO_ACCESS_TOKEN' };
+    }
+
+    const emailLines = [
+      `From: "Valle 360" <${gmailUser}>`,
+      `To: ${payload.to}`,
+      `Subject: =?UTF-8?B?${Buffer.from(payload.subject).toString('base64')}?=`,
+      'MIME-Version: 1.0',
+      payload.html ? 'Content-Type: text/html; charset=UTF-8' : 'Content-Type: text/plain; charset=UTF-8',
+      '',
+      payload.html || payload.text || '',
+    ];
+
+    const email = emailLines.join('\r\n');
+    const encodedEmail = Buffer.from(email)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    const response = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: { raw: encodedEmail },
+    });
+
+    if (response.data.id) {
+      return { success: true, provider: 'gmail', message: 'Email enviado via Gmail API' };
+    }
+
+    return { success: false, message: 'Gmail API não retornou ID', error: JSON.stringify(response.data) };
+  } catch (error: any) {
+    return { success: false, message: 'Erro Gmail API', error: error.message };
+  }
+}
+
+// ============================================
+// FUNÇÃO PRINCIPAL COM FALLBACK
 // ============================================
 export async function sendEmailWithFallback(
   payload: EmailPayload,
   credentials?: { email: string; senha: string }
 ): Promise<EmailResult> {
+  const attempts: string[] = [];
   const mailtoUrl = buildMailtoUrl(payload);
   const webmailUrl = process.env.WEBMAIL_URL || 'https://webmail.vallegroup.com.br/';
   const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://valle-360-platform.vercel.app'}/login`;
 
+  const smtpResult = await sendViaSMTP(payload);
+  attempts.push(`SMTP: ${smtpResult.success ? '✅' : '❌'} ${smtpResult.error || smtpResult.message}`);
+  if (smtpResult.success) {
+    return { ...smtpResult, mailtoUrl };
+  }
+
+  const resendResult = await sendViaResend(payload);
+  attempts.push(`Resend: ${resendResult.success ? '✅' : '❌'} ${resendResult.error || resendResult.message}`);
+  if (resendResult.success) {
+    return { ...resendResult, mailtoUrl };
+  }
+
+  const gmailResult = await sendViaGmailAPI(payload);
+  attempts.push(`Gmail: ${gmailResult.success ? '✅' : '❌'} ${gmailResult.error || gmailResult.message}`);
+  if (gmailResult.success) {
+    return { ...gmailResult, mailtoUrl };
+  }
+
   return {
-    success: true,
+    success: false,
     provider: 'mailto',
-    message: 'Abra o link mailto para enviar o email manualmente.',
+    message: 'Falha no envio automático. Use o mailto.',
     mailtoUrl,
+    fallbackMode: true,
     credentials: credentials ? {
       email: credentials.email,
       senha: credentials.senha,
       webmailUrl,
       loginUrl,
     } : undefined,
+    error: attempts.join(' | '),
   };
 }
 
@@ -197,7 +367,14 @@ export async function sendWelcomeEmail(data: {
   areasTexto?: string;
   tipo: 'colaborador' | 'cliente';
 }): Promise<EmailResult> {
-  const body = generateWelcomeEmailText({
+  const text = generateWelcomeEmailText({
+    nome: data.nome,
+    emailCorporativo: data.emailCorporativo,
+    senha: data.senha,
+    areasTexto: data.areasTexto,
+    tipo: data.tipo,
+  });
+  const html = generateWelcomeEmailHTML({
     nome: data.nome,
     emailCorporativo: data.emailCorporativo,
     senha: data.senha,
@@ -210,7 +387,7 @@ export async function sendWelcomeEmail(data: {
     : '🎉 Bem-vindo à Família Valle 360!';
 
   return sendEmailWithFallback(
-    { to: data.emailDestino, subject, body },
+    { to: data.emailDestino, subject, html, text },
     { email: data.emailCorporativo, senha: data.senha }
   );
 }
@@ -369,10 +546,11 @@ export async function sendReportEmail(data: {
     geral: 'Geral',
   };
 
-  const body = generateReportEmailText(data);
+  const text = generateReportEmailText(data);
+  const html = generateReportEmailHTML(data);
   const subject = `📊 Seu Relatório ${tipoLabels[data.tipoRelatorio]} - ${data.periodo}`;
 
-  return sendEmailWithFallback({ to: data.emailDestino, subject, body });
+  return sendEmailWithFallback({ to: data.emailDestino, subject, html, text });
 }
 
 // ============================================
@@ -517,8 +695,9 @@ export async function sendSupportEmail(data: {
     resolucao: `✅ Resolvido #${data.protocolo} - ${data.assunto}`,
   };
 
-  const body = generateSupportEmailText(data);
+  const text = generateSupportEmailText(data);
+  const html = generateSupportEmailHTML(data);
   const subject = tipoSubjects[data.tipo];
 
-  return sendEmailWithFallback({ to: data.emailDestino, subject, body });
+  return sendEmailWithFallback({ to: data.emailDestino, subject, html, text });
 }

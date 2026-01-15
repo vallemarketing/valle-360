@@ -18,6 +18,7 @@ interface CredentialsModalProps {
     webmailUrl?: string
     loginUrl?: string
     emailDestino?: string
+    mailtoUrl?: string
   }
   nome: string
   tipo?: 'colaborador' | 'cliente'
@@ -93,6 +94,7 @@ _Bem-vindo à Valle 360!_ 🚀
 
   const webmailUrl = credentials.webmailUrl || 'https://webmail.vallegroup.com.br/'
   const loginUrl = credentials.loginUrl || 'https://app.valle360.com.br/login'
+  const mailtoUrl = credentials.mailtoUrl
 
   return (
     <AnimatePresence>
@@ -246,7 +248,17 @@ _Bem-vindo à Valle 360!_ 🚀
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t flex gap-3" style={{ borderColor: 'var(--border-primary)' }}>
+            <div className="p-6 border-t flex flex-col gap-3" style={{ borderColor: 'var(--border-primary)' }}>
+              {mailtoUrl && (
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => window.open(mailtoUrl, '_blank')}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Abrir Email (mailto)
+                </Button>
+              )}
+              <div className="flex gap-3">
               <Button
                 variant="outline"
                 className="flex-1"
@@ -271,6 +283,7 @@ _Bem-vindo à Valle 360!_ 🚀
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Enviar WhatsApp
               </Button>
+              </div>
             </div>
           </motion.div>
         </motion.div>

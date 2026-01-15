@@ -181,11 +181,11 @@ export default function NovoClientePage() {
       })
 
       const result = await response.json().catch(() => null)
-      if (result?.success && result?.mailtoUrl) {
+      if (result?.fallbackMode && result?.mailtoUrl) {
         window.open(result.mailtoUrl, '_blank')
       }
     } catch (error) {
-      console.error('Erro ao preparar email mailto:', error)
+      console.error('Erro ao enviar email:', error)
     }
 
     // Registrar envio

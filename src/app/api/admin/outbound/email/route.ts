@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
-import { SendGridClient } from '@/lib/integrations/email/sendgrid';
+import { sendEmailWithFallback } from '@/lib/email/emailService';
 
 export const dynamic = 'force-dynamic';
-
-function getSendGridClientOrNull() {
-  const apiKey = process.env.SENDGRID_API_KEY || 'mailto';
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br';
-  const fromName = process.env.SENDGRID_FROM_NAME || 'Valle 360';
-  return new SendGridClient({ apiKey, fromEmail, fromName });
-}
 
 /**
  * POST /api/admin/outbound/email
@@ -18,8 +11,6 @@ function getSendGridClientOrNull() {
 export async function POST(request: NextRequest) {
   const gate = await requireAdmin(request);
   if (!gate.ok) return gate.res;
-
-  const client = getSendGridClientOrNull();
 
   let body: any;
   try {
@@ -38,20 +29,18 @@ export async function POST(request: NextRequest) {
   if (!subject) return NextResponse.json({ success: false, error: 'subject é obrigatório' }, { status: 400 });
   if (!html && !text) return NextResponse.json({ success: false, error: 'html ou text é obrigatório' }, { status: 400 });
 
-  const resp = await client.sendEmail({
-    to: { email: toEmail, name: toName },
+  const resp = await sendEmailWithFallback({
+    to: toEmail,
     subject,
     html,
     text,
-    categories: ['valle360', 'superadmin', 'qualified_lead'],
-    customArgs: { actor_user_id: gate.userId },
   });
 
   if (!resp.success) {
     return NextResponse.json({ success: false, configured: true, error: resp.error || 'Falha ao preparar email' }, { status: 502 });
   }
 
-  return NextResponse.json({ success: true, configured: true, mailtoUrl: resp.mailtoUrl });
+  return NextResponse.json({ success: true, configured: true, provider: resp.provider, mailtoUrl: resp.mailtoUrl });
 }
 
 

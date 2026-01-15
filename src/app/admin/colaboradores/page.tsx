@@ -63,6 +63,7 @@ export default function EmployeesListPage() {
     nome: string
     emailEnviado: boolean
     provider?: string
+    mailtoUrl?: string
   } | null>(null)
 
   const handleViewDetails = (emp: Employee) => {
@@ -140,14 +141,8 @@ export default function EmployeesListPage() {
       const data = await res.json().catch(() => null)
       
       if (data?.success) {
-        // Link mailto pronto
-        toast.success(`Email pronto via ${data.provider || 'mailto'}!`)
+        toast.success(`Email enviado via ${data.provider || 'smtp'}!`)
 
-        if (data.mailtoUrl) {
-          window.open(data.mailtoUrl, '_blank')
-        }
-
-        // Mostrar modal com as credenciais (útil para copiar)
         if (data.credentials) {
           setCredenciaisInfo({
             email: data.credentials.email,
@@ -155,11 +150,22 @@ export default function EmployeesListPage() {
             nome: emp.fullName,
             emailEnviado: true,
             provider: data.provider,
+            mailtoUrl: data.mailtoUrl,
           })
           setShowCredentialsModal(true)
         }
+      } else if (data?.fallbackMode) {
+        toast.warning('Falha no envio automático. Use o botão mailto no modal.')
+        setCredenciaisInfo({
+          email: data.credentials.email,
+          senha: data.credentials.senha,
+          nome: emp.fullName,
+          emailEnviado: false,
+          mailtoUrl: data.mailtoUrl,
+        })
+        setShowCredentialsModal(true)
       } else {
-        throw new Error(data?.error || 'Falha ao preparar email')
+        throw new Error(data?.error || 'Falha ao enviar email')
       }
       
       setOpenMenuId(null)
@@ -1114,6 +1120,7 @@ export default function EmployeesListPage() {
             senha: credenciaisInfo.senha,
             webmailUrl: 'https://webmail.vallegroup.com.br/',
             loginUrl: typeof window !== 'undefined' ? `${window.location.origin}/login` : '/login',
+            mailtoUrl: credenciaisInfo.mailtoUrl,
           }}
           nome={credenciaisInfo.nome}
           tipo="colaborador"

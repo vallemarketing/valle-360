@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
     if (result.success) {
       return NextResponse.json({
         success: true,
-        message: `Link de email pronto para ${emailDestino}`,
+        message: `Email enviado com sucesso para ${emailDestino}`,
         provider: result.provider,
         mailtoUrl: result.mailtoUrl,
         credentials: {
@@ -192,6 +192,24 @@ export async function POST(request: NextRequest) {
           loginUrl,
         },
       });
+    }
+
+    if (result.fallbackMode) {
+      return NextResponse.json({
+        success: false,
+        fallbackMode: true,
+        message: result.message,
+        error: result.error,
+        mailtoUrl: result.mailtoUrl,
+        credentials: {
+          email: emailCorporativo,
+          senha: senhaFinal,
+          webmailUrl,
+          loginUrl,
+          emailDestino,
+        },
+        hint: 'Falha no envio automático. Use o mailto abaixo.',
+      }, { status: 200 });
     }
 
     return NextResponse.json({

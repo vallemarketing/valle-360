@@ -24,6 +24,7 @@ export default function NovoColaboradorPage() {
     nome: string
     emailEnviado: boolean
     provider?: string
+    mailtoUrl?: string
   } | null>(null)
   
   const [formData, setFormData] = useState({
@@ -232,13 +233,17 @@ export default function NovoColaboradorPage() {
       
       if (result.success) {
         emailEnviado = true
-        emailProvider = result.provider || 'mailto'
-        console.log(`✅ Link de email pronto via ${emailProvider}`)
-        if (result.mailtoUrl) {
-          window.open(result.mailtoUrl, '_blank')
+        emailProvider = result.provider || 'smtp'
+        console.log(`✅ Email enviado via ${emailProvider}`)
+      } else if (result.fallbackMode) {
+        fallbackCredentials = {
+          ...result.credentials,
+          emailDestino: emailPessoal,
+          mailtoUrl: result.mailtoUrl,
         }
+        console.warn('⚠️ Falha no envio automático. Use mailto.')
       } else {
-        console.error('❌ Erro ao preparar email:', result.error)
+        console.error('❌ Erro ao enviar email:', result.error)
       }
     } catch (error) {
       console.error('Erro ao enviar email:', error)
@@ -389,11 +394,13 @@ export default function NovoColaboradorPage() {
         router.push('/admin/colaboradores?success=colaborador_criado')
       } else {
         // Email não foi enviado - mostrar modal com credenciais
+        const fallback = emailResult?.fallbackCredentials
         setCredenciaisInfo({
-          email: formData.email,
-          senha: senhaProvisoria,
+          email: fallback?.email || formData.email,
+          senha: fallback?.senha || senhaProvisoria,
           nome: formData.nome,
           emailEnviado: false,
+          mailtoUrl: fallback?.mailtoUrl,
         })
         setShowCredentialsModal(true)
         toast.warning('Email não enviado automaticamente. Use o modal para copiar as credenciais.')
@@ -824,6 +831,7 @@ export default function NovoColaboradorPage() {
             senha: credenciaisInfo.senha,
             webmailUrl: 'https://webmail.vallegroup.com.br/',
             loginUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/login`,
+            mailtoUrl: credenciaisInfo.mailtoUrl,
           }}
           nome={credenciaisInfo.nome}
           tipo="colaborador"

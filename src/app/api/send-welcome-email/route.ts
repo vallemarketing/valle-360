@@ -57,6 +57,17 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    if (result.fallbackMode) {
+      return NextResponse.json({
+        success: false,
+        fallbackMode: true,
+        message: result.message,
+        error: result.error,
+        mailtoUrl: result.mailtoUrl,
+        credentials: result.credentials,
+      }, { status: 200 })
+    }
+
     return NextResponse.json({
       success: false,
       error: result.error || result.message,

@@ -4,6 +4,7 @@
  */
 
 import { generateWithAI } from '@/lib/ai/aiRouter';
+import { sendEmailWithFallback } from '@/lib/email/emailService';
 
 // =====================================================
 // TIPOS
@@ -308,8 +309,17 @@ Valle 360`,
 // =====================================================
 
 class EmailAutomationService {
-  private buildMailtoUrl(to: string, subject: string, body: string): string {
-    return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  /**
+   * Converte markdown básico para HTML
+   */
+  private markdownToHtml(markdown: string): string {
+    return markdown
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>')
+      .replace(/^/, '<p>')
+      .replace(/$/, '</p>');
   }
 
   /**
@@ -395,12 +405,19 @@ Retorne JSON: { "subject": "assunto personalizado", "body": "corpo personalizado
         email.recipient,
         email.context
       );
+      const htmlBody = this.markdownToHtml(body);
 
-      const mailtoUrl = this.buildMailtoUrl(email.recipient.email, subject, body);
+      const result = await sendEmailWithFallback({
+        to: email.recipient.email,
+        subject,
+        text: body,
+        html: htmlBody,
+      });
 
       return {
-        success: true,
-        mailtoUrl,
+        success: result.success,
+        error: result.error,
+        mailtoUrl: result.mailtoUrl,
       };
     } catch (error: any) {
       console.error('Erro ao enviar email:', error);
