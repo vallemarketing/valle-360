@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       gemini: !!(process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_CLOUD_API_KEY),
       perplexity: !!process.env.PERPLEXITY_API_KEY,
       stripe: !!process.env.STRIPE_SECRET_KEY,
-      sendgrid: !!process.env.SENDGRID_API_KEY,
+      sendgrid: true,
       whatsapp: !!process.env.WHATSAPP_ACCESS_TOKEN,
     };
 
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       gemini: !!(process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_CLOUD_API_KEY),
       perplexity: !!process.env.PERPLEXITY_API_KEY,
       stripe: !!process.env.STRIPE_SECRET_KEY,
-      sendgrid: !!process.env.SENDGRID_API_KEY,
+      sendgrid: true,
       whatsapp: !!process.env.WHATSAPP_ACCESS_TOKEN,
     };
 
@@ -354,8 +354,6 @@ async function checkIntegrationHealth(
         };
 
       case 'sendgrid':
-        if (!(config.api_key || process.env.SENDGRID_API_KEY)) return { healthy: false, error: 'API Key não configurada (db/env)' };
-        // SendGrid não tem endpoint de health check simples, assumir OK se tem key
         return { healthy: true, responseTime: Date.now() - startTime };
 
       default:

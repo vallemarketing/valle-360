@@ -57,8 +57,8 @@ async function trySendClientEmail(service: any, params: { to: string; title: str
       .maybeSingle();
     const envApiKey = (process.env.SENDGRID_API_KEY || '').trim();
     const dbApiKey = (cfg?.status === 'connected' ? String(cfg?.api_key || '') : '').trim();
-    const apiKey = dbApiKey || envApiKey;
-    if (!apiKey) return false;
+    let apiKey = dbApiKey || envApiKey;
+    if (!apiKey) apiKey = 'mailto';
 
     const client = createSendGridClient({
       apiKey,

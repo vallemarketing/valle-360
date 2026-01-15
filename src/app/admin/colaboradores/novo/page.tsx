@@ -232,14 +232,13 @@ export default function NovoColaboradorPage() {
       
       if (result.success) {
         emailEnviado = true
-        emailProvider = result.provider || 'email'
-        console.log(`✅ Email de boas-vindas enviado via ${emailProvider}`)
-      } else if (result.fallbackMode) {
-        // Email não foi enviado - guardar credenciais para exibir
-        fallbackCredentials = result.credentials
-        console.warn('⚠️ Email não enviado - modo fallback ativado')
+        emailProvider = result.provider || 'mailto'
+        console.log(`✅ Link de email pronto via ${emailProvider}`)
+        if (result.mailtoUrl) {
+          window.open(result.mailtoUrl, '_blank')
+        }
       } else {
-        console.error('❌ Erro ao enviar email:', result.error)
+        console.error('❌ Erro ao preparar email:', result.error)
       }
     } catch (error) {
       console.error('Erro ao enviar email:', error)

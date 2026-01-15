@@ -562,12 +562,11 @@ export default function FinancialClientsDashboard() {
                   </button>
 
                   <button
-                    className="py-2 border rounded-lg font-medium hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-60"
-                    disabled={loadingIntegrations || !integrationsStatus.sendgrid}
-                    title={!integrationsStatus.sendgrid ? 'SendGrid não configurado' : 'Enviar via SendGrid'}
+                    className="py-2 border rounded-lg font-medium hover:bg-gray-50 flex items-center justify-center gap-2"
+                    title="Abrir email via mailto"
                     onClick={async () => {
                       try {
-                        toast.loading('Enviando email...');
+                        toast.loading('Preparando email...');
                         const res = await fetch('/api/admin/outbound/email', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -586,7 +585,12 @@ export default function FinancialClientsDashboard() {
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok) throw new Error(data?.error || 'Falha ao enviar email');
                         toast.dismiss();
-                        toast.success('Email enviado!');
+                        if (data?.mailtoUrl) {
+                          window.open(data.mailtoUrl, '_blank');
+                          toast.success('Email pronto! Abra seu app de email.');
+                        } else {
+                          toast.success('Email preparado!');
+                        }
                       } catch (e: any) {
                         toast.dismiss();
                         toast.error(`Erro: ${String(e?.message || e)}`);

@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/auth/requireAdmin';
 export const dynamic = 'force-dynamic';
 
 function isSendGridConfigured() {
-  return Boolean(process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL);
+  return true; // mailto não exige configuração
 }
 
 function isWhatsAppConfigured() {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     sendgrid: {
       configured: isSendGridConfigured(),
-      fromEmail: process.env.SENDGRID_FROM_EMAIL ? String(process.env.SENDGRID_FROM_EMAIL) : null,
+      fromEmail: process.env.SENDGRID_FROM_EMAIL ? String(process.env.SENDGRID_FROM_EMAIL) : 'noreply@valle360.com.br',
     },
     whatsapp: {
       configured: isWhatsAppConfigured(),

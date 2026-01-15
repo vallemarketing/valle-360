@@ -24,17 +24,12 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     const envApiKey = process.env.SENDGRID_API_KEY || '';
-    const apiKey = (config?.api_key || envApiKey || '').trim();
-    const connectedVia = config?.status === 'connected' && !!config?.api_key ? 'db' : envApiKey ? 'env' : 'none';
+    let apiKey = (config?.api_key || envApiKey || '').trim();
+    let connectedVia: 'db' | 'env' | 'mailto' = config?.status === 'connected' && !!config?.api_key ? 'db' : envApiKey ? 'env' : 'mailto';
 
     if (!apiKey) {
-      return NextResponse.json(
-        {
-          error: 'SendGrid não está conectado (db/env)',
-          needsSetup: true,
-        },
-        { status: 400 }
-      );
+      apiKey = 'mailto';
+      connectedVia = 'mailto';
     }
 
     const body = await request.json();
@@ -174,14 +169,15 @@ export async function POST(request: NextRequest) {
 
     if (!isSuccess) {
       return NextResponse.json({ 
-        error: 'Erro ao enviar email',
+        error: 'Erro ao preparar email',
         details: errorMessage 
       }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Email enviado com sucesso',
+      message: 'Email pronto via mailto',
+      mailtoUrl: (result as any).mailtoUrl,
       ...(type === 'bulk' && { 
         sent: (result as any).success,
         failed: (result as any).failed 
@@ -216,16 +212,13 @@ export async function GET(request: NextRequest) {
 
     const envApiKey = process.env.SENDGRID_API_KEY || '';
     const apiKey = (config?.api_key || envApiKey || '').trim();
-    if (!apiKey) {
-      return NextResponse.json({ error: 'SendGrid não está conectado (db/env)' }, { status: 400 });
-    }
 
-    const client = createSendGridClient({
-      apiKey,
-      fromEmail: config?.config?.fromEmail || process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br'
-    });
-
-    const templates = await client.listTemplates();
+    const templates = apiKey
+      ? await createSendGridClient({
+          apiKey,
+          fromEmail: config?.config?.fromEmail || process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br'
+        }).listTemplates()
+      : { templates: [] };
 
     // Adicionar templates pré-definidos
     const predefinedTemplates = [

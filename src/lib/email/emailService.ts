@@ -1,32 +1,20 @@
 /**
- * Serviço Unificado de Email com Sistema de Fallback
- * 
- * Ordem de tentativa:
- * 1. SMTP (cPanel - prioridade)
- * 2. Resend
- * 3. Gmail API
- * 4. Fallback manual
+ * Serviço de Email via mailto (abertura do app de email)
+ * Todas as ações de email retornam um link mailto com subject/body.
  */
-
-import nodemailer from 'nodemailer';
-import { google } from 'googleapis';
 
 export interface EmailPayload {
   to: string;
   subject: string;
-  html: string;
-  from?: {
-    email: string;
-    name: string;
-  };
+  body: string;
 }
 
 export interface EmailResult {
   success: boolean;
-  provider?: 'smtp' | 'resend' | 'gmail' | 'manual';
+  provider?: 'mailto';
   message: string;
   error?: string;
-  fallbackMode?: boolean;
+  mailtoUrl?: string;
   credentials?: {
     email: string;
     senha: string;
@@ -35,236 +23,35 @@ export interface EmailResult {
   };
 }
 
-// ============================================
-// SMTP (Nodemailer - cPanel)
-// ============================================
-async function sendViaSMTP(payload: EmailPayload): Promise<EmailResult> {
-  const smtpHost = (process.env.SMTP_HOST || '').trim();
-  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
-  const smtpUser = (process.env.SMTP_USER || '').trim();
-  const smtpPass = (process.env.SMTP_PASSWORD || process.env.SMTP_PASS || '').trim();
-  
-  // Porta 465 = SSL direto, Porta 587 = STARTTLS
-  const smtpSecure = smtpPort === 465;
-
-  if (!smtpHost || !smtpUser || !smtpPass) {
-    console.log('⚠️ [SMTP] Não configurado');
-    return { success: false, message: 'SMTP não configurado', error: 'SMTP_NOT_CONFIGURED' };
-  }
-
-  try {
-    const fromEmail = payload.from?.email || smtpUser;
-    const fromName = payload.from?.name || 'Valle 360';
-
-    console.log(`📧 [SMTP] Host: ${smtpHost}:${smtpPort} (secure: ${smtpSecure})`);
-    console.log(`📧 [SMTP] User: ${smtpUser}`);
-    console.log(`📧 [SMTP] Enviando para: ${payload.to}`);
-
-    // Configuração diferente para porta 587 (STARTTLS) vs 465 (SSL)
-    const transportConfig: any = {
-      host: smtpHost,
-      port: smtpPort,
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-    };
-
-    if (smtpPort === 465) {
-      transportConfig.secure = true;
-    } else {
-      transportConfig.secure = false;
-      transportConfig.requireTLS = true;
-    }
-
-    const transporter = nodemailer.createTransport(transportConfig);
-
-    const info = await transporter.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
-      to: payload.to,
-      subject: payload.subject,
-      html: payload.html,
-    });
-
-    console.log(`✅ [SMTP] Email enviado! MessageId: ${info.messageId}`);
-    return { success: true, provider: 'smtp', message: 'Email enviado via SMTP' };
-  } catch (error: any) {
-    console.error('❌ [SMTP] Erro:', error.message);
-    return { success: false, message: 'Erro SMTP', error: error.message };
-  }
+function buildMailtoUrl(payload: EmailPayload): string {
+  const to = payload.to || '';
+  const subject = encodeURIComponent(payload.subject || '');
+  const body = encodeURIComponent(payload.body || '');
+  return `mailto:${to}?subject=${subject}&body=${body}`;
 }
 
 // ============================================
-// RESEND
-// ============================================
-async function sendViaResend(payload: EmailPayload): Promise<EmailResult> {
-  const apiKey = (process.env.RESEND_API_KEY || '').trim();
-  
-  if (!apiKey) {
-    console.log('⚠️ [Resend] API Key não configurada');
-    return { success: false, message: 'Resend não configurado', error: 'API_KEY_MISSING' };
-  }
-
-  try {
-    const fromEmail = payload.from?.email || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-    const fromName = payload.from?.name || process.env.RESEND_FROM_NAME || 'Valle 360';
-
-    console.log(`📧 [Resend] De: ${fromName} <${fromEmail}>`);
-    console.log(`📧 [Resend] Enviando para: ${payload.to}`);
-
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `${fromName} <${fromEmail}>`,
-        to: [payload.to],
-        subject: payload.subject,
-        html: payload.html,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.id) {
-      console.log(`✅ [Resend] Email enviado! ID: ${data.id}`);
-      return { success: true, provider: 'resend', message: 'Email enviado via Resend' };
-    }
-
-    console.error('❌ [Resend] Erro:', data);
-    return { 
-      success: false, 
-      message: data.message || 'Erro Resend',
-      error: JSON.stringify(data) 
-    };
-  } catch (error: any) {
-    console.error('❌ [Resend] Exceção:', error.message);
-    return { success: false, message: 'Erro Resend', error: error.message };
-  }
-}
-
-// ============================================
-// GMAIL API (OAuth2)
-// ============================================
-async function sendViaGmailAPI(payload: EmailPayload): Promise<EmailResult> {
-  const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
-  const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
-  const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN || '').trim();
-  const gmailUser = (process.env.GMAIL_USER || '').trim();
-
-  if (!clientId || !clientSecret || !refreshToken || !gmailUser) {
-    console.log('⚠️ [Gmail API] Não configurado');
-    return { success: false, message: 'Gmail API não configurado', error: 'GMAIL_NOT_CONFIGURED' };
-  }
-
-  try {
-    console.log(`📧 [Gmail API] User: ${gmailUser}`);
-    console.log(`📧 [Gmail API] Enviando para: ${payload.to}`);
-
-    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-    oauth2Client.setCredentials({ refresh_token: refreshToken });
-
-    const { token } = await oauth2Client.getAccessToken();
-    if (!token) {
-      return { success: false, message: 'Erro ao obter access token', error: 'NO_ACCESS_TOKEN' };
-    }
-
-    const fromName = payload.from?.name || 'Valle 360';
-    const fromEmail = payload.from?.email || gmailUser;
-    
-    const emailLines = [
-      `From: "${fromName}" <${fromEmail}>`,
-      `To: ${payload.to}`,
-      `Subject: =?UTF-8?B?${Buffer.from(payload.subject).toString('base64')}?=`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/html; charset=UTF-8',
-      '',
-      payload.html,
-    ];
-    
-    const email = emailLines.join('\r\n');
-    const encodedEmail = Buffer.from(email)
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-    
-    const response = await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: { raw: encodedEmail },
-    });
-
-    if (response.data.id) {
-      console.log(`✅ [Gmail API] Email enviado! ID: ${response.data.id}`);
-      return { success: true, provider: 'gmail', message: 'Email enviado via Gmail API' };
-    }
-
-    return { success: false, message: 'Gmail API não retornou ID', error: JSON.stringify(response.data) };
-  } catch (error: any) {
-    console.error('❌ [Gmail API] Erro:', error.message);
-    return { success: false, message: 'Erro Gmail API', error: error.message };
-  }
-}
-
-// ============================================
-// FUNÇÃO PRINCIPAL COM FALLBACK
+// FUNÇÃO PRINCIPAL (MAILTO)
 // ============================================
 export async function sendEmailWithFallback(
   payload: EmailPayload,
   credentials?: { email: string; senha: string }
 ): Promise<EmailResult> {
-  console.log(`\n${'='.repeat(50)}`);
-  console.log(`📧 ENVIANDO EMAIL`);
-  console.log(`📧 Para: ${payload.to}`);
-  console.log(`📧 Assunto: ${payload.subject}`);
-  console.log(`${'='.repeat(50)}\n`);
-
-  const attempts: string[] = [];
-
-  // 1. SMTP (cPanel)
-  console.log('🔄 [1/3] Tentando SMTP (cPanel)...');
-  const smtpResult = await sendViaSMTP(payload);
-  attempts.push(`SMTP: ${smtpResult.success ? '✅' : '❌'} ${smtpResult.error || smtpResult.message}`);
-  if (smtpResult.success) return smtpResult;
-
-  // 2. Resend
-  console.log('🔄 [2/3] Tentando Resend...');
-  const resendResult = await sendViaResend(payload);
-  attempts.push(`Resend: ${resendResult.success ? '✅' : '❌'} ${resendResult.error || resendResult.message}`);
-  if (resendResult.success) return resendResult;
-
-  // 3. Gmail API
-  console.log('🔄 [3/3] Tentando Gmail API...');
-  const gmailResult = await sendViaGmailAPI(payload);
-  attempts.push(`Gmail: ${gmailResult.success ? '✅' : '❌'} ${gmailResult.error || gmailResult.message}`);
-  if (gmailResult.success) return gmailResult;
-
-  // Fallback
-  console.log('❌ Todos os métodos falharam.\n');
-  console.log('Tentativas:', attempts.join(' | '));
-  
+  const mailtoUrl = buildMailtoUrl(payload);
   const webmailUrl = process.env.WEBMAIL_URL || 'https://webmail.vallegroup.com.br/';
-  const loginUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.valle360.com.br/login';
+  const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://valle-360-platform.vercel.app'}/login`;
 
   return {
-    success: false,
-    fallbackMode: true,
-    provider: 'manual',
-    message: 'Nenhum provedor funcionou. Use as credenciais para envio manual.',
+    success: true,
+    provider: 'mailto',
+    message: 'Abra o link mailto para enviar o email manualmente.',
+    mailtoUrl,
     credentials: credentials ? {
       email: credentials.email,
       senha: credentials.senha,
       webmailUrl,
       loginUrl,
     } : undefined,
-    error: attempts.join(' | '),
   };
 }
 
@@ -350,6 +137,56 @@ export function generateWelcomeEmailHTML(data: {
 }
 
 // ============================================
+// TEMPLATE DE EMAIL DE BOAS-VINDAS (TEXTO)
+// ============================================
+export function generateWelcomeEmailText(data: {
+  nome: string;
+  emailCorporativo: string;
+  senha: string;
+  areasTexto?: string;
+  tipo: 'colaborador' | 'cliente';
+}): string {
+  const isCliente = data.tipo === 'cliente';
+  const loginUrl = SYSTEM_URL;
+
+  if (isCliente) {
+    return [
+      `Olá ${data.nome},`,
+      '',
+      '🔐 Seus Dados de Acesso',
+      `   📧 Email: ${data.emailCorporativo}`,
+      `   🔑 Senha: ${data.senha}`,
+      `URL: ${loginUrl}`,
+      '',
+      '[Botão: Acessar Valle 360]',
+      '',
+      '⚠️ Altere sua senha no primeiro acesso!',
+      '',
+      `© ${new Date().getFullYear()} Valle 360`,
+    ].join('\n');
+  }
+
+  return [
+    `Olá ${data.nome},`,
+    '',
+    `💼 Área: ${data.areasTexto || '-'}`,
+    '',
+    '🔐 Seus Dados de Acesso',
+    `   📧 Email: ${data.emailCorporativo}`,
+    `   🔑 Senha: ${data.senha}`,
+    `URL: ${loginUrl}`,
+    '',
+    '[Botão: Acessar Valle 360]',
+    '',
+    `📬 Webmail: ${WEBMAIL_URL}`,
+    '',
+    '⚠️ Altere sua senha no primeiro acesso!',
+    '',
+    `© ${new Date().getFullYear()} Valle 360`,
+  ].join('\n');
+}
+
+// ============================================
 // ENVIAR EMAIL DE BOAS-VINDAS
 // ============================================
 export async function sendWelcomeEmail(data: {
@@ -360,7 +197,7 @@ export async function sendWelcomeEmail(data: {
   areasTexto?: string;
   tipo: 'colaborador' | 'cliente';
 }): Promise<EmailResult> {
-  const html = generateWelcomeEmailHTML({
+  const body = generateWelcomeEmailText({
     nome: data.nome,
     emailCorporativo: data.emailCorporativo,
     senha: data.senha,
@@ -370,10 +207,10 @@ export async function sendWelcomeEmail(data: {
 
   const subject = data.tipo === 'cliente'
     ? '🎉 Bem-vindo ao Valle 360! Seus Dados de Acesso'
-    : '🎉 Bem-vindo à Família Valle 360! 🚀';
+    : '🎉 Bem-vindo à Família Valle 360!';
 
   return sendEmailWithFallback(
-    { to: data.emailDestino, subject, html },
+    { to: data.emailDestino, subject, body },
     { email: data.emailCorporativo, senha: data.senha }
   );
 }
@@ -468,6 +305,51 @@ export function generateReportEmailHTML(data: {
 }
 
 // ============================================
+// TEMPLATE DE EMAIL DE RELATÓRIO (TEXTO)
+// ============================================
+export function generateReportEmailText(data: {
+  nome: string;
+  tipoRelatorio: 'mensal' | 'kanban' | 'financeiro' | 'performance' | 'geral';
+  periodo: string;
+  resumo: string;
+  linkRelatorio?: string;
+  metricas?: Array<{ label: string; valor: string; variacao?: string }>;
+}): string {
+  const tipoLabels: Record<string, string> = {
+    mensal: 'Mensal',
+    kanban: 'Kanban',
+    financeiro: 'Financeiro',
+    performance: 'Performance',
+    geral: 'Geral',
+  };
+
+  const tipoLabel = tipoLabels[data.tipoRelatorio] || 'Geral';
+  const linkUrl = data.linkRelatorio || `${SYSTEM_URL}/relatorios`;
+
+  const linhasMetricas = (data.metricas || []).map((m) => {
+    const variacao = m.variacao ? ` (${m.variacao})` : '';
+    return `- ${m.label}: ${m.valor}${variacao}`;
+  });
+
+  return [
+    `Olá ${data.nome},`,
+    '',
+    `Seu relatório ${tipoLabel} do período ${data.periodo} está disponível.`,
+    '',
+    data.resumo,
+    '',
+    linhasMetricas.length ? 'Métricas principais:' : '',
+    ...linhasMetricas,
+    linhasMetricas.length ? '' : '',
+    `Ver relatório completo: ${linkUrl}`,
+    '',
+    'Dúvidas? Responda este email.',
+    '',
+    `© ${new Date().getFullYear()} Valle 360`,
+  ].filter(Boolean).join('\n');
+}
+
+// ============================================
 // ENVIAR EMAIL DE RELATÓRIO
 // ============================================
 export async function sendReportEmail(data: {
@@ -487,10 +369,10 @@ export async function sendReportEmail(data: {
     geral: 'Geral',
   };
 
-  const html = generateReportEmailHTML(data);
+  const body = generateReportEmailText(data);
   const subject = `📊 Seu Relatório ${tipoLabels[data.tipoRelatorio]} - ${data.periodo}`;
 
-  return sendEmailWithFallback({ to: data.emailDestino, subject, html });
+  return sendEmailWithFallback({ to: data.emailDestino, subject, body });
 }
 
 // ============================================
@@ -588,6 +470,37 @@ export function generateSupportEmailHTML(data: {
 }
 
 // ============================================
+// TEMPLATE DE EMAIL DE SUPORTE/AJUDA (TEXTO)
+// ============================================
+export function generateSupportEmailText(data: {
+  nome: string;
+  protocolo: string;
+  assunto: string;
+  mensagem?: string;
+  tipo: 'confirmacao' | 'resposta' | 'resolucao';
+}): string {
+  const baseText = 'Estamos aqui para ajudar e em breve retornaremos.';
+  const tipoText = {
+    confirmacao: 'Recebemos sua solicitação.',
+    resposta: 'Há uma nova resposta para sua solicitação.',
+    resolucao: 'Sua solicitação foi resolvida.',
+  }[data.tipo];
+
+  return [
+    `Olá ${data.nome}!`,
+    '',
+    `${tipoText} ${baseText}`,
+    '',
+    `Protocolo: ${data.protocolo}`,
+    `Assunto: ${data.assunto}`,
+    data.mensagem ? '' : null,
+    data.mensagem ? data.mensagem : null,
+    '',
+    `© ${new Date().getFullYear()} Valle 360`,
+  ].filter(Boolean).join('\n');
+}
+
+// ============================================
 // ENVIAR EMAIL DE SUPORTE
 // ============================================
 export async function sendSupportEmail(data: {
@@ -604,8 +517,8 @@ export async function sendSupportEmail(data: {
     resolucao: `✅ Resolvido #${data.protocolo} - ${data.assunto}`,
   };
 
-  const html = generateSupportEmailHTML(data);
+  const body = generateSupportEmailText(data);
   const subject = tipoSubjects[data.tipo];
 
-  return sendEmailWithFallback({ to: data.emailDestino, subject, html });
+  return sendEmailWithFallback({ to: data.emailDestino, subject, body });
 }

@@ -751,12 +751,7 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
       toast.info('Verificando integrações...');
       return;
     }
-    if (!integrationsStatus.sendgrid.configured) {
-      toast.error('SendGrid não configurado. Configure SENDGRID_API_KEY e SENDGRID_FROM_EMAIL na Vercel.');
-      return;
-    }
-
-    toast.loading('Enviando email...');
+    toast.loading('Preparando email...');
     try {
       let subject = `Valle 360 | ${lead.company}`;
       let bodyText = lead.script;
@@ -794,10 +789,15 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Falha ao enviar email');
+      if (!res.ok) throw new Error(data?.error || 'Falha ao preparar email');
 
       toast.dismiss();
-      toast.success('Email enviado com sucesso!');
+      if (data?.mailtoUrl) {
+        window.open(data.mailtoUrl, '_blank');
+        toast.success('Email pronto! Abra seu app de email.');
+      } else {
+        toast.success('Email preparado com sucesso!');
+      }
       trackEvent('ci_lead_send_email_success', { level: 'info', data: { leadId: lead.id } });
     } catch (e: any) {
       toast.dismiss();
@@ -1689,12 +1689,8 @@ Podemos agendar uma call para mostrar como replicar isso no Fashion Store?`,
                     variant="outline"
                     className="flex-1"
                     onClick={() => handleSendLeadEmail(selectedLead)}
-                    disabled={loadingIntegrations || !integrationsStatus.sendgrid.configured}
-                    title={
-                      !integrationsStatus.sendgrid.configured
-                        ? 'SendGrid não configurado (SENDGRID_API_KEY / SENDGRID_FROM_EMAIL)'
-                        : ''
-                    }
+                    disabled={loadingIntegrations}
+                    title="Abrir email via mailto"
                   >
                     <Mail className="w-4 h-4 mr-2" />
                     Enviar Email

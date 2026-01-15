@@ -51,23 +51,12 @@ export async function POST(request: NextRequest) {
         success: true,
         message: result.message,
         provider: result.provider,
+        mailtoUrl: result.mailtoUrl,
         emailPessoal,
         emailCorporativo,
       })
     }
 
-    // Se falhou mas tem modo fallback
-    if (result.fallbackMode) {
-      return NextResponse.json({
-        success: false,
-        fallbackMode: true,
-        message: result.message,
-        credentials: result.credentials,
-        error: result.error,
-      }, { status: 200 }) // Retorna 200 para não quebrar o fluxo
-    }
-
-    // Falha total
     return NextResponse.json({
       success: false,
       error: result.error || result.message,

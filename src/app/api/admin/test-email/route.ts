@@ -42,10 +42,7 @@ export async function POST(request: NextRequest) {
 
     // Verificar configurações
     const configs = {
-      sendgrid: !!process.env.SENDGRID_API_KEY,
-      resend: !!process.env.RESEND_API_KEY,
-      gmail: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_REFRESH_TOKEN),
-      smtp: !!(process.env.SMTP_HOST && process.env.SMTP_USER),
+      mailto: true,
     };
 
     console.log('📋 Configurações disponíveis:', configs);
@@ -54,33 +51,17 @@ export async function POST(request: NextRequest) {
     const result = await sendEmailWithFallback({
       to: emailDestino,
       subject: '🧪 Teste de Email - Valle 360',
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="UTF-8"></head>
-        <body style="font-family: sans-serif; padding: 40px; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #1672d6 0%, #001533 100%); padding: 30px; border-radius: 12px; text-align: center;">
-            <h1 style="color: white; margin: 0;">✅ Teste de Email</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Valle 360</p>
-          </div>
-          
-          <div style="padding: 30px;">
-            <p>Este é um email de teste enviado pelo sistema Valle 360.</p>
-            <p>Se você está vendo este email, significa que o envio está funcionando! 🎉</p>
-            
-            <div style="background: #f0f9ff; border-left: 4px solid #1672d6; padding: 15px; margin: 20px 0; border-radius: 4px;">
-              <strong>📊 Informações do Teste:</strong><br>
-              Data: ${new Date().toLocaleString('pt-BR')}<br>
-              Destino: ${emailDestino}
-            </div>
-            
-            <p style="color: #666; font-size: 12px;">
-              Valle 360 - Sistema de Marketing Inteligente
-            </p>
-          </div>
-        </body>
-        </html>
-      `,
+      body: [
+        '✅ Teste de Email',
+        '',
+        'Este é um email de teste do sistema Valle 360.',
+        'Se você está vendo este email, o mailto abriu corretamente.',
+        '',
+        `Data: ${new Date().toLocaleString('pt-BR')}`,
+        `Destino: ${emailDestino}`,
+        '',
+        'Valle 360 - Sistema de Marketing Inteligente',
+      ].join('\n'),
     });
 
     console.log(`\n📊 Resultado: ${result.success ? '✅ SUCESSO' : '❌ FALHA'}`);
@@ -91,7 +72,7 @@ export async function POST(request: NextRequest) {
       success: result.success,
       message: result.message,
       provider: result.provider,
-      fallbackMode: result.fallbackMode,
+      mailtoUrl: result.mailtoUrl,
       configs,
       emailDestino,
     });
@@ -123,40 +104,18 @@ export async function GET(request: NextRequest) {
     }
 
     const configs = {
-      sendgrid: {
-        configured: !!process.env.SENDGRID_API_KEY,
-        fromEmail: process.env.SENDGRID_FROM_EMAIL || 'não configurado',
-      },
-      resend: {
-        configured: !!process.env.RESEND_API_KEY,
-        fromEmail: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev (padrão)',
-      },
-      gmail: {
-        configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_REFRESH_TOKEN),
-        user: process.env.GMAIL_USER || 'não configurado',
-        hasRefreshToken: !!process.env.GOOGLE_REFRESH_TOKEN,
-      },
-      smtp: {
-        configured: !!(process.env.SMTP_HOST && process.env.SMTP_USER),
-        host: process.env.SMTP_HOST || 'não configurado',
-        user: process.env.SMTP_USER || 'não configurado',
-        port: process.env.SMTP_PORT || '587',
-      },
-      cpanel: {
-        configured: !!(process.env.CPANEL_USER && process.env.CPANEL_DOMAIN),
-        domain: process.env.CPANEL_DOMAIN || 'não configurado',
+      mailto: {
+        configured: true,
       },
     };
 
-    const activeProviders = Object.entries(configs)
-      .filter(([key, value]) => key !== 'cpanel' && (value as any).configured)
-      .map(([key]) => key);
+    const activeProviders = ['mailto'];
 
     return NextResponse.json({
       success: true,
       activeProviders,
       configs,
-      fallbackOrder: ['sendgrid', 'resend', 'gmail', 'smtp', 'manual'],
+      fallbackOrder: ['mailto'],
     });
 
   } catch (error: any) {

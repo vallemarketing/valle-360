@@ -37,10 +37,9 @@ function splitCsv(v: string | undefined | null) {
 }
 
 function getSendGridClientOrNull() {
-  const apiKey = process.env.SENDGRID_API_KEY;
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME;
-  if (!apiKey || !fromEmail) return null;
+  const apiKey = process.env.SENDGRID_API_KEY || 'mailto';
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br';
+  const fromName = process.env.SENDGRID_FROM_NAME || 'Valle 360';
   return new SendGridClient({ apiKey, fromEmail, fromName });
 }
 

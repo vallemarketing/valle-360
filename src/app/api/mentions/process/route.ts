@@ -123,7 +123,7 @@ async function sendMentionEmail(args: {
     // ignore
   }
 
-  if (!apiKey) return { success: false, skipped: true as const, reason: 'sendgrid_not_configured' };
+  if (!apiKey) apiKey = 'mailto';
 
   const client = createSendGridClient({ apiKey, fromEmail, fromName });
   const result = await client.sendEmail({

@@ -31,43 +31,14 @@ export async function GET(request: NextRequest) {
       environment: process.env.NODE_ENV,
     };
 
-    // ========== TESTE SENDGRID ==========
-    const sendgridApiKey = (process.env.SENDGRID_API_KEY || '').trim();
-    const sendgridFromEmail = (process.env.SENDGRID_FROM_EMAIL || '').trim();
-    const sendgridFromName = (process.env.SENDGRID_FROM_NAME || '').trim();
-
+    // ========== MAILTO (ENVIO MANUAL) ==========
     results.sendgrid = {
-      configured: !!sendgridApiKey,
-      apiKeyPrefix: sendgridApiKey ? sendgridApiKey.substring(0, 10) + '...' : 'NÃO CONFIGURADO',
-      apiKeyLength: sendgridApiKey.length,
-      fromEmail: sendgridFromEmail || 'NÃO CONFIGURADO',
-      fromName: sendgridFromName || 'NÃO CONFIGURADO',
+      configured: true,
+      mode: 'mailto',
+      fromEmail: process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br',
+      fromName: process.env.SENDGRID_FROM_NAME || 'Valle 360',
+      connectionTest: 'MAILTO',
     };
-
-    // Testar conexão SendGrid
-    if (sendgridApiKey) {
-      try {
-        const sgResponse = await fetch('https://api.sendgrid.com/v3/user/profile', {
-          headers: {
-            'Authorization': `Bearer ${sendgridApiKey}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (sgResponse.ok) {
-          results.sendgrid.connectionTest = 'SUCCESS';
-          const profile = await sgResponse.json();
-          results.sendgrid.username = profile.username;
-        } else {
-          const errorText = await sgResponse.text();
-          results.sendgrid.connectionTest = 'FAILED';
-          results.sendgrid.error = `Status ${sgResponse.status}: ${errorText.substring(0, 200)}`;
-        }
-      } catch (sgError: any) {
-        results.sendgrid.connectionTest = 'ERROR';
-        results.sendgrid.error = sgError.message;
-      }
-    }
 
     // ========== TESTE CPANEL ==========
     const cpanelUser = (process.env.CPANEL_USER || '').trim();

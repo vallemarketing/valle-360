@@ -182,8 +182,9 @@ export async function POST(request: NextRequest) {
     if (result.success) {
       return NextResponse.json({
         success: true,
-        message: `Email enviado com sucesso para ${emailDestino}`,
+        message: `Link de email pronto para ${emailDestino}`,
         provider: result.provider,
+        mailtoUrl: result.mailtoUrl,
         credentials: {
           email: emailCorporativo,
           senha: senhaFinal,
@@ -193,21 +194,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Fallback mode - retorna credenciais para envio manual
     return NextResponse.json({
       success: false,
-      fallbackMode: true,
       message: result.message,
       error: result.error,
-      credentials: {
-        email: emailCorporativo,
-        senha: senhaFinal,
-        webmailUrl,
-        loginUrl,
-        emailDestino,
-      },
-      hint: 'Email não enviado automaticamente. Use as credenciais acima para enviar manualmente.',
-    });
+    }, { status: 500 });
 
   } catch (error: any) {
     console.error('[ResendWelcome] Erro:', error);

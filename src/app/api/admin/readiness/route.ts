@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // Integrações obrigatórias (impactam prontidão) vs opcionais (N/A se não configuradas)
-    const requiredIntegrations = ['openrouter', 'openai', 'stripe', 'sendgrid'] as const;
+    const requiredIntegrations = ['openrouter', 'openai', 'stripe'] as const;
     // Opcionais (não bloqueiam prontidão), mas melhoram recursos: ex. Mercado (Perplexity)
     const optionalIntegrations = ['whatsapp', 'instagramback', 'n8n', 'perplexity'] as const;
 
@@ -158,8 +158,7 @@ export async function GET(request: NextRequest) {
       const connectedInEnv =
         (id === 'openrouter' && !!process.env.OPENROUTER_API_KEY) ||
         (id === 'openai' && !!process.env.OPENAI_API_KEY) ||
-        (id === 'stripe' && !!process.env.STRIPE_SECRET_KEY) ||
-        (id === 'sendgrid' && !!process.env.SENDGRID_API_KEY);
+        (id === 'stripe' && !!process.env.STRIPE_SECRET_KEY);
       requiredStatus[id] = connectedInDb || connectedInEnv ? 'pass' : 'warn';
     }
 
@@ -404,7 +403,7 @@ export async function GET(request: NextRequest) {
 
     // Alertas (threshold / cron.alerts)
     const alertsActorUserId = String(process.env.ALERTS_ACTOR_USER_ID || '').trim();
-    const sendgridFromConfigured = Boolean(process.env.SENDGRID_FROM_EMAIL);
+    const sendgridFromConfigured = true;
 
     // fallback para destinatários: admins/super_admins do banco
     let fallbackAdminEmails = 0;
@@ -468,11 +467,9 @@ export async function GET(request: NextRequest) {
       fallbackAdminUserIds,
       status:
         // se ao menos 1 canal estiver configurado, consideramos "pass" para não bloquear prod
-        (requiredStatus.sendgrid === 'pass' &&
-          sendgridFromConfigured &&
-          (emailRecipientsEnv.length > 0 || dbEmailRecipients > 0 || fallbackAdminEmails > 0)) ||
-        (optionalStatus.whatsapp?.status === 'pass' && waRecipientsEnv.length > 0) ||
-        (isUuid(alertsActorUserId) && (intranetRecipientsEnv.length > 0 || dbIntranetRecipients > 0 || fallbackAdminUserIds > 0))
+        ((emailRecipientsEnv.length > 0 || dbEmailRecipients > 0 || fallbackAdminEmails > 0) ||
+          (optionalStatus.whatsapp?.status === 'pass' && waRecipientsEnv.length > 0) ||
+          (isUuid(alertsActorUserId) && (intranetRecipientsEnv.length > 0 || dbIntranetRecipients > 0 || fallbackAdminUserIds > 0)))
           ? ('pass' as ReadinessStatus)
           : ('warn' as ReadinessStatus),
     };

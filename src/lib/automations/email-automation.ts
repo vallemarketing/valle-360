@@ -3,7 +3,6 @@
  * Envia emails automáticos para cobrança, follow-up, NPS, etc.
  */
 
-import { SendGridClient } from '@/lib/integrations/email/sendgrid';
 import { generateWithAI } from '@/lib/ai/aiRouter';
 
 // =====================================================
@@ -309,20 +308,8 @@ Valle 360`,
 // =====================================================
 
 class EmailAutomationService {
-  private sendgrid: SendGridClient | null = null;
-
-  private getSendGridClient(): SendGridClient {
-    if (!this.sendgrid) {
-      const apiKey = process.env.SENDGRID_API_KEY;
-      if (!apiKey) throw new Error('SENDGRID_API_KEY não configurada');
-
-      this.sendgrid = new SendGridClient({
-        apiKey,
-        fromEmail: process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br',
-        fromName: 'Valle 360'
-      });
-    }
-    return this.sendgrid;
+  private buildMailtoUrl(to: string, subject: string, body: string): string {
+    return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
   /**
@@ -400,10 +387,8 @@ Retorne JSON: { "subject": "assunto personalizado", "body": "corpo personalizado
   /**
    * Envia email
    */
-  async sendEmail(email: AutomatedEmail): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  async sendEmail(email: AutomatedEmail): Promise<{ success: boolean; messageId?: string; error?: string; mailtoUrl?: string }> {
     try {
-      const client = this.getSendGridClient();
-
       // Gerar conteúdo personalizado
       const { subject, body } = await this.generatePersonalizedContent(
         email.type,
@@ -411,36 +396,16 @@ Retorne JSON: { "subject": "assunto personalizado", "body": "corpo personalizado
         email.context
       );
 
-      // Converter markdown para HTML
-      const htmlBody = this.markdownToHtml(body);
+      const mailtoUrl = this.buildMailtoUrl(email.recipient.email, subject, body);
 
-      // Enviar
-      const result = await client.sendEmail({
-        to: { email: email.recipient.email, name: email.recipient.name },
-        subject,
-        html: htmlBody,
-        text: body,
-        categories: [email.type]
-      });
-
-      return result;
+      return {
+        success: true,
+        mailtoUrl,
+      };
     } catch (error: any) {
       console.error('Erro ao enviar email:', error);
       return { success: false, error: error.message };
     }
-  }
-
-  /**
-   * Converte markdown básico para HTML
-   */
-  private markdownToHtml(markdown: string): string {
-    return markdown
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/\n/g, '<br>')
-      .replace(/^/, '<p>')
-      .replace(/$/, '</p>');
   }
 
   /**

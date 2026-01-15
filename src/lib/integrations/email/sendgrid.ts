@@ -42,6 +42,7 @@ export interface SendEmailResponse {
   success: boolean;
   messageId?: string;
   error?: string;
+  mailtoUrl?: string;
 }
 
 export class SendGridClient {
@@ -81,86 +82,14 @@ export class SendGridClient {
   // ========== ENVIO DE EMAILS ==========
 
   async sendEmail(options: SendEmailOptions): Promise<SendEmailResponse> {
-    const personalizations: any[] = [];
     const toArray = Array.isArray(options.to) ? options.to : [options.to];
+    const toEmail = toArray[0]?.email || '';
+    const subject = options.subject || '';
+    const rawBody = options.text || options.html || '';
+    const body = rawBody.replace(/<[^>]+>/g, '').trim();
+    const mailtoUrl = `mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-    // Criar personalização
-    const personalization: any = {
-      to: toArray.map(r => ({ email: r.email, name: r.name }))
-    };
-
-    if (options.cc) {
-      personalization.cc = options.cc.map(r => ({ email: r.email, name: r.name }));
-    }
-
-    if (options.bcc) {
-      personalization.bcc = options.bcc.map(r => ({ email: r.email, name: r.name }));
-    }
-
-    if (options.dynamicTemplateData) {
-      personalization.dynamic_template_data = options.dynamicTemplateData;
-    }
-
-    if (options.customArgs) {
-      personalization.custom_args = options.customArgs;
-    }
-
-    if (options.sendAt) {
-      personalization.send_at = options.sendAt;
-    }
-
-    if (options.headers) {
-      personalization.headers = options.headers;
-    }
-
-    personalizations.push(personalization);
-
-    // Montar payload
-    const payload: any = {
-      personalizations,
-      from: { email: this.fromEmail, name: this.fromName },
-      subject: options.subject
-    };
-
-    if (options.templateId) {
-      payload.template_id = options.templateId;
-    } else {
-      payload.content = [];
-      if (options.text) {
-        payload.content.push({ type: 'text/plain', value: options.text });
-      }
-      if (options.html) {
-        payload.content.push({ type: 'text/html', value: options.html });
-      }
-    }
-
-    if (options.replyTo) {
-      payload.reply_to = { email: options.replyTo.email, name: options.replyTo.name };
-    }
-
-    if (options.attachments) {
-      payload.attachments = options.attachments.map(att => ({
-        content: att.content,
-        filename: att.filename,
-        type: att.type,
-        disposition: att.disposition || 'attachment',
-        content_id: att.contentId
-      }));
-    }
-
-    if (options.categories) {
-      payload.categories = options.categories;
-    }
-
-    try {
-      await this.request('/mail/send', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
+    return { success: true, mailtoUrl };
   }
 
   // Envio em lote
@@ -168,45 +97,11 @@ export class SendGridClient {
     recipients: Array<{ email: string; name?: string; data?: Record<string, any> }>,
     options: Omit<SendEmailOptions, 'to' | 'dynamicTemplateData'>
   ): Promise<{ success: number; failed: number; errors: string[] }> {
-    const results = { success: 0, failed: 0, errors: [] as string[] };
-
-    // Dividir em lotes de 1000 (limite do SendGrid)
-    const batchSize = 1000;
-    for (let i = 0; i < recipients.length; i += batchSize) {
-      const batch = recipients.slice(i, i + batchSize);
-      
-      const personalizations = batch.map(recipient => ({
-        to: [{ email: recipient.email, name: recipient.name }],
-        dynamic_template_data: recipient.data
-      }));
-
-      const payload: any = {
-        personalizations,
-        from: { email: this.fromEmail, name: this.fromName },
-        subject: options.subject
-      };
-
-      if (options.templateId) {
-        payload.template_id = options.templateId;
-      } else {
-        payload.content = [];
-        if (options.text) payload.content.push({ type: 'text/plain', value: options.text });
-        if (options.html) payload.content.push({ type: 'text/html', value: options.html });
-      }
-
-      try {
-        await this.request('/mail/send', {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-        results.success += batch.length;
-      } catch (error: any) {
-        results.failed += batch.length;
-        results.errors.push(error.message);
-      }
-    }
-
-    return results;
+    return {
+      success: 0,
+      failed: recipients.length,
+      errors: ['Envio em lote não suportado via mailto. Use envio manual.'],
+    };
   }
 
   // ========== TEMPLATES ==========

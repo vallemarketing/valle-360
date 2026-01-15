@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: result.success,
       messageId: result.messageId,
+      mailtoUrl: (result as any).mailtoUrl,
       error: result.error
     });
 

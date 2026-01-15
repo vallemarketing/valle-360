@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     let apiKey = envApiKey;
     let fromEmail = envFromEmail || 'noreply@valle360.com.br';
     let fromName = envFromName || 'Valle 360';
-    let connectedVia: 'env' | 'db' | 'none' = envApiKey ? 'env' : 'none';
+    let connectedVia: 'env' | 'db' | 'mailto' = envApiKey ? 'env' : 'mailto';
 
     // Se existir config no banco, ela tem prioridade
     const service = getServiceSupabase();
@@ -84,7 +84,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (!apiKey) {
-      return NextResponse.json({ error: 'SendGrid não configurado (db/env)' }, { status: 400 });
+      apiKey = 'mailto';
+      connectedVia = 'mailto';
     }
 
     const client = createSendGridClient({ apiKey, fromEmail, fromName });
@@ -117,10 +118,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!result.success) {
-      return NextResponse.json({ error: 'Erro ao enviar email', details: result.error }, { status: 500 });
+      return NextResponse.json({ error: 'Erro ao preparar email', details: result.error }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, connectedVia });
+    return NextResponse.json({ success: true, connectedVia, mailtoUrl: result.mailtoUrl });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Erro interno' }, { status: 500 });
   }

@@ -140,10 +140,14 @@ export default function EmployeesListPage() {
       const data = await res.json().catch(() => null)
       
       if (data?.success) {
-        // Email enviado com sucesso
-        toast.success(`Credenciais enviadas via ${data.provider || 'email'}!`)
-        
-        // Mostrar modal com as credenciais (mesmo com sucesso, útil para copiar)
+        // Link mailto pronto
+        toast.success(`Email pronto via ${data.provider || 'mailto'}!`)
+
+        if (data.mailtoUrl) {
+          window.open(data.mailtoUrl, '_blank')
+        }
+
+        // Mostrar modal com as credenciais (útil para copiar)
         if (data.credentials) {
           setCredenciaisInfo({
             email: data.credentials.email,
@@ -154,18 +158,8 @@ export default function EmployeesListPage() {
           })
           setShowCredentialsModal(true)
         }
-      } else if (data?.fallbackMode || data?.credentials) {
-        // Email não enviado - modo fallback
-        toast.warning('Email não enviado. Use o modal para copiar as credenciais.')
-        setCredenciaisInfo({
-          email: data.credentials.email,
-          senha: data.credentials.senha,
-          nome: emp.fullName,
-          emailEnviado: false,
-        })
-        setShowCredentialsModal(true)
       } else {
-        throw new Error(data?.error || 'Falha ao reenviar email')
+        throw new Error(data?.error || 'Falha ao preparar email')
       }
       
       setOpenMenuId(null)

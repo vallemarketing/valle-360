@@ -5,11 +5,9 @@ import { SendGridClient } from '@/lib/integrations/email/sendgrid';
 export const dynamic = 'force-dynamic';
 
 function getSendGridClientOrNull() {
-  const apiKey = process.env.SENDGRID_API_KEY;
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME;
-
-  if (!apiKey || !fromEmail) return null;
+  const apiKey = process.env.SENDGRID_API_KEY || 'mailto';
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br';
+  const fromName = process.env.SENDGRID_FROM_NAME || 'Valle 360';
   return new SendGridClient({ apiKey, fromEmail, fromName });
 }
 
@@ -22,12 +20,6 @@ export async function POST(request: NextRequest) {
   if (!gate.ok) return gate.res;
 
   const client = getSendGridClientOrNull();
-  if (!client) {
-    return NextResponse.json(
-      { success: false, configured: false, error: 'SendGrid não configurado (SENDGRID_API_KEY / SENDGRID_FROM_EMAIL)' },
-      { status: 503 }
-    );
-  }
 
   let body: any;
   try {
@@ -56,10 +48,10 @@ export async function POST(request: NextRequest) {
   });
 
   if (!resp.success) {
-    return NextResponse.json({ success: false, configured: true, error: resp.error || 'Falha ao enviar email' }, { status: 502 });
+    return NextResponse.json({ success: false, configured: true, error: resp.error || 'Falha ao preparar email' }, { status: 502 });
   }
 
-  return NextResponse.json({ success: true, configured: true });
+  return NextResponse.json({ success: true, configured: true, mailtoUrl: resp.mailtoUrl });
 }
 
 

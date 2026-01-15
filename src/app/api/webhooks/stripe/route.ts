@@ -504,24 +504,22 @@ async function processStripeEvent(
             .eq('integration_id', 'sendgrid')
             .maybeSingle();
           const dbKey = (sg?.status === 'connected' ? String(sg?.api_key || '') : '').trim();
-          const apiKey = dbKey || envKey;
-          if (apiKey) {
-            const fromEmail = sg?.config?.fromEmail || process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br';
-            const fromName = sg?.config?.fromName || process.env.SENDGRID_FROM_NAME || 'Valle 360';
-            const toList = String(process.env.FINANCE_ALERT_EMAILS || '')
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean);
-            if (toList.length > 0) {
-              const client = createSendGridClient({ apiKey, fromEmail, fromName });
-              const tpl = EMAIL_TEMPLATES.notification(title, msg, hostedUrl || undefined, hostedUrl ? 'Abrir fatura' : undefined);
-              await client.sendEmail({
-                to: toList.map((e) => ({ email: e })),
-                subject: tpl.subject,
-                html: tpl.html,
-                categories: ['valle360', 'stripe'],
-              });
-            }
+          const apiKey = dbKey || envKey || 'mailto';
+          const fromEmail = sg?.config?.fromEmail || process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com.br';
+          const fromName = sg?.config?.fromName || process.env.SENDGRID_FROM_NAME || 'Valle 360';
+          const toList = String(process.env.FINANCE_ALERT_EMAILS || '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          if (toList.length > 0) {
+            const client = createSendGridClient({ apiKey, fromEmail, fromName });
+            const tpl = EMAIL_TEMPLATES.notification(title, msg, hostedUrl || undefined, hostedUrl ? 'Abrir fatura' : undefined);
+            await client.sendEmail({
+              to: toList.map((e) => ({ email: e })),
+              subject: tpl.subject,
+              html: tpl.html,
+              categories: ['valle360', 'stripe'],
+            });
           }
         } catch {
           // ignore

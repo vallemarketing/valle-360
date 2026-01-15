@@ -146,7 +146,7 @@ export default function NovoClientePage() {
   }
 
   const enviarBoasVindas = async (clienteId: string, email: string, senha: string) => {
-    // Enviar email
+    // Preparar email via mailto (API)
     const emailContent = `
       Olá ${formData.nome},
       
@@ -166,6 +166,27 @@ export default function NovoClientePage() {
       
       Bem-vindo à família Valle 360! 🎊
     `
+
+    try {
+      const response = await fetch('/api/send-welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailPessoal: email,
+          emailCorporativo: email,
+          nome: formData.nome,
+          senha,
+          tipo: 'cliente',
+        }),
+      })
+
+      const result = await response.json().catch(() => null)
+      if (result?.success && result?.mailtoUrl) {
+        window.open(result.mailtoUrl, '_blank')
+      }
+    } catch (error) {
+      console.error('Erro ao preparar email mailto:', error)
+    }
 
     // Registrar envio
     await supabase.from('email_logs').insert({

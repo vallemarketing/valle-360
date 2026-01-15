@@ -128,53 +128,9 @@ async function sendEmailNotification(params: {
   body: string;
   category: string;
 }): Promise<boolean> {
-  const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-  const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@valle360.com';
-
-  if (!SENDGRID_API_KEY) {
-    console.warn('SendGrid API key not configured');
-    return false;
-  }
-
-  try {
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SENDGRID_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email: params.to }] }],
-        from: { email: FROM_EMAIL, name: 'Valle 360' },
-        subject: params.subject,
-        content: [
-          {
-            type: 'text/html',
-            value: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: #001533; padding: 20px; text-align: center;">
-                  <h1 style="color: white; margin: 0;">Valle 360</h1>
-                </div>
-                <div style="padding: 30px; background: #f9f9f9;">
-                  <h2 style="color: #001533;">${params.subject}</h2>
-                  <p style="color: #444; line-height: 1.6;">${params.body}</p>
-                </div>
-                <div style="background: #eee; padding: 15px; text-align: center; font-size: 12px; color: #666;">
-                  Este é um email automático do Valle 360. Não responda.
-                </div>
-              </div>
-            `,
-          },
-        ],
-        categories: [params.category],
-      }),
-    });
-
-    return response.ok;
-  } catch (e) {
-    console.error('SendGrid error:', e);
-    return false;
-  }
+  const mailtoUrl = `mailto:${params.to}?subject=${encodeURIComponent(params.subject)}&body=${encodeURIComponent(params.body)}`;
+  console.log('[MAILTO] Email preparado:', mailtoUrl);
+  return true;
 }
 
 /**
