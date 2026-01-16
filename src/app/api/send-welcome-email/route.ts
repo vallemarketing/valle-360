@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       nome, 
       senha, 
       areasTexto,
-      tipo = 'colaborador' // 'colaborador' ou 'cliente'
+      tipo = 'colaborador', // 'colaborador' ou 'cliente'
       mode = 'auto'
     } = await request.json()
 
