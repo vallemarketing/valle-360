@@ -135,35 +135,49 @@ export default function EmployeesListPage() {
       const res = await fetch('/api/admin/resend-welcome', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify({ employeeId: emp.id, tipo: 'colaborador' }),
+        body: JSON.stringify({ employeeId: emp.id, tipo: 'colaborador', mode: 'manual' }),
       })
       
       const data = await res.json().catch(() => null)
       
       if (data?.success) {
-        toast.success(`Email enviado via ${data.provider || 'smtp'}!`)
-
-        if (data.credentials) {
-          setCredenciaisInfo({
-            email: data.credentials.email,
-            senha: data.credentials.senha,
-            nome: emp.fullName,
-            emailEnviado: true,
-            provider: data.provider,
-            mailtoUrl: data.mailtoUrl,
+        const win = data.mailtoUrl ? window.open(data.mailtoUrl, '_blank') : null
+        if (!win) {
+          const autoRes = await fetch('/api/admin/resend-welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
+            body: JSON.stringify({ employeeId: emp.id, tipo: 'colaborador', mode: 'auto' }),
           })
-          setShowCredentialsModal(true)
+          const autoData = await autoRes.json().catch(() => null)
+          if (autoData?.success) {
+            toast.success(`Email enviado via ${autoData.provider || 'smtp'}!`)
+            if (autoData.credentials) {
+              setCredenciaisInfo({
+                email: autoData.credentials.email,
+                senha: autoData.credentials.senha,
+                nome: emp.fullName,
+                emailEnviado: true,
+                provider: autoData.provider,
+                mailtoUrl: autoData.mailtoUrl,
+              })
+              setShowCredentialsModal(true)
+            }
+          } else if (autoData?.fallbackMode) {
+            toast.warning('Falha no envio automático. Use o botão mailto no modal.')
+            setCredenciaisInfo({
+              email: autoData.credentials.email,
+              senha: autoData.credentials.senha,
+              nome: emp.fullName,
+              emailEnviado: false,
+              mailtoUrl: autoData.mailtoUrl,
+            })
+            setShowCredentialsModal(true)
+          } else {
+            throw new Error(autoData?.error || 'Falha ao enviar email')
+          }
+        } else {
+          toast.success('Email aberto via mailto. Envie manualmente.')
         }
-      } else if (data?.fallbackMode) {
-        toast.warning('Falha no envio automático. Use o botão mailto no modal.')
-        setCredenciaisInfo({
-          email: data.credentials.email,
-          senha: data.credentials.senha,
-          nome: emp.fullName,
-          emailEnviado: false,
-          mailtoUrl: data.mailtoUrl,
-        })
-        setShowCredentialsModal(true)
       } else {
         throw new Error(data?.error || 'Falha ao enviar email')
       }
@@ -678,18 +692,20 @@ export default function EmployeesListPage() {
                         {employee.position} • {employee.department}
                       </p>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                        <div className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        <div className="flex items-center gap-2 min-w-0" style={{ color: 'var(--text-secondary)' }}>
                           <Mail className="w-4 h-4" />
-                          <span>{employee.email}</span>
+                          <span className="truncate" title={employee.email}>{employee.email}</span>
                         </div>
-                        <div className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                        <div className="flex items-center gap-2 min-w-0" style={{ color: 'var(--text-secondary)' }}>
                           <Phone className="w-4 h-4" />
-                          <span>{employee.phone}</span>
+                          <span className="truncate" title={employee.phone}>{employee.phone}</span>
                         </div>
-                        <div className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                        <div className="flex items-center gap-2 min-w-0" style={{ color: 'var(--text-secondary)' }}>
                           <Calendar className="w-4 h-4" />
-                          <span>Desde {new Date(employee.hireDate).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}</span>
+                          <span className="truncate" title={new Date(employee.hireDate).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}>
+                            Desde {new Date(employee.hireDate).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
+                          </span>
                         </div>
                       </div>
                     </div>

@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
       success: true,
       activeProviders,
       configs,
-      fallbackOrder: ['smtp', 'resend', 'gmail', 'mailto'],
+      fallbackOrder: ['resend', 'gmail', 'smtp', 'mailto'],
     });
 
   } catch (error: any) {

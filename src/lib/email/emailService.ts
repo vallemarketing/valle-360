@@ -2,9 +2,9 @@
  * Serviço Unificado de Email com Sistema de Fallback
  * 
  * Ordem de tentativa:
- * 1. SMTP (cPanel - prioridade)
- * 2. Resend
- * 3. Gmail API
+ * 1. Resend
+ * 2. Gmail API
+ * 3. SMTP (cPanel)
  * 4. Mailto (manual)
  */
 
@@ -37,7 +37,7 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, '').trim();
 }
 
-function buildMailtoUrl(payload: EmailPayload): string {
+export function createMailtoUrl(payload: EmailPayload): string {
   const to = payload.to || '';
   const subject = encodeURIComponent(payload.subject || '');
   const bodySource = payload.text || (payload.html ? stripHtml(payload.html) : '');
@@ -187,15 +187,9 @@ export async function sendEmailWithFallback(
   credentials?: { email: string; senha: string }
 ): Promise<EmailResult> {
   const attempts: string[] = [];
-  const mailtoUrl = buildMailtoUrl(payload);
+  const mailtoUrl = createMailtoUrl(payload);
   const webmailUrl = process.env.WEBMAIL_URL || 'https://webmail.vallegroup.com.br/';
   const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://valle-360-platform.vercel.app'}/login`;
-
-  const smtpResult = await sendViaSMTP(payload);
-  attempts.push(`SMTP: ${smtpResult.success ? '✅' : '❌'} ${smtpResult.error || smtpResult.message}`);
-  if (smtpResult.success) {
-    return { ...smtpResult, mailtoUrl };
-  }
 
   const resendResult = await sendViaResend(payload);
   attempts.push(`Resend: ${resendResult.success ? '✅' : '❌'} ${resendResult.error || resendResult.message}`);
@@ -207,6 +201,12 @@ export async function sendEmailWithFallback(
   attempts.push(`Gmail: ${gmailResult.success ? '✅' : '❌'} ${gmailResult.error || gmailResult.message}`);
   if (gmailResult.success) {
     return { ...gmailResult, mailtoUrl };
+  }
+
+  const smtpResult = await sendViaSMTP(payload);
+  attempts.push(`SMTP: ${smtpResult.success ? '✅' : '❌'} ${smtpResult.error || smtpResult.message}`);
+  if (smtpResult.success) {
+    return { ...smtpResult, mailtoUrl };
   }
 
   return {

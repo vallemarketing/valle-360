@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       message: 'Adicione ?email=seu@email.com para enviar teste',
       configs,
       activeProviders,
-      fallbackOrder: ['smtp', 'resend', 'gmail', 'mailto'],
+      fallbackOrder: ['resend', 'gmail', 'smtp', 'mailto'],
     });
   }
 

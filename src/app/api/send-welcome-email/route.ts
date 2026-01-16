@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { sendWelcomeEmail } from '@/lib/email/emailService'
+import { createMailtoUrl, sendWelcomeEmail } from '@/lib/email/emailService'
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       senha, 
       areasTexto,
       tipo = 'colaborador' // 'colaborador' ou 'cliente'
+      mode = 'auto'
     } = await request.json()
 
     if (!emailPessoal || !emailCorporativo || !nome || !senha) {
@@ -36,7 +37,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Usar o novo serviço de email com fallback
+    if (mode === 'manual') {
+      const subject = tipo === 'cliente'
+        ? '🎉 Bem-vindo ao Valle 360! Seus Dados de Acesso'
+        : '🎉 Bem-vindo à Família Valle 360!'
+      const body = [
+        `Olá ${nome},`,
+        '',
+        '🔐 Seus Dados de Acesso',
+        `   📧 Email: ${emailCorporativo}`,
+        `   🔑 Senha: ${senha}`,
+        `URL: ${process.env.NEXT_PUBLIC_APP_URL || 'https://valle-360-platform.vercel.app'}`,
+        '',
+        '[Botão: Acessar Valle 360]',
+        '',
+        '⚠️ Altere sua senha no primeiro acesso!',
+        '',
+        `© ${new Date().getFullYear()} Valle 360`,
+      ].join('\n')
+      const mailtoUrl = createMailtoUrl({ to: emailPessoal, subject, text: body })
+
+      return NextResponse.json({
+        success: true,
+        provider: 'mailto',
+        mailtoUrl,
+        emailPessoal,
+        emailCorporativo,
+        credentials: { email: emailCorporativo, senha },
+      })
+    }
+
+    // Envio automático com fallback
     const result = await sendWelcomeEmail({
       emailDestino: emailPessoal,
       emailCorporativo,

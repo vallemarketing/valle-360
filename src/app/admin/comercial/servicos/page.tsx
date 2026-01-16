@@ -45,13 +45,23 @@ export default function ServiceCatalogPage() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
+    const deliverablesRaw = String(formData.get('deliverables') || '').trim()
+    let deliverables: any = {}
+    if (deliverablesRaw) {
+      try {
+        deliverables = JSON.parse(deliverablesRaw)
+      } catch {
+        toast.error('Entregáveis inválidos. Use JSON válido.')
+        return
+      }
+    }
     
     const serviceData = {
       name: formData.get('name') as string,
       description: formData.get('description') as string,
-      base_price: parseFloat(formData.get('base_price') as string),
+      base_price: parseFloat(formData.get('base_price') as string || '0'),
       billing_cycle: formData.get('billing_cycle') as string,
-      deliverables: JSON.parse(formData.get('deliverables') as string || '{}'),
+      deliverables,
       active: true
     }
 

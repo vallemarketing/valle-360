@@ -9,10 +9,10 @@ export default function ClienteEvolucaoPage() {
   return (
     <div className="space-y-6 pb-8">
       {/* Header */}
-      <div>
+        <div>
         <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Evolução da Sua Marca
-        </h1>
+          </h1>
         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           Acompanhe o crescimento e resultados da sua presença digital
         </p>
@@ -25,11 +25,11 @@ export default function ClienteEvolucaoPage() {
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/30">
                 <TrendingUp className="w-6 h-6 text-blue-600" />
-              </div>
+        </div>
               <div>
                 <p className="text-sm text-gray-500">Crescimento Total</p>
                 <p className="text-2xl font-bold text-blue-600">+347%</p>
-              </div>
+                </div>
             </div>
           </CardContent>
         </Card>
@@ -39,12 +39,12 @@ export default function ClienteEvolucaoPage() {
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-green-100 dark:bg-green-900/30">
                 <Target className="w-6 h-6 text-green-600" />
-              </div>
+        </div>
               <div>
                 <p className="text-sm text-gray-500">Metas Atingidas</p>
                 <p className="text-2xl font-bold text-green-600">12/15</p>
-              </div>
-            </div>
+          </div>
+        </div>
           </CardContent>
         </Card>
 
@@ -53,12 +53,12 @@ export default function ClienteEvolucaoPage() {
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-purple-100 dark:bg-purple-900/30">
                 <Award className="w-6 h-6 text-purple-600" />
-              </div>
+        </div>
               <div>
                 <p className="text-sm text-gray-500">Conquistas</p>
                 <p className="text-2xl font-bold text-purple-600">8</p>
-              </div>
-            </div>
+          </div>
+        </div>
           </CardContent>
         </Card>
 
@@ -67,12 +67,12 @@ export default function ClienteEvolucaoPage() {
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-amber-100 dark:bg-amber-900/30">
                 <Sparkles className="w-6 h-6 text-amber-600" />
-              </div>
-              <div>
+      </div>
+      <div>
                 <p className="text-sm text-gray-500">Meses de Parceria</p>
                 <p className="text-2xl font-bold text-amber-600">12</p>
               </div>
-            </div>
+        </div>
           </CardContent>
         </Card>
       </div>

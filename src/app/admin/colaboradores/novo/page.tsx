@@ -215,7 +215,8 @@ export default function NovoColaboradorPage() {
     let fallbackCredentials = null
     
     try {
-      const response = await fetch('/api/send-welcome-email', {
+      // 1) Mailto como principal (manual)
+      const manualResponse = await fetch('/api/send-welcome-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -225,25 +226,39 @@ export default function NovoColaboradorPage() {
           senha,
           areasTexto,
           tipo: 'colaborador',
-          loginUrl: `${window.location.origin}/login`
+          mode: 'manual',
         })
       })
-
-      const result = await response.json()
-      
-      if (result.success) {
-        emailEnviado = true
-        emailProvider = result.provider || 'smtp'
-        console.log(`✅ Email enviado via ${emailProvider}`)
-      } else if (result.fallbackMode) {
-        fallbackCredentials = {
-          ...result.credentials,
-          emailDestino: emailPessoal,
-          mailtoUrl: result.mailtoUrl,
+      const manualResult = await manualResponse.json().catch(() => null)
+      if (manualResult?.mailtoUrl) {
+        const win = window.open(manualResult.mailtoUrl, '_blank')
+        if (!win) {
+          // 2) Se popup bloqueado, tenta envio automático
+          const autoResponse = await fetch('/api/send-welcome-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              emailPessoal,
+              emailCorporativo,
+              nome: formData.nome,
+              senha,
+              areasTexto,
+              tipo: 'colaborador',
+              mode: 'auto',
+            })
+          })
+          const autoResult = await autoResponse.json().catch(() => null)
+          if (autoResult?.success) {
+            emailEnviado = true
+            emailProvider = autoResult.provider || 'smtp'
+          } else if (autoResult?.fallbackMode) {
+            fallbackCredentials = {
+              ...autoResult.credentials,
+              emailDestino: emailPessoal,
+              mailtoUrl: autoResult.mailtoUrl,
+            }
+          }
         }
-        console.warn('⚠️ Falha no envio automático. Use mailto.')
-      } else {
-        console.error('❌ Erro ao enviar email:', result.error)
       }
     } catch (error) {
       console.error('Erro ao enviar email:', error)

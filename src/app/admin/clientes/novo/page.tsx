@@ -168,7 +168,7 @@ export default function NovoClientePage() {
     `
 
     try {
-      const response = await fetch('/api/send-welcome-email', {
+      const manualResponse = await fetch('/api/send-welcome-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -177,12 +177,28 @@ export default function NovoClientePage() {
           nome: formData.nome,
           senha,
           tipo: 'cliente',
+          mode: 'manual',
         }),
       })
 
-      const result = await response.json().catch(() => null)
-      if (result?.fallbackMode && result?.mailtoUrl) {
-        window.open(result.mailtoUrl, '_blank')
+      const manualResult = await manualResponse.json().catch(() => null)
+      if (manualResult?.mailtoUrl) {
+        const win = window.open(manualResult.mailtoUrl, '_blank')
+        if (!win) {
+          const autoResponse = await fetch('/api/send-welcome-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              emailPessoal: email,
+              emailCorporativo: email,
+              nome: formData.nome,
+              senha,
+              tipo: 'cliente',
+              mode: 'auto',
+            }),
+          })
+          await autoResponse.json().catch(() => null)
+        }
       }
     } catch (error) {
       console.error('Erro ao enviar email:', error)
