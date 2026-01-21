@@ -95,30 +95,53 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (!employee) {
-        return NextResponse.json({ 
-          error: 'Colaborador não encontrado' 
-        }, { status: 404 });
-      }
+      if (employee) {
+        const effectiveUserId = employee?.user_id || userIdFinal || '';
+        // Buscar email do users
+        const { data: user } = await db
+          .from('users')
+          .select('email')
+          .eq('id', effectiveUserId)
+          .single();
+        
+        emailCorporativo = user?.email || '';
+        nome = employee.first_name || 'Colaborador';
+        areasTexto = Array.isArray(employee.areas) ? employee.areas.join(', ') : '';
+        // Se não vier no request, usa o email pessoal salvo
+        if (!emailPessoalDestino) {
+          emailPessoalDestino = employee.personal_email || '';
+        }
+        if (!userIdFinal && employee?.user_id) {
+          // garantir userId para atualização de senha
+          userIdFinal = employee.user_id;
+        }
+      } else {
+        // Fallback: usuário existe, mas não há registro em employees
+        const fallbackUserId = userIdFinal || '';
+        if (!fallbackUserId) {
+          return NextResponse.json({ 
+            error: 'Colaborador não encontrado' 
+          }, { status: 404 });
+        }
 
-      const effectiveUserId = employee?.user_id || userIdFinal || '';
-      // Buscar email do users
-      const { data: user } = await db
-        .from('users')
-        .select('email')
-        .eq('id', effectiveUserId)
-        .single();
-      
-      emailCorporativo = user?.email || '';
-      nome = employee.first_name || 'Colaborador';
-      areasTexto = Array.isArray(employee.areas) ? employee.areas.join(', ') : '';
-      // Se não vier no request, usa o email pessoal salvo
-      if (!emailPessoalDestino) {
-        emailPessoalDestino = employee.personal_email || '';
-      }
-      if (!userIdFinal && employee?.user_id) {
-        // garantir userId para atualização de senha
-        userIdFinal = employee.user_id;
+        const { data: userFallback } = await db
+          .from('users')
+          .select('email, full_name, name')
+          .eq('id', fallbackUserId)
+          .single();
+
+        const { data: profileFallback } = await db
+          .from('user_profiles')
+          .select('full_name, email')
+          .eq('user_id', fallbackUserId)
+          .single();
+
+        emailCorporativo = userFallback?.email || profileFallback?.email || '';
+        nome = profileFallback?.full_name || userFallback?.full_name || userFallback?.name || 'Colaborador';
+        areasTexto = '';
+        if (!emailPessoalDestino) {
+          emailPessoalDestino = profileFallback?.email || '';
+        }
       }
     }
 
@@ -144,7 +167,7 @@ export async function POST(request: NextRequest) {
       const { data: user } = await db
         .from('users')
         .select('email')
-        .eq('id', userId)
+        .eq('id', userIdFinal)
         .single();
       
       emailCorporativo = user?.email || client.contact_email || '';
