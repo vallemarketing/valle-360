@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
     let emailCorporativo: string = '';
     let nome: string = '';
     let areasTexto: string = '';
+    let emailPessoalDestino: string = emailPessoal || '';
 
     // ============================================
     // BUSCAR DADOS DO COLABORADOR
@@ -106,8 +107,8 @@ export async function POST(request: NextRequest) {
       nome = employee.first_name || 'Colaborador';
       areasTexto = Array.isArray(employee.areas) ? employee.areas.join(', ') : '';
       // Se não vier no request, usa o email pessoal salvo
-      if (!emailPessoal) {
-        emailPessoal = employee.personal_email || '';
+      if (!emailPessoalDestino) {
+        emailPessoalDestino = employee.personal_email || '';
       }
     }
 
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
     // ============================================
     // ENVIAR EMAIL (AUTO)
     // ============================================
-    const emailDestino = emailPessoal || emailCorporativo;
+    const emailDestino = emailPessoalDestino || emailCorporativo;
 
     const result = await sendWelcomeEmail({
       emailDestino,
