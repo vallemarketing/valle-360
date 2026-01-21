@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
-import { createMailtoUrl, sendWelcomeEmail } from '@/lib/email/emailService';
+import { sendWelcomeEmail } from '@/lib/email/emailService';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,8 +43,7 @@ export async function POST(request: NextRequest) {
       clientId,        // ID do cliente (alternativo)
       emailPessoal,    // Email pessoal para enviar (opcional)
       novaSenha,       // Nova senha (opcional - gera automaticamente se não fornecida)
-      tipo = 'colaborador', // 'colaborador' ou 'cliente'
-      mode = 'auto'
+      tipo = 'colaborador' // 'colaborador' ou 'cliente'
     } = await request.json();
 
     if (!employeeId && !clientId) {
@@ -161,47 +160,9 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // ENVIAR EMAIL (MANUAL OU AUTO)
+    // ENVIAR EMAIL (AUTO)
     // ============================================
     const emailDestino = emailPessoal || emailCorporativo;
-
-    if (mode === 'manual') {
-      const subject = tipo === 'cliente'
-        ? '🎉 Bem-vindo ao Valle 360! Seus Dados de Acesso'
-        : '🎉 Bem-vindo à Família Valle 360!'
-      const body = [
-        `Olá ${nome},`,
-        '',
-        tipo === 'colaborador' ? `💼 Área: ${areasTexto || '-'}` : null,
-        '',
-        '🔐 Seus Dados de Acesso',
-        `   📧 Email: ${emailCorporativo}`,
-        `   🔑 Senha: ${senhaFinal}`,
-        `URL: ${process.env.NEXT_PUBLIC_APP_URL || 'https://valle-360-platform.vercel.app'}`,
-        '',
-        '[Botão: Acessar Valle 360]',
-        '',
-        tipo === 'colaborador' ? `📬 Webmail: ${process.env.WEBMAIL_URL || 'https://webmail.vallegroup.com.br/'}` : null,
-        '',
-        '⚠️ Altere sua senha no primeiro acesso!',
-        '',
-        `© ${new Date().getFullYear()} Valle 360`,
-      ].filter(Boolean).join('\n');
-
-      const mailtoUrl = createMailtoUrl({ to: emailDestino, subject, text: body });
-
-      return NextResponse.json({
-        success: true,
-        provider: 'mailto',
-        mailtoUrl,
-        credentials: {
-          email: emailCorporativo,
-          senha: senhaFinal,
-          webmailUrl: process.env.WEBMAIL_URL || 'https://webmail.vallegroup.com.br/',
-          loginUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://valle-360-platform.vercel.app',
-        },
-      });
-    }
 
     const result = await sendWelcomeEmail({
       emailDestino,
