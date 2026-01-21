@@ -137,7 +137,7 @@ export default function EmployeesListPage() {
       const res = await fetch('/api/admin/resend-welcome', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify({ employeeId: targetEmployeeId, tipo: 'colaborador' }),
+        body: JSON.stringify({ employeeId: targetEmployeeId, userId: emp.id, tipo: 'colaborador' }),
       })
       
       const data = await res.json().catch(() => null)

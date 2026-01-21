@@ -39,21 +39,22 @@ export async function POST(request: NextRequest) {
     }
 
     const { 
-      employeeId,      // ID do colaborador (user_id ou employee.id)
+      employeeId,      // ID do colaborador (employee.id)
+      userId,          // ID do usuário (users.id)
       clientId,        // ID do cliente (alternativo)
       emailPessoal,    // Email pessoal para enviar (opcional)
       novaSenha,       // Nova senha (opcional - gera automaticamente se não fornecida)
       tipo = 'colaborador' // 'colaborador' ou 'cliente'
     } = await request.json();
 
-    if (!employeeId && !clientId) {
+    if (!employeeId && !userId && !clientId) {
       return NextResponse.json({ 
-        error: 'employeeId ou clientId é obrigatório' 
+        error: 'employeeId, userId ou clientId é obrigatório' 
       }, { status: 400 });
     }
 
     const db = getSupabaseAdmin();
-    let userId: string = '';
+    let userIdFinal: string = userId || '';
     let emailCorporativo: string = '';
     let nome: string = '';
     let areasTexto: string = '';
@@ -62,31 +63,48 @@ export async function POST(request: NextRequest) {
     // ============================================
     // BUSCAR DADOS DO COLABORADOR
     // ============================================
-    if (employeeId || tipo === 'colaborador') {
-      const id = employeeId || clientId;
+    if (employeeId || userId || tipo === 'colaborador') {
+      const id = employeeId || userId || clientId;
       
       // Tentar buscar por user_id primeiro
       let employee: any = null;
-      const { data: empByUserId } = await db
-        .from('employees')
-        .select('id, user_id, first_name, last_name, areas, whatsapp, personal_email')
-        .eq('user_id', id)
-        .single();
-      
-      if (empByUserId) {
-        employee = empByUserId;
-        userId = empByUserId.user_id;
-      } else {
-        // Tentar por id do employee
-        const { data: empById } = await db
+      if (employeeId || userIdFinal) {
+        const filters = [
+          employeeId ? `id.eq.${employeeId}` : null,
+          userIdFinal ? `user_id.eq.${userIdFinal}` : null,
+        ].filter(Boolean).join(',');
+
+        const { data: empByAny } = await db
           .from('employees')
           .select('id, user_id, first_name, last_name, areas, whatsapp, personal_email')
-          .eq('id', id)
+          .or(filters)
+          .single();
+
+        if (empByAny) {
+          employee = empByAny;
+        }
+      }
+
+      if (!employee && id) {
+        // Fallback: tentar pelo id recebido (user_id ou employee.id)
+        const { data: empByUserId } = await db
+          .from('employees')
+          .select('id, user_id, first_name, last_name, areas, whatsapp, personal_email')
+          .eq('user_id', id)
           .single();
         
-        if (empById) {
-          employee = empById;
-          userId = empById.user_id;
+        if (empByUserId) {
+          employee = empByUserId;
+        } else {
+          const { data: empById } = await db
+            .from('employees')
+            .select('id, user_id, first_name, last_name, areas, whatsapp, personal_email')
+            .eq('id', id)
+            .single();
+          
+          if (empById) {
+            employee = empById;
+          }
         }
       }
 
@@ -96,11 +114,12 @@ export async function POST(request: NextRequest) {
         }, { status: 404 });
       }
 
+      const effectiveUserId = employee?.user_id || userIdFinal || '';
       // Buscar email do users
       const { data: user } = await db
         .from('users')
         .select('email')
-        .eq('id', userId)
+        .eq('id', effectiveUserId)
         .single();
       
       emailCorporativo = user?.email || '';
@@ -109,6 +128,10 @@ export async function POST(request: NextRequest) {
       // Se não vier no request, usa o email pessoal salvo
       if (!emailPessoalDestino) {
         emailPessoalDestino = employee.personal_email || '';
+      }
+      if (!userIdFinal && employee?.user_id) {
+        // garantir userId para atualização de senha
+        userIdFinal = employee.user_id;
       }
     }
 
@@ -153,8 +176,8 @@ export async function POST(request: NextRequest) {
     const senhaFinal = novaSenha || generatePassword();
 
     // Atualizar senha no auth
-    if (userId) {
-      const { error: updateError } = await db.auth.admin.updateUserById(userId, {
+    if (userIdFinal) {
+      const { error: updateError } = await db.auth.admin.updateUserById(userIdFinal, {
         password: senhaFinal,
       });
 
