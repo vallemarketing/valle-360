@@ -92,34 +92,59 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Criar na tabela employees
-    const { data: employeeData, error: employeeError } = await supabaseAdmin
-      .from('employees')
-      .insert({
-        user_id: userId,
-        full_name: `${nome} ${sobrenome}`,
-        email,
-        personal_email: emailPessoal || null,
-        phone: telefone,
-        avatar: fotoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-        department: areas[0] || 'Geral',
-        position: nivelHierarquico === 'lider' ? 'Líder' : 'Colaborador',
-        area_of_expertise: areas.join(', '),
-        hire_date: new Date().toISOString().split('T')[0],
-        birth_date: dataNascimento || null,
-        emergency_contact: contatoEmergencia || null,
-        emergency_phone: telefoneEmergencia || null,
-        pix_key: chavePix || null,
-        is_active: true,
-        // compat (telas antigas)
-        first_name: nome,
-        last_name: sobrenome,
-        whatsapp: telefone || null,
-        admission_date: new Date().toISOString().split('T')[0],
-        areas: Array.isArray(areas) ? areas : [],
-        photo_url: fotoUrl || null
-      })
-      .select()
-      .single()
+    const employeePayload: any = {
+      user_id: userId,
+      full_name: `${nome} ${sobrenome}`,
+      email,
+      personal_email: emailPessoal || null,
+      phone: telefone,
+      avatar: fotoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+      department: areas[0] || 'Geral',
+      position: nivelHierarquico === 'lider' ? 'Líder' : 'Colaborador',
+      area_of_expertise: areas.join(', '),
+      hire_date: new Date().toISOString().split('T')[0],
+      birth_date: dataNascimento || null,
+      emergency_contact: contatoEmergencia || null,
+      emergency_phone: telefoneEmergencia || null,
+      pix_key: chavePix || null,
+      is_active: true,
+      // compat (telas antigas)
+      first_name: nome,
+      last_name: sobrenome,
+      whatsapp: telefone || null,
+      admission_date: new Date().toISOString().split('T')[0],
+      areas: Array.isArray(areas) ? areas : [],
+      photo_url: fotoUrl || null
+    }
+
+    let employeeData: any = null
+    let employeeError: any = null
+    let usedFallback = false
+
+    {
+      const insertResult = await supabaseAdmin
+        .from('employees')
+        .insert(employeePayload)
+        .select()
+        .single()
+
+      employeeData = insertResult.data
+      employeeError = insertResult.error
+    }
+
+    if (employeeError && String(employeeError.message || '').toLowerCase().includes('personal_email')) {
+      // fallback para schemas sem personal_email
+      const { personal_email, ...fallbackPayload } = employeePayload
+      const fallbackResult = await supabaseAdmin
+        .from('employees')
+        .insert(fallbackPayload)
+        .select()
+        .single()
+
+      employeeData = fallbackResult.data
+      employeeError = fallbackResult.error
+      usedFallback = true
+    }
 
     if (employeeError) {
       console.error('Erro ao criar employee:', employeeError)
@@ -154,7 +179,8 @@ export async function POST(request: NextRequest) {
       full_name: `${nome} ${sobrenome}`,
       user_type: 'employee',
       role: 'employee',
-      is_active: true
+      is_active: true,
+      metadata: emailPessoal ? { personal_email: emailPessoal } : undefined
     })
 
     // 6. Event bus: employee.created

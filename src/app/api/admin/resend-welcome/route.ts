@@ -96,20 +96,25 @@ export async function POST(request: NextRequest) {
       }
 
       if (employee) {
-        const effectiveUserId = employee?.user_id || userIdFinal || '';
-        // Buscar email do users
-        const { data: user } = await db
-          .from('users')
-          .select('email')
-          .eq('id', effectiveUserId)
-          .single();
+      const effectiveUserId = employee?.user_id || userIdFinal || '';
+      // Buscar email do users
+      const { data: user } = await db
+        .from('users')
+        .select('email')
+        .eq('id', effectiveUserId)
+        .single();
+      const { data: profile } = await db
+        .from('user_profiles')
+        .select('email, metadata')
+        .eq('user_id', effectiveUserId)
+        .single();
         
         emailCorporativo = user?.email || '';
         nome = employee.first_name || 'Colaborador';
         areasTexto = Array.isArray(employee.areas) ? employee.areas.join(', ') : '';
         // Se não vier no request, usa o email pessoal salvo
-        if (!emailPessoalDestino) {
-          emailPessoalDestino = employee.personal_email || '';
+      if (!emailPessoalDestino) {
+        emailPessoalDestino = employee.personal_email || profile?.metadata?.personal_email || '';
         }
         if (!userIdFinal && employee?.user_id) {
           // garantir userId para atualização de senha
@@ -132,7 +137,7 @@ export async function POST(request: NextRequest) {
 
         const { data: profileFallback } = await db
           .from('user_profiles')
-          .select('full_name, email')
+          .select('full_name, email, metadata')
           .eq('user_id', fallbackUserId)
           .single();
 
@@ -140,7 +145,7 @@ export async function POST(request: NextRequest) {
         nome = profileFallback?.full_name || userFallback?.full_name || userFallback?.name || 'Colaborador';
         areasTexto = '';
         if (!emailPessoalDestino) {
-          emailPessoalDestino = profileFallback?.email || '';
+          emailPessoalDestino = profileFallback?.metadata?.personal_email || profileFallback?.email || '';
         }
       }
     }

@@ -99,7 +99,7 @@ export default function EditarColaboradorPage() {
         nome,
         sobrenome,
         email: user.email || emp.email || '',
-        email_pessoal: emp.personal_email || '',
+        email_pessoal: emp.personal_email || profile?.metadata?.personal_email || '',
         telefone: profile.phone || user.phone || emp.phone || '',
         whatsapp: emp.whatsapp || '',
         cpf: emp.cpf || '',

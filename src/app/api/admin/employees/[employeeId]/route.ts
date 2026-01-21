@@ -418,13 +418,24 @@ export async function PATCH(
         .eq('user_id', userId);
     }
 
-    if (body.full_name || body.phone) {
+    let mergedMetadata: Record<string, any> | null = null;
+    if (body.personal_email) {
+      const { data: metaRow } = await db
+        .from('user_profiles')
+        .select('metadata')
+        .eq('user_id', userId)
+        .single();
+      mergedMetadata = { ...(metaRow?.metadata || {}), personal_email: body.personal_email };
+    }
+
+    if (body.full_name || body.phone || body.avatar_url !== undefined || mergedMetadata) {
       await db
         .from('user_profiles')
         .update({
           ...(body.full_name && { full_name: body.full_name }),
           ...(body.phone && { phone: body.phone }),
           ...(body.avatar_url !== undefined && { avatar_url: body.avatar_url }),
+          ...(mergedMetadata ? { metadata: mergedMetadata } : {}),
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId);
