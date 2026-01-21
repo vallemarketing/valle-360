@@ -4,10 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/admin/supabaseAdmin';
 import { sendWelcomeEmail } from '@/lib/email/emailService';
+import { requireAdmin } from '@/lib/auth/requireAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,20 +22,8 @@ function generatePassword(): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-
-    // Verificar autenticação
-    const { data: authData } = await supabase.auth.getUser();
-    if (!authData.user?.id) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
-
-    // Verificar se é admin
-    const { data: isAdmin } = await supabase.rpc('is_admin');
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
-    }
+    const gate = await requireAdmin(request);
+    if (!gate.ok) return gate.res;
 
     const { 
       employeeId,      // ID do colaborador (employee.id)
