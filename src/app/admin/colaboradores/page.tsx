@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 
 interface Employee {
   id: string
+  employeeId?: string
   fullName: string
   email: string
   phone: string
@@ -132,10 +133,11 @@ export default function EmployeesListPage() {
     try {
       setResendingEmail(emp.id)
       const authHeaders = await getAuthHeaders()
+      const targetEmployeeId = emp.employeeId || emp.id
       const res = await fetch('/api/admin/resend-welcome', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify({ employeeId: emp.id, tipo: 'colaborador' }),
+        body: JSON.stringify({ employeeId: targetEmployeeId, tipo: 'colaborador' }),
       })
       
       const data = await res.json().catch(() => null)
