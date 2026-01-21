@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
         }, { status: 404 });
       }
 
-      userId = client.user_id;
+      userIdFinal = client.user_id;
       
       // Buscar email do users
       const { data: user } = await db
