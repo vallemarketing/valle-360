@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       let employee: any = null;
       const { data: empByUserId } = await db
         .from('employees')
-        .select('id, user_id, first_name, last_name, areas, whatsapp')
+        .select('id, user_id, first_name, last_name, areas, whatsapp, personal_email')
         .eq('user_id', id)
         .single();
       
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         // Tentar por id do employee
         const { data: empById } = await db
           .from('employees')
-          .select('id, user_id, first_name, last_name, areas, whatsapp')
+          .select('id, user_id, first_name, last_name, areas, whatsapp, personal_email')
           .eq('id', id)
           .single();
         
@@ -105,6 +105,10 @@ export async function POST(request: NextRequest) {
       emailCorporativo = user?.email || '';
       nome = employee.first_name || 'Colaborador';
       areasTexto = Array.isArray(employee.areas) ? employee.areas.join(', ') : '';
+      // Se não vier no request, usa o email pessoal salvo
+      if (!emailPessoal) {
+        emailPessoal = employee.personal_email || '';
+      }
     }
 
     // ============================================
