@@ -135,49 +135,34 @@ export default function EmployeesListPage() {
       const res = await fetch('/api/admin/resend-welcome', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify({ employeeId: emp.id, tipo: 'colaborador', mode: 'manual' }),
+        body: JSON.stringify({ employeeId: emp.id, tipo: 'colaborador' }),
       })
       
       const data = await res.json().catch(() => null)
       
       if (data?.success) {
-        const win = data.mailtoUrl ? window.open(data.mailtoUrl, '_blank') : null
-        if (!win) {
-          const autoRes = await fetch('/api/admin/resend-welcome', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeaders },
-            body: JSON.stringify({ employeeId: emp.id, tipo: 'colaborador', mode: 'auto' }),
+        toast.success(`Email enviado via ${data.provider || 'webhook'}!`)
+        if (data.credentials) {
+          setCredenciaisInfo({
+            email: data.credentials.email,
+            senha: data.credentials.senha,
+            nome: emp.fullName,
+            emailEnviado: true,
+            provider: data.provider,
+            mailtoUrl: data.mailtoUrl,
           })
-          const autoData = await autoRes.json().catch(() => null)
-          if (autoData?.success) {
-            toast.success(`Email enviado via ${autoData.provider || 'smtp'}!`)
-            if (autoData.credentials) {
-              setCredenciaisInfo({
-                email: autoData.credentials.email,
-                senha: autoData.credentials.senha,
-                nome: emp.fullName,
-                emailEnviado: true,
-                provider: autoData.provider,
-                mailtoUrl: autoData.mailtoUrl,
-              })
-              setShowCredentialsModal(true)
-            }
-          } else if (autoData?.fallbackMode) {
-            toast.warning('Falha no envio automático. Use o botão mailto no modal.')
-            setCredenciaisInfo({
-              email: autoData.credentials.email,
-              senha: autoData.credentials.senha,
-              nome: emp.fullName,
-              emailEnviado: false,
-              mailtoUrl: autoData.mailtoUrl,
-            })
-            setShowCredentialsModal(true)
-          } else {
-            throw new Error(autoData?.error || 'Falha ao enviar email')
-          }
-        } else {
-          toast.success('Email aberto via mailto. Envie manualmente.')
+          setShowCredentialsModal(true)
         }
+      } else if (data?.fallbackMode) {
+        toast.warning('Falha no envio automático. Use o botão mailto no modal.')
+        setCredenciaisInfo({
+          email: data.credentials.email,
+          senha: data.credentials.senha,
+          nome: emp.fullName,
+          emailEnviado: false,
+          mailtoUrl: data.mailtoUrl,
+        })
+        setShowCredentialsModal(true)
       } else {
         throw new Error(data?.error || 'Falha ao enviar email')
       }
