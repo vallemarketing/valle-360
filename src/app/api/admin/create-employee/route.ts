@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
         user_id: userId,
         full_name: `${nome} ${sobrenome}`,
         email,
+        personal_email: emailPessoal || null,
         phone: telefone,
         avatar: fotoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
         department: areas[0] || 'Geral',

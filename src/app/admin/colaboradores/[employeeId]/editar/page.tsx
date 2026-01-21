@@ -1,18 +1,15 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, User, Mail, Phone, Briefcase, Shield, DollarSign, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 
-interface PageProps {
-  params: Promise<{ employeeId: string }>
-}
-
-export default function EditarColaboradorPage({ params }: PageProps) {
-  const { employeeId } = use(params)
+export default function EditarColaboradorPage() {
+  const params = useParams<{ employeeId: string }>()
+  const employeeId = params?.employeeId
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -57,11 +54,18 @@ export default function EditarColaboradorPage({ params }: PageProps) {
   ]
 
   useEffect(() => {
-    loadEmployee()
+    if (employeeId) {
+      loadEmployee()
+    }
   }, [employeeId])
 
   const loadEmployee = async () => {
     try {
+      if (!employeeId) {
+        toast.error('Colaborador inválido')
+        router.push('/admin/colaboradores')
+        return
+      }
       // Buscar dados do colaborador
       const { data: emp, error } = await supabase
         .from('employees')
