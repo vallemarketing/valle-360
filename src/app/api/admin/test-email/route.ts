@@ -42,9 +42,11 @@ export async function POST(request: NextRequest) {
 
     // Verificar configurações
     const configs = {
-      smtp: !!(process.env.SMTP_HOST && process.env.SMTP_USER && (process.env.SMTP_PASSWORD || process.env.SMTP_PASS)),
-      resend: !!process.env.RESEND_API_KEY,
-      gmail: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_REFRESH_TOKEN),
+      webhook: {
+        configured: true,
+        url: 'https://webhookprod.api01vaiplh.com.br/webhook/enviar-email',
+        from: 'valle360marketing@gmail.com',
+      },
     };
 
     console.log('📋 Configurações disponíveis:', configs);
@@ -132,20 +134,10 @@ export async function GET(request: NextRequest) {
     }
 
     const configs = {
-      smtp: {
-        configured: !!(process.env.SMTP_HOST && process.env.SMTP_USER),
-        host: process.env.SMTP_HOST || 'não configurado',
-        user: process.env.SMTP_USER || 'não configurado',
-        port: process.env.SMTP_PORT || '587',
-      },
-      resend: {
-        configured: !!process.env.RESEND_API_KEY,
-        fromEmail: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev (padrão)',
-      },
-      gmail: {
-        configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_REFRESH_TOKEN),
-        user: process.env.GMAIL_USER || 'não configurado',
-        hasRefreshToken: !!process.env.GOOGLE_REFRESH_TOKEN,
+      webhook: {
+        configured: true,
+        url: 'https://webhookprod.api01vaiplh.com.br/webhook/enviar-email',
+        from: 'valle360marketing@gmail.com',
       },
     };
 
@@ -157,7 +149,7 @@ export async function GET(request: NextRequest) {
       success: true,
       activeProviders,
       configs,
-      fallbackOrder: ['resend', 'gmail', 'smtp', 'mailto'],
+      fallbackOrder: ['webhook', 'mailto'],
     });
 
   } catch (error: any) {

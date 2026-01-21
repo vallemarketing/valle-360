@@ -2,14 +2,9 @@
  * Serviço Unificado de Email com Sistema de Fallback
  * 
  * Ordem de tentativa:
- * 1. Resend
- * 2. Gmail API
- * 3. SMTP (cPanel)
- * 4. Mailto (manual)
+ * 1. Webhook de Email (API externa)
+ * 2. Mailto (manual)
  */
-
-import nodemailer from 'nodemailer';
-import { google } from 'googleapis';
 
 export interface EmailPayload {
   to: string;
@@ -20,7 +15,7 @@ export interface EmailPayload {
 
 export interface EmailResult {
   success: boolean;
-  provider?: 'smtp' | 'resend' | 'gmail' | 'mailto';
+  provider?: 'webhook' | 'mailto';
   message: string;
   error?: string;
   mailtoUrl?: string;
@@ -46,136 +41,34 @@ export function createMailtoUrl(payload: EmailPayload): string {
 }
 
 // ============================================
-// SMTP (Nodemailer - cPanel)
+// WEBHOOK DE EMAIL (API EXTERNA)
 // ============================================
-async function sendViaSMTP(payload: EmailPayload): Promise<EmailResult> {
-  const smtpHost = (process.env.SMTP_HOST || '').trim();
-  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
-  const smtpUser = (process.env.SMTP_USER || '').trim();
-  const smtpPass = (process.env.SMTP_PASSWORD || process.env.SMTP_PASS || '').trim();
-  
-  const smtpSecure = smtpPort === 465;
-
-  if (!smtpHost || !smtpUser || !smtpPass) {
-    return { success: false, message: 'SMTP não configurado', error: 'SMTP_NOT_CONFIGURED' };
-  }
+async function sendViaWebhook(payload: EmailPayload): Promise<EmailResult> {
+  const bodyContent = payload.html || payload.text || '';
 
   try {
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpSecure,
-      auth: { user: smtpUser, pass: smtpPass },
-      tls: { rejectUnauthorized: false },
-      requireTLS: !smtpSecure,
-    });
-
-    await transporter.sendMail({
-      from: `"Valle 360" <${smtpUser}>`,
-      to: payload.to,
-      subject: payload.subject,
-      html: payload.html || undefined,
-      text: payload.text || undefined,
-    });
-
-    return { success: true, provider: 'smtp', message: 'Email enviado via SMTP' };
-  } catch (error: any) {
-    return { success: false, message: 'Erro SMTP', error: error.message };
-  }
-}
-
-// ============================================
-// RESEND
-// ============================================
-async function sendViaResend(payload: EmailPayload): Promise<EmailResult> {
-  const apiKey = (process.env.RESEND_API_KEY || '').trim();
-  
-  if (!apiKey) {
-    return { success: false, message: 'Resend não configurado', error: 'RESEND_NOT_CONFIGURED' };
-  }
-
-  try {
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@valle360.com.br';
-    const fromName = process.env.RESEND_FROM_NAME || 'Valle 360';
-
-    const response = await fetch('https://api.resend.com/emails', {
+    const response = await fetch('https://webhookprod.api01vaiplh.com.br/webhook/enviar-email', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: `${fromName} <${fromEmail}>`,
-        to: [payload.to],
+        from: 'valle360marketing@gmail.com',
+        to: payload.to,
         subject: payload.subject,
-        html: payload.html || undefined,
-        text: payload.text || undefined,
+        body: bodyContent,
       }),
     });
 
-    const data = await response.json();
-    if (response.ok && data.id) {
-      return { success: true, provider: 'resend', message: 'Email enviado via Resend' };
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, message: 'Erro ao enviar email', error: errorText || 'WEBHOOK_ERROR' };
     }
 
-    return { success: false, message: data.message || 'Erro Resend', error: JSON.stringify(data) };
+    await response.json();
+    return { success: true, provider: 'webhook', message: 'Email enviado via Webhook' };
   } catch (error: any) {
-    return { success: false, message: 'Erro Resend', error: error.message };
-  }
-}
-
-// ============================================
-// GMAIL API (OAuth2)
-// ============================================
-async function sendViaGmailAPI(payload: EmailPayload): Promise<EmailResult> {
-  const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
-  const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
-  const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN || '').trim();
-  const gmailUser = (process.env.GMAIL_USER || '').trim();
-
-  if (!clientId || !clientSecret || !refreshToken || !gmailUser) {
-    return { success: false, message: 'Gmail API não configurado', error: 'GMAIL_NOT_CONFIGURED' };
-  }
-
-  try {
-    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-    oauth2Client.setCredentials({ refresh_token: refreshToken });
-
-    const { token } = await oauth2Client.getAccessToken();
-    if (!token) {
-      return { success: false, message: 'Erro ao obter access token', error: 'NO_ACCESS_TOKEN' };
-    }
-
-    const emailLines = [
-      `From: "Valle 360" <${gmailUser}>`,
-      `To: ${payload.to}`,
-      `Subject: =?UTF-8?B?${Buffer.from(payload.subject).toString('base64')}?=`,
-      'MIME-Version: 1.0',
-      payload.html ? 'Content-Type: text/html; charset=UTF-8' : 'Content-Type: text/plain; charset=UTF-8',
-      '',
-      payload.html || payload.text || '',
-    ];
-
-    const email = emailLines.join('\r\n');
-    const encodedEmail = Buffer.from(email)
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-    const response = await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: { raw: encodedEmail },
-    });
-
-    if (response.data.id) {
-      return { success: true, provider: 'gmail', message: 'Email enviado via Gmail API' };
-    }
-
-    return { success: false, message: 'Gmail API não retornou ID', error: JSON.stringify(response.data) };
-  } catch (error: any) {
-    return { success: false, message: 'Erro Gmail API', error: error.message };
+    return { success: false, message: 'Erro no webhook', error: error.message };
   }
 }
 
@@ -191,22 +84,10 @@ export async function sendEmailWithFallback(
   const webmailUrl = process.env.WEBMAIL_URL || 'https://webmail.vallegroup.com.br/';
   const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://valle-360-platform.vercel.app'}/login`;
 
-  const resendResult = await sendViaResend(payload);
-  attempts.push(`Resend: ${resendResult.success ? '✅' : '❌'} ${resendResult.error || resendResult.message}`);
-  if (resendResult.success) {
-    return { ...resendResult, mailtoUrl };
-  }
-
-  const gmailResult = await sendViaGmailAPI(payload);
-  attempts.push(`Gmail: ${gmailResult.success ? '✅' : '❌'} ${gmailResult.error || gmailResult.message}`);
-  if (gmailResult.success) {
-    return { ...gmailResult, mailtoUrl };
-  }
-
-  const smtpResult = await sendViaSMTP(payload);
-  attempts.push(`SMTP: ${smtpResult.success ? '✅' : '❌'} ${smtpResult.error || smtpResult.message}`);
-  if (smtpResult.success) {
-    return { ...smtpResult, mailtoUrl };
+  const webhookResult = await sendViaWebhook(payload);
+  attempts.push(`Webhook: ${webhookResult.success ? '✅' : '❌'} ${webhookResult.error || webhookResult.message}`);
+  if (webhookResult.success) {
+    return { ...webhookResult, mailtoUrl };
   }
 
   return {

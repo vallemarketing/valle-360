@@ -20,23 +20,10 @@ export async function GET(request: NextRequest) {
   }
 
   const configs = {
-    smtp: {
-      configured: !!(process.env.SMTP_HOST && process.env.SMTP_USER && (process.env.SMTP_PASSWORD || process.env.SMTP_PASS)),
-      host: process.env.SMTP_HOST || 'não configurado',
-      user: process.env.SMTP_USER || 'não configurado',
-      port: process.env.SMTP_PORT || '465',
-      hasPassword: !!(process.env.SMTP_PASSWORD || process.env.SMTP_PASS),
-    },
-    resend: {
-      configured: !!process.env.RESEND_API_KEY,
-      keyPrefix: process.env.RESEND_API_KEY?.substring(0, 10) + '...' || 'não configurado',
-      fromEmail: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev (padrão)',
-    },
-    gmail: {
-      configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_REFRESH_TOKEN),
-      user: process.env.GMAIL_USER || 'não configurado',
-      hasClientId: !!process.env.GOOGLE_CLIENT_ID,
-      hasRefreshToken: !!process.env.GOOGLE_REFRESH_TOKEN,
+    webhook: {
+      configured: true,
+      url: 'https://webhookprod.api01vaiplh.com.br/webhook/enviar-email',
+      from: 'valle360marketing@gmail.com',
     },
   };
 
@@ -51,7 +38,7 @@ export async function GET(request: NextRequest) {
       message: 'Adicione ?email=seu@email.com para enviar teste',
       configs,
       activeProviders,
-      fallbackOrder: ['resend', 'gmail', 'smtp', 'mailto'],
+      fallbackOrder: ['webhook', 'mailto'],
     });
   }
 
