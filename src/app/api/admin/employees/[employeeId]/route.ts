@@ -103,23 +103,41 @@ export async function GET(
   const db = getSupabaseAdmin();
 
   try {
-    const { data: employee, error: empError } = await db
+    let employee: any = null;
+    const { data: byUserId } = await db
       .from('employees')
       .select('*')
       .eq('user_id', employeeId)
       .single();
+    if (byUserId) {
+      employee = byUserId;
+    } else {
+      const { data: byId } = await db
+        .from('employees')
+        .select('*')
+        .eq('id', employeeId)
+        .single();
+      if (byId) employee = byId;
+    }
 
-    if (empError || !employee) {
+    if (!employee) {
       return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
     }
 
+    const userId = employee.user_id;
     const { data: user } = await db
       .from('users')
       .select('*')
-      .eq('id', employeeId)
+      .eq('id', userId)
       .single();
 
-    return NextResponse.json({ employee: { ...employee, user } });
+    const { data: profile } = await db
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    return NextResponse.json({ employee, user, profile });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -339,7 +357,38 @@ export async function PATCH(
   const body = await request.json();
 
   try {
-    if (body.first_name || body.last_name || body.areas || body.whatsapp) {
+    let employee: any = null;
+    const { data: byUserId } = await db
+      .from('employees')
+      .select('id,user_id')
+      .eq('user_id', employeeId)
+      .single();
+    if (byUserId) {
+      employee = byUserId;
+    } else {
+      const { data: byId } = await db
+        .from('employees')
+        .select('id,user_id')
+        .eq('id', employeeId)
+        .single();
+      if (byId) employee = byId;
+    }
+
+    if (!employee?.user_id) {
+      return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
+    }
+
+    const userId = employee.user_id;
+
+    if (
+      body.first_name || body.last_name || body.areas || body.whatsapp ||
+      body.personal_email || body.phone || body.cpf || body.birth_date ||
+      body.hierarchy_level || body.salary !== undefined || body.work_schedule ||
+      body.pix_key || body.pix_type || body.bank_name || body.bank_agency ||
+      body.bank_account || body.bank_account_type ||
+      body.emergency_contact_name || body.emergency_contact_phone ||
+      body.emergency_contact_relation || body.is_active !== undefined
+    ) {
       await db
         .from('employees')
         .update({
@@ -347,9 +396,26 @@ export async function PATCH(
           ...(body.last_name && { last_name: body.last_name }),
           ...(body.areas && { areas: body.areas }),
           ...(body.whatsapp && { whatsapp: body.whatsapp }),
+          ...(body.personal_email && { personal_email: body.personal_email }),
+          ...(body.phone && { phone: body.phone }),
+          ...(body.cpf && { cpf: body.cpf }),
+          ...(body.birth_date && { birth_date: body.birth_date }),
+          ...(body.hierarchy_level && { hierarchy_level: body.hierarchy_level }),
+          ...(body.salary !== undefined && { salary: body.salary }),
+          ...(body.work_schedule && { work_schedule: body.work_schedule }),
+          ...(body.pix_key && { pix_key: body.pix_key }),
+          ...(body.pix_type && { pix_type: body.pix_type }),
+          ...(body.bank_name && { bank_name: body.bank_name }),
+          ...(body.bank_agency && { bank_agency: body.bank_agency }),
+          ...(body.bank_account && { bank_account: body.bank_account }),
+          ...(body.bank_account_type && { bank_account_type: body.bank_account_type }),
+          ...(body.emergency_contact_name && { emergency_contact_name: body.emergency_contact_name }),
+          ...(body.emergency_contact_phone && { emergency_contact_phone: body.emergency_contact_phone }),
+          ...(body.emergency_contact_relation && { emergency_contact_relation: body.emergency_contact_relation }),
+          ...(body.is_active !== undefined && { is_active: body.is_active }),
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', employeeId);
+        .eq('user_id', userId);
     }
 
     if (body.full_name || body.phone) {
@@ -358,9 +424,25 @@ export async function PATCH(
         .update({
           ...(body.full_name && { full_name: body.full_name }),
           ...(body.phone && { phone: body.phone }),
+          ...(body.avatar_url !== undefined && { avatar_url: body.avatar_url }),
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', employeeId);
+        .eq('user_id', userId);
+    }
+
+    if (body.full_name || body.phone) {
+      await db
+        .from('users')
+        .update({
+          ...(body.full_name && { full_name: body.full_name, name: body.full_name }),
+          ...(body.phone && { phone: body.phone }),
+          ...(body.account_status && { account_status: body.account_status }),
+        })
+        .eq('id', userId);
+    }
+
+    if (body.password) {
+      await db.auth.admin.updateUserById(userId, { password: body.password });
     }
 
     return NextResponse.json({ success: true, message: 'Colaborador atualizado' });

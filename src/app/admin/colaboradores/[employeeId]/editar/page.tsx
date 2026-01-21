@@ -38,6 +38,7 @@ export default function EditarColaboradorPage() {
     contato_emergencia_telefone: '',
     contato_emergencia_parentesco: '',
     foto_url: '',
+    nova_senha: '',
     is_active: true,
   })
 
@@ -59,6 +60,12 @@ export default function EditarColaboradorPage() {
     }
   }, [employeeId])
 
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+
   const loadEmployee = async () => {
     try {
       if (!employeeId) {
@@ -66,46 +73,34 @@ export default function EditarColaboradorPage() {
         router.push('/admin/colaboradores')
         return
       }
-      // Buscar dados do colaborador
-      const { data: emp, error } = await supabase
-        .from('employees')
-        .select(`
-          *,
-          users:user_id (
-            email
-          ),
-          user_profiles:user_id (
-            full_name,
-            avatar_url,
-            phone
-          )
-        `)
-        .eq('id', employeeId)
-        .single()
 
-      if (error) throw error
+      const authHeaders = await getAuthHeaders()
+      const res = await fetch(`/api/admin/employees/${employeeId}`, { headers: authHeaders })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Falha ao carregar colaborador')
 
-      if (!emp) {
-        toast.error('Colaborador não encontrado')
-        router.push('/admin/colaboradores')
-        return
-      }
+      const emp = data?.employee || {}
+      const user = data?.user || {}
+      const profile = data?.profile || {}
 
       setEmployee(emp)
 
-      // Extrair nome e sobrenome do full_name
-      const fullName = emp.user_profiles?.full_name || ''
+      const fullName =
+        profile.full_name ||
+        user.full_name ||
+        user.name ||
+        emp.full_name ||
+        `${emp.first_name || ''} ${emp.last_name || ''}`.trim()
       const nameParts = fullName.split(' ')
       const nome = nameParts[0] || ''
       const sobrenome = nameParts.slice(1).join(' ') || ''
 
-      // Preencher formulário
       setFormData({
         nome,
         sobrenome,
-        email: emp.users?.email || '',
+        email: user.email || emp.email || '',
         email_pessoal: emp.personal_email || '',
-        telefone: emp.user_profiles?.phone || emp.phone || '',
+        telefone: profile.phone || user.phone || emp.phone || '',
         whatsapp: emp.whatsapp || '',
         cpf: emp.cpf || '',
         data_nascimento: emp.birth_date || '',
@@ -122,13 +117,13 @@ export default function EditarColaboradorPage() {
         contato_emergencia_nome: emp.emergency_contact_name || '',
         contato_emergencia_telefone: emp.emergency_contact_phone || '',
         contato_emergencia_parentesco: emp.emergency_contact_relation || '',
-        foto_url: emp.user_profiles?.avatar_url || '',
+        foto_url: profile.avatar_url || '',
+        nova_senha: '',
         is_active: emp.is_active !== false,
       })
-
     } catch (error: any) {
       console.error('Erro ao carregar colaborador:', error)
-      toast.error('Erro ao carregar dados do colaborador')
+      toast.error(error?.message || 'Erro ao carregar dados do colaborador')
     } finally {
       setLoading(false)
     }
@@ -154,51 +149,43 @@ export default function EditarColaboradorPage() {
     try {
       const fullName = `${formData.nome} ${formData.sobrenome}`.trim()
 
-      // 1. Atualizar employees
-      const { error: empError } = await supabase
-        .from('employees')
-        .update({
-          personal_email: formData.email_pessoal,
-          phone: formData.telefone,
-          whatsapp: formData.whatsapp,
-          cpf: formData.cpf,
-          birth_date: formData.data_nascimento || null,
-          areas: formData.areas_atuacao,
-          hierarchy_level: formData.nivel_hierarquico,
-          salary: formData.salario ? parseFloat(formData.salario) : null,
-          work_schedule: formData.horario_trabalho,
-          pix_key: formData.chave_pix,
-          pix_type: formData.tipo_pix,
-          bank_name: formData.banco,
-          bank_agency: formData.agencia,
-          bank_account: formData.conta,
-          bank_account_type: formData.tipo_conta,
-          emergency_contact_name: formData.contato_emergencia_nome,
-          emergency_contact_phone: formData.contato_emergencia_telefone,
-          emergency_contact_relation: formData.contato_emergencia_parentesco,
-          is_active: formData.is_active,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', employeeId)
+      if (!employeeId) throw new Error('Colaborador inválido')
 
-      if (empError) throw empError
-
-      // 2. Atualizar user_profiles
-      if (employee?.user_id) {
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .update({
-            full_name: fullName,
-            phone: formData.telefone,
-            avatar_url: formData.foto_url || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', employee.user_id)
-
-        if (profileError) {
-          console.warn('Erro ao atualizar profile:', profileError)
-        }
+      const authHeaders = await getAuthHeaders()
+      const payload = {
+        first_name: formData.nome,
+        last_name: formData.sobrenome,
+        full_name: fullName,
+        personal_email: formData.email_pessoal,
+        phone: formData.telefone,
+        whatsapp: formData.whatsapp,
+        cpf: formData.cpf,
+        birth_date: formData.data_nascimento || null,
+        areas: formData.areas_atuacao,
+        hierarchy_level: formData.nivel_hierarquico,
+        salary: formData.salario ? parseFloat(formData.salario) : null,
+        work_schedule: formData.horario_trabalho,
+        pix_key: formData.chave_pix,
+        pix_type: formData.tipo_pix,
+        bank_name: formData.banco,
+        bank_agency: formData.agencia,
+        bank_account: formData.conta,
+        bank_account_type: formData.tipo_conta,
+        emergency_contact_name: formData.contato_emergencia_nome,
+        emergency_contact_phone: formData.contato_emergencia_telefone,
+        emergency_contact_relation: formData.contato_emergencia_parentesco,
+        is_active: formData.is_active,
+        avatar_url: formData.foto_url || null,
+        password: formData.nova_senha || undefined,
       }
+
+      const res = await fetch(`/api/admin/employees/${employeeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Falha ao atualizar colaborador')
 
       toast.success('Colaborador atualizado com sucesso!')
       router.push('/admin/colaboradores')
@@ -312,6 +299,19 @@ export default function EditarColaboradorPage() {
                   value={formData.email_pessoal}
                   onChange={(e) => handleInputChange('email_pessoal', e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Nova Senha</label>
+                <input
+                  type="password"
+                  value={formData.nova_senha}
+                  onChange={(e) => handleInputChange('nova_senha', e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+                  placeholder="Deixe em branco para manter"
                 />
               </div>
             </div>
