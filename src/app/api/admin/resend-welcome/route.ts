@@ -179,6 +179,11 @@ export async function POST(request: NextRequest) {
         error: 'Email corporativo não encontrado' 
       }, { status: 400 });
     }
+    if (tipo === 'colaborador' && !emailPessoalDestino) {
+      return NextResponse.json({
+        error: 'Email pessoal do colaborador não encontrado',
+      }, { status: 400 });
+    }
 
     // ============================================
     // GERAR/ATUALIZAR SENHA
@@ -200,7 +205,9 @@ export async function POST(request: NextRequest) {
     // ============================================
     // ENVIAR EMAIL (AUTO)
     // ============================================
-    const emailDestino = emailPessoalDestino || emailCorporativo;
+    const emailDestino = tipo === 'colaborador'
+      ? emailPessoalDestino
+      : (emailPessoalDestino || emailCorporativo);
 
     const result = await sendWelcomeEmail({
       emailDestino,
